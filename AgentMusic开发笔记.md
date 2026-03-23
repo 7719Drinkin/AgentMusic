@@ -275,3 +275,101 @@ mvn spring-boot:run
 - 推荐歌单生成
 - 历史歌单管理
 - 聊天记录与用户偏好存储
+
+## 数据库与缓存基线
+
+### 已落地的数据库基线文件
+
+已将数据库设计整理为正式的 MySQL 建表 SQL：
+
+```text
+agentmusic-backend/src/main/resources/db/mysql/schema.sql
+```
+
+当前基线包括以下表：
+
+- `users`
+- `playlists`
+- `tracks`
+- `playlist_tracks`
+- `artists`
+- `chat_messages`
+- `sessions`
+
+### 本轮设计收敛
+
+为避免后续实现时语义不清，本轮对文档设计做了两点收敛：
+
+1. `tracks` 新增 `last_accessed_at`
+   - 原文档里清理策略是“保留最近 3 天使用过的轨道”
+   - 因此仅使用 `updated_at` 不够准确，需要单独的访问时间字段
+
+2. `sessions` 明确为“Redis 实时主存 + MySQL 持久快照”
+   - Redis 负责实时读写
+   - MySQL 负责恢复、审计和多设备状态兜底
+
+### 已落地的 Redis 设计说明
+
+已新增 Redis 设计基线文档：
+
+```text
+agentmusic-backend/docs/database/redis-design.md
+```
+
+核心约定包括：
+
+- `user:session:{userId}`
+- `user:playlists:{userId}`
+- `playlist:tracks:{playlistId}`
+- `track:info:{trackId}`
+- `artist:bio:{artistId}`
+- `chat:history:{userId}`
+
+并明确了每类 key 的：
+
+- 数据结构
+- TTL
+- 使用场景
+- 读写顺序
+- 清理策略
+
+### 已落地的后端实体 / DTO / Redis key 约定
+
+本轮已先把数据库设计转成一组后端代码基线，便于后续继续接 Repository、Service 和 Controller：
+
+1. 领域模型（`domain`）
+   - `User`
+   - `UserPreferences`
+   - `Playlist`
+   - `PlaylistTrack`
+   - `Track`
+   - `Artist`
+   - `ChatMessage`
+   - `PlaybackSession`
+   - `ChatRole`
+   - `PlaybackMode`
+
+2. DTO（`dto`）
+   - `TrackDto`
+   - `PlaylistTrackDto`
+   - `PlaylistDto`
+   - `ArtistDto`
+   - `ChatMessageDto`
+   - `PlaybackSessionDto`
+   - `UserPreferencesDto`
+   - `AgentChatRequest`
+   - `AgentChatResponse`
+
+3. Redis key 约定（`cache`）
+   - `RedisKeys`
+   - 内含 key 命名方法、TTL 常量、列表长度上限常量
+
+### 当前阶段边界
+
+当前这些类是“结构基线”，还没有接入：
+
+- ORM / Repository
+- Redis 客户端
+- Controller 路由
+- MySQL migration 工具
+- 真实的 Spotify / Agent 业务流程
