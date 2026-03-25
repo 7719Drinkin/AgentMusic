@@ -495,6 +495,123 @@ mvn test
 BUILD SUCCESS
 ```
 
+## Spotify Bridge Mode 与 Planner 骨架
+
+### 已新增正式设计文档
+
+已新增桥接账号模式的正式设计文档：
+
+```text
+agentmusic-backend/docs/spotify-bridge-mode-design.md
+```
+
+该文档明确了：
+
+- 当前阶段采用“开发者 Spotify Premium 账号作为桥接账号”
+- AgentMusic 用户不直接绑定自己的 Spotify 账号
+- Spotify 侧的桥接账号资源不直接作为用户自己的资源暴露
+- 用户可见的播放状态、历史歌单、偏好、聊天等仍以 AgentMusic 自己的 MySQL / Redis 为主
+- Controller / Application Service / Domain Service / Spotify Client 的调用边界
+- 后续从桥接模式迁移到多用户 Spotify 绑定模式的路径
+
+### 对当前代码结构的检查结论
+
+当前代码结构支持桥接模式，原因如下：
+
+1. `controller` 已经与业务逻辑分离
+2. `service.application` 已经存在，适合承接 Spotify 用例编排
+3. `service` 层已经具备本地播放会话、歌单、聊天、元数据能力
+4. `client` 层已经有 Spotify client 接口占位
+5. 数据库设计本身就支持“本地用户状态”和“外部 Spotify 元数据缓存”分离
+
+当前仍缺少但已明确边界的部分：
+
+- `SpotifyAuthClient` 真实实现
+- `SpotifyCatalogClient` 真实实现
+- `SpotifyPlaybackClient` 真实实现
+- bridge token 持久化与刷新
+- 开发者桥接账号授权入口
+
+### 已新增桥接模式配置基线
+
+本轮新增了 `SpotifyBridgeProperties`，并在配置中补齐了桥接模式需要的参数：
+
+- `spotify.bridge.enabled`
+- `spotify.bridge.client-id`
+- `spotify.bridge.client-secret`
+- `spotify.bridge.redirect-uri`
+- `spotify.bridge.system-user-id`
+- `spotify.bridge.default-device-id`
+
+同时已更新：
+
+- `application.properties`
+- `application-local.example.properties`
+
+### 已新增 Planner 第一版骨架
+
+本轮已新增 `planner` 包，先把 Agent 的规划层边界固定下来，包含：
+
+1. 规划模型
+   - `AgentIntent`
+   - `PlanStepType`
+   - `PlanStep`
+   - `AgentPlan`
+   - `PlanningContext`
+   - `PlannerExecutionResult`
+
+2. 规划接口
+   - `TaskPlanner`
+   - `TaskExecutor`
+
+3. 默认实现
+   - `SimpleTaskPlanner`
+   - `DefaultTaskExecutor`
+
+### 当前 Planner 的职责
+
+当前版本还不是最终智能 Planner，而是“结构骨架”：
+
+- 先做轻量 intent 分类
+- 生成多步计划对象
+- 生成占位执行结果
+
+已经覆盖的 intent 类型包括：
+
+- `CHAT_ONLY`
+- `SEARCH_TRACK`
+- `GET_ARTIST_INFO`
+- `CREATE_PLAYLIST`
+- `PLAYBACK_CONTROL`
+- `COMPOSITE_REQUEST`
+- `UNKNOWN`
+
+### Agent 侧接线变更
+
+`DefaultAgentApplicationService` 已改为：
+
+1. 先写入用户消息
+2. 构造 `PlanningContext`
+3. 调用 `TaskPlanner`
+4. 调用 `TaskExecutor`
+5. 将计划结果写回聊天记录
+
+这意味着 Agent 现在已经不再是单纯写死回复，而是开始走“规划 -> 执行 -> 回写”链路，只是执行逻辑目前仍是占位实现。
+
+### 验证结果
+
+本轮完成后再次执行：
+
+```bash
+mvn test
+```
+
+结果为：
+
+```text
+BUILD SUCCESS
+```
+
 ### 当前边界说明
 
 当前后端层仍然刻意没有接入：
