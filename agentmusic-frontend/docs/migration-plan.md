@@ -105,19 +105,14 @@ Start with shared layout migration:
 
 Completed in the current round:
 
-- a modern chat-first shell replaced the placeholder scaffold page
-- the main information hierarchy now matches AgentMusic's product goal:
-  - chat first
-  - recommendation history second
-  - playback shell third
-- the new home screen keeps the reference project's shell structure concept:
-  - sidebar
-  - top area
-  - right-side support panel
-  - bottom player bar
+- reference `src` and `public` have been migrated into the new frontend workspace
+- the new frontend now targets a high-fidelity reference migration before product-specific redesign
+- the runtime baseline is being adapted around Vite while preserving the original page structure, Redux store shape, and CSS modules
+- JSX-bearing source files have been normalized to `.jsx` so the migrated project builds cleanly under Vite
+- the migrated reference frontend now passes `npm run build` inside `agentmusic-frontend`
 
 Planned next migration slice:
 
-- convert reference sidebar and topnav details into reusable typed components
-- move shared visual tokens from the reference CSS into the new style system
-- begin replacing placeholder recommendation cards with backend-facing DTO-compatible view models
+- review the migrated UI page by page and identify which parts should remain reference-faithful
+- define the first controlled redesign pass for AgentMusic-specific product requirements
+- start from the migrated baseline instead of from a fresh placeholder shell

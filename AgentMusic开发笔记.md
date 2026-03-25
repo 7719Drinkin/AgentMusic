@@ -521,6 +521,25 @@ BUILD SUCCESS
 - Kept the reference frontend only as a migration source and did not carry over its legacy Redux or routing setup.
 - Confirmed the new frontend can still build after the first shell migration.
 
+## 2026-03-25 Frontend migration strategy adjustment
+
+- Adjusted the frontend migration strategy from "redesign while migrating" to "high-fidelity migration first".
+- Moved the reference frontend `src` and `public` into `agentmusic-frontend` to preserve its original structure and style direction.
+- Kept the current step focused on runtime adaptation for Vite + React 18 instead of immediate product-level UI modification.
+- Product-specific redesign will be done only after the reference-style frontend is fully migrated and buildable.
+
+## 2026-03-25 Frontend high-fidelity migration completed
+
+- Completed the high-fidelity migration of the reference frontend into `agentmusic-frontend`.
+- Retained the original page structure, Redux state shape, route layout, CSS modules, and static assets.
+- Adapted the runtime for the new workspace by:
+  - switching the entry point to a Vite-compatible `main.jsx`
+  - adding the required React Router / Redux dependencies
+  - normalizing JSX-bearing source files from `.js` to `.jsx`
+- Verified that the migrated frontend now passes:
+  - `npm run build`
+- The next frontend step should start from this migrated baseline and then apply AgentMusic-specific redesign work.
+
 ## Planner 设计说明
 
 ### 本轮目标
