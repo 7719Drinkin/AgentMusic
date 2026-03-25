@@ -511,6 +511,16 @@ BUILD SUCCESS
 - Created a new `agentmusic-frontend` workspace on a modern Vite + React + TypeScript baseline.
 - Added a first-round migration plan for moving selected UI modules into the new frontend.
 
+## 2026-03-25 Frontend round 1 shell migration
+
+- Replaced the placeholder scaffold screen in `agentmusic-frontend` with a chat-first AgentMusic main screen.
+- Adjusted the main information architecture away from a Spotify clone landing page and toward the actual product goal:
+  - LLM chat as the main workspace
+  - recommendation playlist history as the secondary panel
+  - playback bar as a persistent bottom shell
+- Kept the reference frontend only as a migration source and did not carry over its legacy Redux or routing setup.
+- Confirmed the new frontend can still build after the first shell migration.
+
 ## Planner 设计说明
 
 ### 本轮目标

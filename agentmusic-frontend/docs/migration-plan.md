@@ -100,3 +100,24 @@ Start with shared layout migration:
 - `component/sidebar/*`
 - `component/topnav/*`
 - `component/footer/*`
+
+## Current Progress
+
+Completed in the current round:
+
+- a modern chat-first shell replaced the placeholder scaffold page
+- the main information hierarchy now matches AgentMusic's product goal:
+  - chat first
+  - recommendation history second
+  - playback shell third
+- the new home screen keeps the reference project's shell structure concept:
+  - sidebar
+  - top area
+  - right-side support panel
+  - bottom player bar
+
+Planned next migration slice:
+
+- convert reference sidebar and topnav details into reusable typed components
+- move shared visual tokens from the reference CSS into the new style system
+- begin replacing placeholder recommendation cards with backend-facing DTO-compatible view models

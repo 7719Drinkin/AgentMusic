@@ -1,10 +1,10 @@
 :root {
-  color: #f4f6f8;
+  color: #f3f6f4;
   background:
-    radial-gradient(circle at top left, rgba(34, 197, 94, 0.28), transparent 32%),
-    radial-gradient(circle at top right, rgba(15, 118, 110, 0.32), transparent 30%),
-    linear-gradient(180deg, #0a1011 0%, #12191b 55%, #0e1415 100%);
-  font-family: "Segoe UI", "Noto Sans", sans-serif;
+    radial-gradient(circle at top left, rgba(76, 201, 164, 0.22), transparent 28%),
+    radial-gradient(circle at top right, rgba(28, 103, 88, 0.24), transparent 30%),
+    linear-gradient(180deg, #091011 0%, #111819 50%, #0a1011 100%);
+  font-family: "Segoe UI", "Noto Sans SC", sans-serif;
   line-height: 1.5;
   font-weight: 400;
 }
@@ -19,79 +19,428 @@ body {
   min-height: 100vh;
 }
 
-code {
-  font-family: "Cascadia Code", "Fira Code", monospace;
+button,
+textarea {
+  font: inherit;
 }
 
 .app-shell {
   min-height: 100vh;
-  padding: 32px 20px;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+  padding: 16px;
 }
 
-.hero-card {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 36px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 28px;
-  background: rgba(7, 12, 13, 0.72);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+.sidebar,
+.workspace,
+.chat-panel,
+.card-block,
+.player-bar {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(11, 16, 17, 0.72);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
   backdrop-filter: blur(18px);
 }
 
-.eyebrow {
-  margin: 0 0 12px;
-  color: #7ee0a2;
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+  border-radius: 28px;
+}
+
+.brand-kicker,
+.eyebrow,
+.sidebar-label {
+  margin: 0;
+  color: #83d7b2;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
 }
 
-.hero-card h1 {
-  margin: 0;
-  max-width: 720px;
-  font-size: clamp(2.5rem, 5vw, 4.8rem);
-  line-height: 0.98;
+.brand-title {
+  margin: 12px 0 0;
+  font-size: 2rem;
+  line-height: 1;
 }
 
-.description {
-  max-width: 760px;
-  margin: 20px 0 0;
-  color: rgba(244, 246, 248, 0.78);
-  font-size: 1.05rem;
+.brand-copy,
+.playlist-summary,
+.chat-meta,
+.queue-text small,
+.player-now small,
+.player-side small {
+  color: rgba(243, 246, 244, 0.66);
 }
 
-.status-grid {
+.nav-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-  margin-top: 32px;
+  gap: 10px;
 }
 
-.status-item {
-  padding: 20px;
+.nav-item {
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 18px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  display: grid;
+  gap: 4px;
+}
+
+.nav-item.is-active {
+  background: linear-gradient(135deg, rgba(64, 184, 136, 0.24), rgba(33, 79, 66, 0.34));
+}
+
+.nav-item small {
+  color: rgba(243, 246, 244, 0.55);
+}
+
+.sidebar-card {
+  margin-top: auto;
+  padding: 18px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.status-item h2 {
-  margin: 0 0 10px;
-  font-size: 1rem;
+.workspace {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 30px;
 }
 
-.status-item p {
+.topbar,
+.section-heading,
+.composer-hints,
+.composer-row,
+.player-bar,
+.player-controls,
+.progress-row,
+.queue-row,
+.playlist-meta {
+  display: flex;
+  align-items: center;
+}
+
+.topbar,
+.section-heading,
+.composer-row,
+.player-bar,
+.queue-row,
+.playlist-meta {
+  justify-content: space-between;
+}
+
+.topbar {
+  padding: 8px 6px 16px;
+  gap: 16px;
+}
+
+.topbar h2,
+.section-heading h3 {
+  margin: 4px 0 0;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.ghost-btn,
+.solid-btn,
+.send-btn,
+.player-controls button {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  color: inherit;
+}
+
+.ghost-btn,
+.player-controls button {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.solid-btn,
+.send-btn,
+.play-main {
+  background: linear-gradient(135deg, #2bbf82, #208b61);
+  color: #05100b;
+  font-weight: 700;
+}
+
+.main-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.95fr);
+  gap: 16px;
+}
+
+.chat-panel,
+.card-block {
+  border-radius: 24px;
+}
+
+.chat-panel {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 0;
+  padding: 20px;
+}
+
+.status-pill {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(61, 164, 123, 0.16);
+  color: #8ae0bb;
+  font-size: 0.9rem;
+}
+
+.chat-stream {
+  min-height: 0;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.chat-bubble {
+  max-width: 86%;
+  padding: 14px 16px;
+  border-radius: 20px;
+}
+
+.chat-bubble.agent {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.chat-bubble.user {
+  margin-left: auto;
+  background: linear-gradient(135deg, rgba(45, 140, 102, 0.54), rgba(24, 75, 56, 0.74));
+}
+
+.chat-role,
+.chat-content,
+.playlist-tag,
+.queue-text strong {
   margin: 0;
-  color: rgba(244, 246, 248, 0.75);
 }
 
-@media (max-width: 640px) {
+.chat-role {
+  font-size: 0.82rem;
+  color: rgba(243, 246, 244, 0.58);
+}
+
+.chat-content {
+  margin-top: 6px;
+}
+
+.chat-meta {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.84rem;
+}
+
+.composer {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.composer-hints {
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.composer-hints span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(243, 246, 244, 0.68);
+  font-size: 0.84rem;
+}
+
+.composer-row {
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.composer-input {
+  width: 100%;
+  resize: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 14px 16px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.aside-panel {
+  min-height: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.card-block {
+  padding: 18px;
+}
+
+.section-heading.compact {
+  margin-bottom: 14px;
+}
+
+.playlist-stack,
+.queue-list {
+  display: grid;
+  gap: 12px;
+}
+
+.playlist-card {
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.playlist-meta span,
+.queue-index,
+.queue-length {
+  color: rgba(243, 246, 244, 0.54);
+  font-size: 0.85rem;
+}
+
+.playlist-tag {
+  margin-top: 8px;
+  color: #83d7b2;
+  font-size: 0.9rem;
+}
+
+.playlist-summary {
+  margin: 8px 0 0;
+}
+
+.queue-row {
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.queue-text {
+  flex: 1;
+  display: grid;
+}
+
+.player-bar {
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 24px;
+}
+
+.player-now,
+.player-side {
+  min-width: 180px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cover-art {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #52cc98, #153b2d);
+}
+
+.player-center {
+  flex: 1;
+  display: grid;
+  gap: 10px;
+}
+
+.player-controls {
+  justify-content: center;
+  gap: 10px;
+}
+
+.progress-row {
+  gap: 10px;
+  color: rgba(243, 246, 244, 0.56);
+  font-size: 0.85rem;
+}
+
+.progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.progress-value {
+  width: 34%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7fe3b8, #2ab77d);
+}
+
+@media (max-width: 1100px) {
   .app-shell {
-    padding: 18px;
+    grid-template-columns: 1fr;
   }
 
-  .hero-card {
-    padding: 24px;
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    padding: 12px;
+  }
+
+  .sidebar,
+  .workspace,
+  .chat-panel,
+  .card-block,
+  .player-bar {
     border-radius: 22px;
+  }
+
+  .topbar,
+  .player-bar,
+  .composer-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .topbar-actions,
+  .player-controls {
+    width: 100%;
+    justify-content: stretch;
+    flex-wrap: wrap;
+  }
+
+  .ghost-btn,
+  .solid-btn,
+  .send-btn,
+  .player-controls button {
+    width: 100%;
+  }
+
+  .chat-bubble {
+    max-width: 100%;
+  }
+
+  .player-now,
+  .player-side {
+    min-width: 0;
   }
 }
