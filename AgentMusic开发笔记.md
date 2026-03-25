@@ -373,3 +373,261 @@ agentmusic-backend/docs/database/redis-design.md
 - Controller 路由
 - MySQL migration 工具
 - 真实的 Spotify / Agent 业务流程
+
+## 可运行后端层接线进度
+
+### 本轮目标
+
+本轮先不讨论 Controller 和 Spotify API 调用，而是先把“数据库/缓存/领域模型基线”接成当前可以运行的后端层。
+
+当前策略是：
+
+- 暂不直接接 MySQL / Redis 客户端
+- 先通过 `Repository 接口 + 内存版实现 + Service 层 + Mapper` 搭起可运行结构
+- 保证后续替换成真实 MySQL / Redis 时不需要推倒业务层
+
+### 已新增的仓储层
+
+已新增 Repository 抽象：
+
+- `UserRepository`
+- `PlaylistRepository`
+- `PlaylistTrackRepository`
+- `TrackRepository`
+- `ArtistRepository`
+- `ChatMessageRepository`
+- `SessionRepository`
+
+并新增当前阶段可运行的内存实现（`repository.memory`）：
+
+- `InMemoryUserRepository`
+- `InMemoryPlaylistRepository`
+- `InMemoryPlaylistTrackRepository`
+- `InMemoryTrackRepository`
+- `InMemoryArtistRepository`
+- `InMemoryChatMessageRepository`
+- `InMemorySessionRepository`
+
+这些实现的作用是：
+
+- 先让服务层真实可用
+- 后续再把接口实现替换成 MySQL / Redis 版本
+
+### 已新增的服务层
+
+已新增服务接口：
+
+- `UserContextService`
+- `MusicMetadataService`
+- `PlaylistService`
+- `ChatMemoryService`
+- `PlaybackSessionService`
+- `BackendRuntimeFacade`
+
+并新增默认实现（`service.impl`）：
+
+- `DefaultUserContextService`
+- `DefaultMusicMetadataService`
+- `DefaultPlaylistService`
+- `DefaultChatMemoryService`
+- `DefaultPlaybackSessionService`
+- `DefaultBackendRuntimeFacade`
+
+当前这些服务已可以完成：
+
+- 用户上下文读写
+- 歌曲/歌手元数据缓存写入与读取
+- 历史推荐歌单创建与查询
+- 聊天记录写入与最近消息读取
+- 播放会话写入与活动会话查询
+- 面向上层的统一运行时聚合读取
+
+### 已新增的映射与基础配置
+
+1. 映射层
+   - `DomainDtoMapper`
+   - 负责 `domain -> dto` 的统一转换
+
+2. 基础配置
+   - `TimeConfig`
+   - 统一注入 `Clock`，避免时间逻辑散落在各处，方便后续测试和替换
+
+3. 异常类型
+   - `NotFoundException`
+
+### 当前可运行含义
+
+这里的“可运行”指：
+
+- Spring Boot 能正常启动
+- Service Bean 已经能被真实装配
+- 后端内部已经存在一条完整的数据流：
+  - 用户
+  - 歌单
+  - 轨道元数据
+  - 聊天记录
+  - 播放会话
+  - 聚合读取
+
+### 验证方式
+
+本轮新增集成测试：
+
+- `BackendRuntimeFacadeIntegrationTests`
+
+测试覆盖了：
+
+- 创建用户
+- 创建推荐歌单
+- 写入聊天记录
+- 写入播放会话
+- 通过 `BackendRuntimeFacade` 聚合读取运行时数据
+
+本轮执行结果：
+
+```bash
+mvn test
+```
+
+结果为：
+
+```text
+BUILD SUCCESS
+```
+
+### 当前边界说明
+
+当前后端层仍然刻意没有接入：
+
+- HTTP Controller
+- Spotify API Client
+- MySQL 真正持久化实现
+- Redis 真正缓存实现
+- WebSocket
+- Semantic Kernel Agent 编排链路
+
+这样做的目的是先把后端结构和边界稳定下来，再讨论上层接口和外部依赖接法。
+
+## Controller / Application Service / Spotify Client 骨架
+
+### 本轮目标
+
+在可运行后端层之上，继续补齐第一版 Web 分层骨架，但仍然不接真实 Spotify HTTP 调用。
+
+本轮新增内容包括：
+
+- 4 个 Controller
+- 4 个 Application Service 接口及默认实现
+- Spotify client 接口占位
+- 控制器层需要的请求 DTO
+
+### 已新增的 Controller
+
+1. `AgentController`
+   - 路径前缀：`/api/agent`
+   - 当前接口：
+     - `POST /api/agent/chat`
+     - `GET /api/agent/history/{userId}`
+
+2. `PlaylistController`
+   - 路径前缀：`/api/playlists`
+   - 当前接口：
+     - `GET /api/playlists/{userId}`
+     - `POST /api/playlists/{userId}`
+
+3. `PlaybackController`
+   - 路径前缀：`/api/playback`
+   - 当前接口：
+     - `GET /api/playback/{userId}/session`
+     - `PUT /api/playback/{userId}/session`
+
+4. `MusicQueryController`
+   - 路径前缀：`/api/music`
+   - 当前接口：
+     - `GET /api/music/tracks/{trackId}`
+     - `GET /api/music/artists/{artistId}`
+
+### 已新增的 Application Service
+
+1. `AgentApplicationService`
+   - 负责 Agent 对话入口编排
+   - 当前默认实现会：
+     - 写入用户消息
+     - 生成一条占位 Agent 回复
+     - 回填最近播放状态和最近歌单
+
+2. `PlaylistApplicationService`
+   - 负责歌单相关用例编排
+   - 当前接到底层 `PlaylistService`
+
+3. `PlaybackApplicationService`
+   - 负责播放会话相关用例编排
+   - 当前接到底层 `PlaybackSessionService`
+
+4. `MusicQueryApplicationService`
+   - 负责音乐信息查询用例编排
+   - 当前接到底层 `MusicMetadataService`
+
+### 已新增的 Spotify client 接口占位
+
+当前只定义边界，不做真实实现：
+
+1. `SpotifyAuthClient`
+   - 用于获取访问令牌
+
+2. `SpotifyCatalogClient`
+   - 用于歌曲/歌手查询与搜索
+
+3. `SpotifyPlaybackClient`
+   - 用于播放控制、暂停、seek、切换播放模式
+
+这样做的目的是先把依赖方向固定下来：
+
+```text
+Controller
+  -> Application Service
+    -> Domain Service
+      -> Spotify Client
+```
+
+避免后续把 Spotify HTTP 调用直接写进 Controller。
+
+### 已新增的请求 DTO
+
+新增了控制器层需要的请求对象：
+
+- `CreatePlaylistRequest`
+- `UpdatePlaybackSessionRequest`
+
+### 当前状态说明
+
+到这一轮为止，后端已经具备以下结构：
+
+1. Domain / DTO / Redis key 基线
+2. Repository 抽象 + 内存版实现
+3. Service 层
+4. Application Service 层
+5. Controller 层
+6. Spotify client 接口边界
+
+但仍然没有接入：
+
+- 真实 Spotify OAuth
+- 真实 Spotify Web API HTTP 调用
+- MySQL Repository 实现
+- Redis Repository / Cache 实现
+- Agent Planner 与 Plugin 的真正联动
+
+### 验证结果
+
+本轮完成后再次执行：
+
+```bash
+mvn test
+```
+
+结果为：
+
+```text
+BUILD SUCCESS
+```
