@@ -12,25 +12,27 @@ function Sidebar() {
   const { x } = useMousePosition();
 
     useEffect(() => {
-      if (!isMouseDown) return false;
-  
+      if (!isMouseDown) {
+        return;
+      }
+
       const handleMove = () => {
-        if(x > 200 && x < 316){
+        if (x > 200 && x < 316) {
           SetWidth(x);
         }
       };
-  
+
       const handleUp = () => {
         setisMouseDown(false);
       };
-  
+
       document.addEventListener("mousemove", handleMove);
       document.addEventListener("mouseup", handleUp);
       return () => {
         document.removeEventListener("mousemove", handleMove);
         document.removeEventListener("mouseup", handleUp);
       };
-    });
+    }, [isMouseDown, x]);
 
     return (
       <nav className={styles.SideNavbar} style={{width: `${width}px`}}>

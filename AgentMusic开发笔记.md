@@ -540,6 +540,15 @@ BUILD SUCCESS
   - `npm run build`
 - The next frontend step should start from this migrated baseline and then apply AgentMusic-specific redesign work.
 
+## 2026-03-25 Frontend React 18 effect compatibility fix
+
+- Fixed the migrated reference frontend crash under `npm run dev`.
+- Root cause:
+  - `Sidebar` returned `false` from `useEffect` when drag-resize was inactive
+  - `useWindowSize` returned `false` from `useEffect` in the non-client guard path
+- Adjusted both effects so they return either a cleanup function or `undefined`, which is required by React.
+- Also added explicit dependencies to the `Sidebar` resize effect to avoid unstable repeated registrations.
+
 ## Planner 设计说明
 
 ### 本轮目标
