@@ -549,6 +549,23 @@ BUILD SUCCESS
 - Adjusted both effects so they return either a cleanup function or `undefined`, which is required by React.
 - Also added explicit dependencies to the `Sidebar` resize effect to avoid unstable repeated registrations.
 
+## 2026-03-25 Frontend API doc and dual-home layout
+
+- Added a controller API integration document for frontend usage:
+  - `agentmusic-backend/docs/frontend-controller-api.md`
+- Established a maintenance rule that every controller change must update the API doc in the same change set.
+- Changed the frontend primary route to a new chat-first page:
+  - `/` -> Agent chat main page
+  - `/music` -> migrated music main page
+- Added the first batch of AgentMusic-specific UI elements on the chat page:
+  - chat message area
+  - message composer
+  - voice-input button placeholder
+  - recommendation preview card
+  - playlist history card
+  - current playback information card
+  - feature coverage card
+
 ## Planner 设计说明
 
 ### 本轮目标

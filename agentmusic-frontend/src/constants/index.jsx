@@ -7,53 +7,59 @@ export default {
 
 export const MENU = [
   {
-    title: 'Ana sayfa',
+    title: 'Agent Chat',
     path: '/',
     icon: <Icon.Home />,
-    iconSelected: <Icon.HomeActive />
+    iconSelected: <Icon.HomeActive />,
   },
   {
-    title: 'Ara',
+    title: 'Music',
+    path: '/music',
+    icon: <Icon.Library />,
+    iconSelected: <Icon.LibraryActive />,
+  },
+  {
+    title: 'Search',
     path: '/search',
     icon: <Icon.Search />,
-    iconSelected: <Icon.SearchActive />
+    iconSelected: <Icon.SearchActive />,
   },
   {
-    title: 'Kitaplığın',
+    title: 'Library',
     path: '/library',
-    icon: <Icon.Library />,
-    iconSelected: <Icon.LibraryActive />
-  }
+    icon: <Icon.Like />,
+    iconSelected: <Icon.LikeActive />,
+  },
 ]
 
 export const PLAYLISTBTN = [
-    {
-      title: 'Çalma Listesi Oluştur',
-      path: '/',
-      ImgName: 'createPlaylist',
-    },
-    {
-      title: 'Beğenilen Şarkılar',
-      path: '/',
-      ImgName: 'popularSong',
-    }
+  {
+    title: 'Create Playlist',
+    path: '/',
+    ImgName: 'createPlaylist',
+  },
+  {
+    title: 'Liked Songs',
+    path: '/library',
+    ImgName: 'popularSong',
+  },
 ]
 
 export const LIBRARYTABS = [
   {
-    title: 'Çalma Listeleri',
-    path: '/library'
+    title: 'Playlists',
+    path: '/library',
   },
   {
-    title: 'Podcast\'ler',
-    path: '/library/podcasts'
+    title: 'Podcasts',
+    path: '/library/podcasts',
   },
   {
-    title: 'Sanatçılar',
-    path: '/library/artists'
+    title: 'Artists',
+    path: '/library/artists',
   },
   {
-    title: 'Albümler',
-    path: '/library/albums'
-  }
+    title: 'Albums',
+    path: '/library/albums',
+  },
 ]
