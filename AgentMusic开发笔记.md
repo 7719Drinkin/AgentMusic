@@ -612,6 +612,106 @@ mvn test
 BUILD SUCCESS
 ```
 
+## Spotify Bridge 授权与 Token 刷新
+
+### 本轮目标
+
+在桥接账号模式下，先打通 Spotify 授权和 token 生命周期的基础能力，不直接实现目录查询或播放控制 HTTP 接口。
+
+### 已完成内容
+
+1. 重构 `SpotifyAuthClient`
+   - 不再是简单返回 access token 的占位接口
+   - 现在明确包含：
+     - 构建授权链接
+     - 用授权码换 token
+     - 用 refresh token 刷新 access token
+
+2. 新增 `SpotifyWebApiAuthClient`
+   - 基于 Spotify 官方 Authorization Code Flow
+   - 使用 `POST https://accounts.spotify.com/api/token`
+   - 使用后端保存的 `client_id` / `client_secret`
+
+3. 新增 `SpotifyToken`
+   - 统一表示 bridge account 的 token 结构
+
+4. 新增 bridge token 存储
+   - `SpotifyBridgeTokenRepository`
+   - `InMemorySpotifyBridgeTokenRepository`
+
+5. 新增 `SpotifyBridgeAuthService`
+   - 负责生成授权链接
+   - 校验 `state`
+   - 处理 callback
+   - 自动刷新将要过期的 access token
+   - 对外提供“当前 bridge 授权状态”
+
+6. 新增 `SpotifyBridgeAuthController`
+   - `GET /api/auth/spotify/login`
+   - `GET /api/auth/spotify/callback`
+   - `GET /api/auth/spotify/status`
+
+### 当前安全边界
+
+当前 controller 不返回 bridge account 的原始 access token / refresh token。
+
+对外只返回：
+
+- 是否启用 bridge 模式
+- 是否已授权
+- system user id
+- redirect uri
+- 已授权 scopes
+- token 到期时间
+
+这样可以先满足后端调试和接线需要，同时避免把敏感 token 直接暴露给前端。
+
+### 新增配置项
+
+本轮新增 bridge 模式配置项：
+
+- `spotify.bridge.enabled`
+- `spotify.bridge.client-id`
+- `spotify.bridge.client-secret`
+- `spotify.bridge.redirect-uri`
+- `spotify.bridge.system-user-id`
+- `spotify.bridge.default-device-id`
+
+并同步更新：
+
+- `application.properties`
+- `application-local.example.properties`
+
+### 当前实现边界
+
+当前已完成的是：
+
+- bridge account 授权入口
+- callback 处理
+- token 刷新逻辑
+- bridge 授权状态查询
+
+当前尚未完成的是：
+
+- 持久化保存 refresh token 到 MySQL
+- 真正的 Spotify catalog API 调用
+- 真正的 Spotify playback API 调用
+- 将 Spotify playback 状态同步写入本地 `sessions`
+
+### 验证结果
+
+本轮完成后执行：
+
+```bash
+mvn test
+```
+
+结果为：
+
+```text
+BUILD SUCCESS
+```
+
 ### 当前边界说明
 
 当前后端层仍然刻意没有接入：

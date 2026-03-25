@@ -1,7 +1,13 @@
 package com.agentmusic.agentmusic_backend.client;
 
+import java.net.URI;
+
 public interface SpotifyAuthClient {
 
-    String getAccessToken(String userId);
+    URI buildAuthorizationUri(String state);
+
+    SpotifyToken exchangeAuthorizationCode(String code);
+
+    SpotifyToken refreshAccessToken(String refreshToken);
 }
 
