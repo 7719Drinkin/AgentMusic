@@ -101,6 +101,13 @@ Recommended main intents:
 - `CHAT_ONLY`
 - `COMPOSITE_REQUEST`
 
+Intent relationship rule:
+
+- `PLAY_RECOMMENDATION` is the default user-facing recommendation intent
+- `RECOMMEND_PLAYLIST` is the recommend-only variant and a reusable subflow
+- `PLAY_RECOMMENDATION` must reuse the same recommendation-generation path as `RECOMMEND_PLAYLIST`
+- only explicit "recommend only / do not play yet" requests should stop at `RECOMMEND_PLAYLIST`
+
 ### 2. Parameter Extraction Layer
 
 The extractor should build a normalized request object with fields such as:
@@ -122,20 +129,6 @@ This layer should also decide whether the request contains:
 - hard constraints
 - soft preferences
 - execution directives
-
-Example:
-
-```text
-给我来点香港流行，轻松一点，随机播放
-```
-
-Extracted form:
-
-- genre = `香港流行`
-- mood = `轻松`
-- playbackMode = `SHUFFLE`
-- requiresImmediatePlayback = `true`
-- recommendationSize = default
 
 ## Planner Step Taxonomy
 
@@ -167,10 +160,10 @@ This is the most important agent capability in AgentMusic and should be designed
 
 The agent must be able to take a user request like:
 
-- “给我来点我常听的”
-- “给我来点香港流行，随机模式”
-- “帮我生成一个晚上放松的歌单”
-- “我最近有点emo，来点治愈一点的粤语歌”
+- "给我来点我常听的"
+- "给我来点香港流行，随机模式"
+- "帮我生成一个晚上放松的歌单"
+- "我最近有点 emo，来点治愈一点的粤语歌"
 
 and convert it into:
 
@@ -223,7 +216,7 @@ Used to infer continuity:
 
 - user refining a previous recommendation
 - user rejecting a prior result
-- user asking for “similar but calmer”
+- user asking for "similar but calmer"
 
 #### 3. Long-term user preferences
 
@@ -285,25 +278,6 @@ Convert natural language into:
 - soft preferences
 - exclusions
 
-Example:
-
-```text
-晚上放松一点，不要太吵的粤语歌
-```
-
-Hard constraints:
-
-- language = `粤语`
-
-Soft preferences:
-
-- mood = `relaxing`
-- energy = low
-
-Exclusions:
-
-- noisy / high-energy candidates
-
 #### Stage 3: Generate candidate set
 
 Candidate sources should include:
@@ -314,11 +288,6 @@ Candidate sources should include:
 - Spotify related artist lookups
 
 This stage should intentionally produce more candidates than needed.
-
-Example:
-
-- target playlist size = 20
-- candidate pool size = 50 to 80
 
 #### Stage 4: Rank candidates
 
@@ -363,21 +332,35 @@ Recommendation-related intents should be split clearly.
 
 ### `RECOMMEND_PLAYLIST`
 
-Used when the user primarily wants a playlist.
+Used when recommendation should stop after playlist generation and persistence.
+
+This intent is mainly for:
+
+- explicit "recommend only" requests
+- internal planner reuse by `PLAY_RECOMMENDATION`
+- historical playlist generation without immediate playback
 
 Examples:
 
-- 帮我生成一个晚上放松的歌单
-- 给我来一套治愈系粤语推荐
+- "帮我生成一个晚间放松歌单，先不要播放"
+- "给我推荐一份今晚学习歌单，我先看看"
 
 ### `PLAY_RECOMMENDATION`
 
-Used when recommendation and playback are tightly coupled.
+Used for the default recommendation path in AgentMusic.
+
+This intent must:
+
+1. build a recommendation playlist
+2. persist it as a history version
+3. select a playback entry
+4. start playback
 
 Examples:
 
-- 给我来点香港流行，随机播放
-- 给我推荐点轻松的歌然后直接播
+- "给我来点香港流行，随机播放"
+- "给我推荐点轻松的歌然后直接播"
+- "给我来点歌，直接播放"
 
 ### `PLAYLIST_HISTORY_ACCESS`
 
@@ -385,8 +368,8 @@ Used when the user wants historical recommendation results.
 
 Examples:
 
-- 打开我上次那个夏天歌单
-- 切到上一版推荐歌单
+- "打开我上次那个夏天歌单"
+- "切到上一版推荐歌单"
 
 ## Recommendation-Specific Execution Policy
 
@@ -405,6 +388,8 @@ Recommendation requests should create a playlist object, not only return loose t
 ### Rule 4
 
 If playback is requested, playlist generation must happen before playback action.
+
+This means `PLAY_RECOMMENDATION` must execute the `RECOMMEND_PLAYLIST` subflow first, then run playback steps.
 
 ### Rule 5
 
@@ -428,7 +413,7 @@ Recommendation response should persist a history version unless the user explici
 ### Phase 3: Adaptive planner
 
 - rejection-aware refinement
-- follow-up edits like “更安静一点”
+- follow-up edits like "更安静一点"
 - user-specific ranking weights
 
 ## Immediate Refactor Recommendation
@@ -437,12 +422,13 @@ Before further planner optimization, the current code should be reshaped so that
 
 1. recommendation intents are separated from generic search intents
 2. recommendation playlist generation gets its own plan branch
-3. composite requests distinguish:
+3. `PLAY_RECOMMENDATION` reuses `RECOMMEND_PLAYLIST`
+4. composite requests distinguish:
    - search + play
-   - recommend + play
    - artist info + recommend
+   - other mixed cases that are not default recommendation playback
 
-The current implementation that uses “search first result then play” is acceptable only for early playback demos, not for recommendation quality.
+The current implementation that uses "search first result then play" is acceptable only for early playback demos, not for recommendation quality.
 
 ## Current Design Conclusion
 
@@ -454,4 +440,3 @@ The planner should be optimized around AgentMusic's most important product promi
 - optionally starting playback
 
 Therefore, recommendation planning is the center of the planner design, not an extra branch.
-

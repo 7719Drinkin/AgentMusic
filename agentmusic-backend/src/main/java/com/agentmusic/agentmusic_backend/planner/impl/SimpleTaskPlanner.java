@@ -25,13 +25,15 @@ public class SimpleTaskPlanner implements TaskPlanner {
         steps.add(new PlanStep(1, PlanStepType.READ_CHAT_CONTEXT, Map.of("limit", 20)));
 
         switch (intent) {
-            case GET_ARTIST_INFO -> steps.add(new PlanStep(2, PlanStepType.LOOKUP_ARTIST, Map.of("query", message)));
-            case CREATE_PLAYLIST -> steps.add(new PlanStep(2, PlanStepType.CREATE_RECOMMENDATION_PLAYLIST, Map.of("query", message)));
+            case ARTIST_LOOKUP -> steps.add(new PlanStep(2, PlanStepType.LOOKUP_ARTIST, Map.of("query", message)));
+            case TRACK_LOOKUP -> steps.add(new PlanStep(2, PlanStepType.LOOKUP_TRACK, Map.of("query", message)));
+            case RECOMMEND_PLAYLIST -> appendRecommendationSteps(steps, message, false);
+            case PLAY_RECOMMENDATION -> appendRecommendationSteps(steps, message, true);
+            case PLAYLIST_HISTORY_ACCESS -> steps.add(new PlanStep(2, PlanStepType.READ_PLAYLIST_HISTORY, Map.of("limit", 10)));
             case PLAYBACK_CONTROL -> {
                 steps.add(new PlanStep(2, PlanStepType.READ_LOCAL_SESSION, Map.of()));
                 steps.add(new PlanStep(3, PlanStepType.UPDATE_PLAYBACK_STATE, Map.of("query", message)));
             }
-            case SEARCH_TRACK -> steps.add(new PlanStep(2, PlanStepType.SEARCH_TRACKS, Map.of("query", message)));
             case COMPOSITE_REQUEST -> {
                 steps.add(new PlanStep(2, PlanStepType.SEARCH_TRACKS, Map.of("query", message)));
                 steps.add(new PlanStep(3, PlanStepType.UPDATE_PLAYBACK_STATE, Map.of("query", message)));
@@ -45,26 +47,52 @@ public class SimpleTaskPlanner implements TaskPlanner {
     }
 
     private AgentIntent classify(String message) {
-        boolean mentionsPlay = message.contains("播放") || message.contains("暂停") || message.contains("切歌")
-                || message.contains("shuffle") || message.contains("随机") || message.contains("repeat");
-        boolean mentionsPlaylist = message.contains("歌单") || message.contains("playlist");
-        boolean mentionsArtist = message.contains("歌手") || message.contains("artist");
-        boolean mentionsSearch = message.contains("搜索") || message.contains("查") || message.contains("找");
+        boolean mentionsPlay = containsAny(message, "播放", "播", "放歌", "pause", "play", "shuffle", "repeat", "随机");
+        boolean mentionsPause = containsAny(message, "暂停", "pause");
+        boolean mentionsPlaylist = containsAny(message, "歌单", "playlist");
+        boolean mentionsArtist = containsAny(message, "歌手", "artist");
+        boolean mentionsSearch = containsAny(message, "搜索", "查找", "search", "查一下");
+        boolean mentionsHistory = containsAny(message, "历史歌单", "上次", "上一版", "之前的歌单");
+        boolean recommendOnly = containsAny(
+                message,
+                "先不要播",
+                "不要播放",
+                "先别播",
+                "我先看看",
+                "先看",
+                "recommend only"
+        );
+        boolean mentionsRecommendation = containsAny(
+                message,
+                "推荐",
+                "来点",
+                "给我来",
+                "来一些",
+                "来首",
+                "歌单",
+                "mix"
+        );
 
-        if (mentionsPlay && (mentionsSearch || mentionsArtist || mentionsPlaylist)) {
+        if (mentionsHistory) {
+            return AgentIntent.PLAYLIST_HISTORY_ACCESS;
+        }
+        if (mentionsRecommendation && recommendOnly) {
+            return AgentIntent.RECOMMEND_PLAYLIST;
+        }
+        if (mentionsRecommendation) {
+            return AgentIntent.PLAY_RECOMMENDATION;
+        }
+        if (mentionsPlay && (mentionsSearch || mentionsArtist || mentionsPlaylist) && !mentionsPause) {
             return AgentIntent.COMPOSITE_REQUEST;
         }
         if (mentionsPlay) {
             return AgentIntent.PLAYBACK_CONTROL;
         }
-        if (mentionsPlaylist) {
-            return AgentIntent.CREATE_PLAYLIST;
-        }
         if (mentionsArtist) {
-            return AgentIntent.GET_ARTIST_INFO;
+            return AgentIntent.ARTIST_LOOKUP;
         }
         if (mentionsSearch) {
-            return AgentIntent.SEARCH_TRACK;
+            return AgentIntent.TRACK_LOOKUP;
         }
         return message.isBlank() ? AgentIntent.UNKNOWN : AgentIntent.CHAT_ONLY;
     }
@@ -72,13 +100,34 @@ public class SimpleTaskPlanner implements TaskPlanner {
     private String buildSummary(AgentIntent intent) {
         return switch (intent) {
             case CHAT_ONLY -> "Generate a conversational response without tool execution.";
-            case SEARCH_TRACK -> "Search local or Spotify-backed track metadata.";
-            case GET_ARTIST_INFO -> "Read artist metadata for the current request.";
-            case CREATE_PLAYLIST -> "Build a recommendation playlist from the request.";
+            case TRACK_LOOKUP -> "Search local or Spotify-backed track metadata.";
+            case ARTIST_LOOKUP -> "Read artist metadata for the current request.";
+            case RECOMMEND_PLAYLIST -> "Build and persist a recommendation playlist without autoplay.";
+            case PLAY_RECOMMENDATION -> "Build a recommendation playlist first, then start playback.";
+            case PLAYLIST_HISTORY_ACCESS -> "Read recent local recommendation playlists.";
             case PLAYBACK_CONTROL -> "Read session and apply playback control.";
             case COMPOSITE_REQUEST -> "Combine discovery steps with playback control.";
             case UNKNOWN -> "Fallback conversational handling.";
         };
     }
-}
 
+    private void appendRecommendationSteps(List<PlanStep> steps, String message, boolean autoPlay) {
+        steps.add(new PlanStep(2, PlanStepType.READ_USER_PREFERENCES, Map.of()));
+        steps.add(new PlanStep(3, PlanStepType.READ_PLAYLIST_HISTORY, Map.of("limit", 10)));
+        steps.add(new PlanStep(4, PlanStepType.GENERATE_RECOMMENDATION_CANDIDATES, Map.of("query", message)));
+        steps.add(new PlanStep(5, PlanStepType.RANK_RECOMMENDATION_CANDIDATES, Map.of("query", message)));
+        steps.add(new PlanStep(6, PlanStepType.CREATE_RECOMMENDATION_PLAYLIST, Map.of("query", message)));
+        if (autoPlay) {
+            steps.add(new PlanStep(7, PlanStepType.UPDATE_PLAYBACK_STATE, Map.of("query", message)));
+        }
+    }
+
+    private boolean containsAny(String message, String... keywords) {
+        for (String keyword : keywords) {
+            if (message.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
+    }
+}

@@ -2,11 +2,12 @@ package com.agentmusic.agentmusic_backend.planner;
 
 public enum AgentIntent {
     CHAT_ONLY,
-    SEARCH_TRACK,
-    GET_ARTIST_INFO,
-    CREATE_PLAYLIST,
+    TRACK_LOOKUP,
+    ARTIST_LOOKUP,
+    RECOMMEND_PLAYLIST,
+    PLAY_RECOMMENDATION,
+    PLAYLIST_HISTORY_ACCESS,
     PLAYBACK_CONTROL,
     COMPOSITE_REQUEST,
     UNKNOWN
 }
-

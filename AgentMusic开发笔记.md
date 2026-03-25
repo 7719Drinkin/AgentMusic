@@ -495,6 +495,15 @@ mvn test
 BUILD SUCCESS
 ```
 
+## 2026-03-25 Planner intent relationship refactor
+
+- Updated planner docs so `PLAY_RECOMMENDATION` is the default recommendation path.
+- Kept `RECOMMEND_PLAYLIST` as a reusable recommend-only subflow.
+- Refactored planner code so recommendation playback reuses recommendation playlist generation first.
+- Added `/api/agent/chat` API tests for:
+  - recommend-only requests
+  - default recommend-and-play requests
+
 ## Planner 设计说明
 
 ### 本轮目标
