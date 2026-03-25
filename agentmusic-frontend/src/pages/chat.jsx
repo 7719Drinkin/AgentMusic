@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Sound } from '../component/icons'
 import Topnav from '../component/topnav/topnav'
 import styles from './chat.module.css'
 import { CHAT_SUGGESTIONS, EMPTY_STATE_PROMPTS } from '../data/agent-ui'
@@ -7,13 +8,29 @@ import { CHAT_SUGGESTIONS, EMPTY_STATE_PROMPTS } from '../data/agent-ui'
 function ChatPage() {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([])
+  const textareaRef = useRef(null)
+  const streamRef = useRef(null)
 
   const hasMessages = messages.length > 0
 
-  const pageClassName = useMemo(
-    () => `${styles.ChatPage} ${hasMessages ? styles.HasMessages : styles.EmptyPage}`,
-    [hasMessages],
-  )
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current
+    if (!textarea) {
+      return
+    }
+
+    textarea.style.height = '0px'
+    const nextHeight = Math.min(textarea.scrollHeight, 220)
+    textarea.style.height = `${nextHeight}px`
+  }, [input, hasMessages])
+
+  useEffect(() => {
+    if (!hasMessages || !streamRef.current) {
+      return
+    }
+
+    streamRef.current.scrollTop = streamRef.current.scrollHeight
+  }, [messages, hasMessages])
 
   const submitMessage = (messageText) => {
     const trimmed = messageText.trim()
@@ -28,14 +45,21 @@ function ChatPage() {
         id: `a-${current.length + 2}`,
         role: 'agent',
         message:
-          '这里先保留聊天页结构。后续接上 /api/agent/chat 后，这里会显示真实的 Agent 回复、推荐歌单摘要和播放状态。',
+          '这里先保留聊天页结构。后续接入 /api/agent/chat 后，这里会显示真实的 Agent 回复、推荐歌单摘要和播放状态。',
       },
     ])
     setInput('')
   }
 
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      submitMessage(input)
+    }
+  }
+
   return (
-    <div className={pageClassName}>
+    <div className={styles.ChatPage}>
       <Topnav />
 
       <div className={styles.PageShell}>
@@ -54,7 +78,9 @@ function ChatPage() {
               </div>
               <Composer
                 input={input}
+                textareaRef={textareaRef}
                 onInputChange={setInput}
+                onKeyDown={handleKeyDown}
                 onSubmit={submitMessage}
                 centered
               />
@@ -76,7 +102,7 @@ function ChatPage() {
           <section className={styles.ChatLayout}>
             <header className={styles.ChatHeader}>
               <div>
-                <p className={styles.Kicker}>Agent Chat</p>
+                <p className={styles.Kicker}>智能聊天</p>
                 <h1>对话中</h1>
               </div>
               <div className={styles.ChatHeaderActions}>
@@ -93,7 +119,7 @@ function ChatPage() {
               </div>
             </header>
 
-            <div className={styles.ChatStream}>
+            <div ref={streamRef} className={styles.ChatStream}>
               {messages.map((item) => (
                 <article
                   key={item.id}
@@ -109,7 +135,9 @@ function ChatPage() {
             <div className={styles.BottomComposer}>
               <Composer
                 input={input}
+                textareaRef={textareaRef}
                 onInputChange={setInput}
+                onKeyDown={handleKeyDown}
                 onSubmit={submitMessage}
               />
               <div className={styles.SuggestionRow}>
@@ -132,7 +160,14 @@ function ChatPage() {
   )
 }
 
-function Composer({ input, onInputChange, onSubmit, centered = false }) {
+function Composer({
+  input,
+  textareaRef,
+  onInputChange,
+  onKeyDown,
+  onSubmit,
+  centered = false,
+}) {
   const wrapperClassName = centered
     ? `${styles.Composer} ${styles.CenteredComposer}`
     : styles.Composer
@@ -141,22 +176,37 @@ function Composer({ input, onInputChange, onSubmit, centered = false }) {
     <div className={wrapperClassName}>
       <div className={styles.InputShell}>
         <textarea
+          ref={textareaRef}
           className={styles.ChatInput}
-          rows={centered ? 3 : 2}
+          rows={1}
           value={input}
           onChange={(event) => onInputChange(event.target.value)}
+          onKeyDown={onKeyDown}
           placeholder="给 AgentMusic 发送消息"
         />
         <div className={styles.InputActions}>
-          <button className={styles.IconButton} type="button" aria-label="语音输入">
-            语音
-          </button>
-          <button className={styles.SendButton} type="button" onClick={() => onSubmit(input)}>
-            发送
-          </button>
+          <TooltipIconButton tooltip="点击进行语音输入或长按 Ctrl+M">
+            <Sound />
+          </TooltipIconButton>
+          <TooltipIconButton tooltip="发送" filled onClick={() => onSubmit(input)}>
+            <span className={styles.SendArrow}>↑</span>
+          </TooltipIconButton>
         </div>
       </div>
     </div>
+  )
+}
+
+function TooltipIconButton({ children, tooltip, onClick, filled = false }) {
+  return (
+    <button
+      className={`${styles.IconButton} ${filled ? styles.FilledIconButton : ''}`}
+      type="button"
+      onClick={onClick}
+    >
+      {children}
+      <span className={styles.Tooltip}>{tooltip}</span>
+    </button>
   )
 }
 

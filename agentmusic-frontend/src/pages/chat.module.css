@@ -1,30 +1,25 @@
 .ChatPage {
-  min-height: calc(100vh - 91px);
+  --player-bar-height: 118px;
+  min-height: 100vh;
   background: #121212;
+  box-sizing: border-box;
+  padding-bottom: var(--player-bar-height);
 }
 
 .PageShell {
-  width: min(960px, calc(100vw - 64px));
+  width: min(900px, calc(100vw - 64px));
   margin: 0 auto;
-  min-height: calc(100vh - 91px);
+  min-height: calc(100vh - var(--player-bar-height));
 }
 
-.EmptyPage .PageShell {
+.EmptyState {
+  min-height: calc(100vh - 60px - var(--player-bar-height));
   display: grid;
   place-items: center;
 }
 
-.HasMessages .PageShell {
-  display: block;
-  padding: 16px 0 120px;
-}
-
-.EmptyState {
-  width: 100%;
-}
-
 .EmptyContent {
-  width: min(820px, 100%);
+  width: min(760px, 100%);
   margin: 0 auto;
   text-align: center;
 }
@@ -61,9 +56,7 @@
 .SecondaryLink,
 .MinimalButton,
 .SuggestionChip,
-.PromptCard,
-.IconButton,
-.SendButton {
+.PromptCard {
   border: none;
   border-radius: 999px;
   cursor: pointer;
@@ -74,18 +67,10 @@
 
 .SecondaryLink,
 .MinimalButton,
-.SuggestionChip,
-.IconButton {
+.SuggestionChip {
   background: #2a2a2a;
   color: #fff;
   padding: 11px 16px;
-}
-
-.SendButton {
-  background: #1db954;
-  color: #000;
-  font-weight: 700;
-  padding: 11px 18px;
 }
 
 .PromptGrid {
@@ -104,8 +89,11 @@
 }
 
 .ChatLayout {
+  height: calc(100vh - 60px - var(--player-bar-height));
   display: grid;
-  gap: 20px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 16px;
+  padding: 16px 0 20px;
 }
 
 .ChatHeader {
@@ -123,7 +111,10 @@
 }
 
 .ChatStream {
+  overflow-y: auto;
+  padding: 8px 6px 8px 0;
   display: grid;
+  align-content: start;
   gap: 18px;
 }
 
@@ -157,10 +148,8 @@
 }
 
 .BottomComposer {
-  position: sticky;
-  bottom: 0;
-  padding-top: 12px;
-  background: linear-gradient(180deg, rgba(18, 18, 18, 0), #121212 24%);
+  padding-top: 8px;
+  background: linear-gradient(180deg, rgba(18, 18, 18, 0), #121212 22%);
 }
 
 .InputShell {
@@ -172,6 +161,9 @@
 
 .ChatInput {
   width: 100%;
+  min-height: 24px;
+  max-height: 220px;
+  overflow-y: auto;
   border: none;
   resize: none;
   background: transparent;
@@ -191,6 +183,56 @@
   margin-top: 8px;
 }
 
+.IconButton {
+  position: relative;
+  border: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #2a2a2a;
+  color: #fff;
+  cursor: pointer;
+}
+
+.IconButton svg {
+  width: 18px;
+  height: 18px;
+}
+
+.FilledIconButton {
+  background: #1db954;
+  color: #000;
+}
+
+.SendArrow {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.Tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #2a2a2a;
+  color: #fff;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.16s ease;
+}
+
+.IconButton:hover .Tooltip {
+  opacity: 1;
+}
+
 .SuggestionRow {
   display: flex;
   flex-wrap: wrap;
@@ -202,18 +244,17 @@
 .SecondaryLink:hover,
 .MinimalButton:hover,
 .SuggestionChip:hover,
-.IconButton:hover,
-.SendButton:hover {
+.IconButton:hover {
   transform: translateY(-1px);
 }
 
 @media screen and (max-width: 760px) {
-  .PageShell {
-    width: calc(100vw - 24px);
+  .ChatPage {
+    --player-bar-height: 180px;
   }
 
-  .HasMessages .PageShell {
-    padding: 12px 0 112px;
+  .PageShell {
+    width: calc(100vw - 24px);
   }
 
   .PromptGrid {

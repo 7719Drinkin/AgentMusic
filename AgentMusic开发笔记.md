@@ -495,6 +495,27 @@ mvn test
 BUILD SUCCESS
 ```
 
+## 2026-03-25 Chat page bottom boundary adjustment
+
+### 调整内容
+
+针对聊天页与全局底部播放器栏重叠的问题，补充了一条新的前端布局约束：
+
+- Agent chat 页面底部边界必须以下方播放器栏的上边界为准
+- 聊天消息滚动区域和底部输入框都不能落到播放器栏后面
+- 该约束同时适用于空聊天状态和已有消息状态
+
+### 实现方式
+
+- 在聊天页样式中引入播放器栏占位高度变量
+- 聊天页整体增加底部占位
+- 对话态主布局高度改为 `视口高度 - 顶部导航高度 - 播放器栏占位高度`
+
+### 结果
+
+- 有消息时，底部输入框不会再被播放器栏遮挡
+- 聊天消息列表的可滚动终点位于播放器栏上方
+
 ## 2026-03-25 Planner intent relationship refactor
 
 - Updated planner docs so `PLAY_RECOMMENDATION` is the default recommendation path.
@@ -578,6 +599,26 @@ BUILD SUCCESS
   - composer moves to the bottom area
   - voice-input button remains available next to the send action
 - The music main page remains available through the separate `/music` route and navigation entry.
+
+## 2026-03-25 Chat interaction polish and visible text normalization
+
+- Improved the chat page interaction model:
+  - message list now lives in its own vertical scroll container
+  - new messages auto-scroll to the bottom
+  - mouse wheel scroll now drives the chat stream when content exceeds the viewport
+  - `Enter` sends the message
+  - `Shift + Enter` inserts a newline
+  - the textarea starts as a single line and auto-expands with content up to a max height
+- Replaced the plain text send and voice controls with compact icon-style buttons:
+  - voice button uses the sound icon
+  - send button uses the upward arrow
+  - hover tooltips were added for both controls
+- Normalized currently visible UI copy into simplified Chinese for:
+  - sidebar playlist area
+  - top navigation profile text
+  - search placeholder
+  - music home page section titles
+  - library page tab titles
 
 ## Planner 设计说明
 
