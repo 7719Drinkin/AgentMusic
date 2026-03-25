@@ -495,6 +495,87 @@ mvn test
 BUILD SUCCESS
 ```
 
+## Planner 设计说明
+
+### 本轮目标
+
+本轮不继续直接优化现有 planner 代码，而是先回到产品设计文档，基于 Agent 真正需要支持的能力，整理正式的 planner 设计说明。
+
+### 已新增文档
+
+1. Planner 正式设计说明：
+
+```text
+agentmusic-backend/docs/planner-design-spec.md
+```
+
+2. 产品能力到 planner intent 的映射表：
+
+```text
+agentmusic-backend/docs/planner-capability-mapping.md
+```
+
+### 核心设计结论
+
+本轮明确了一个关键原则：
+
+- planner 的设计中心不是“搜索后播放”
+- 而是“根据用户需求生成推荐歌单，并可选择立即播放”
+
+也就是说，推荐歌单生成应该作为独立核心能力设计，而不是附着在普通搜索逻辑上的一个分支。
+
+### 从产品功能提炼出的 Agent 核心能力
+
+根据现有 proposal / 选题分析，Agent 的高优先能力主要包括：
+
+- 播放控制
+- 歌曲 / 歌手查询
+- 推荐歌单生成
+- 推荐歌单历史版本访问
+- 本地状态同步
+- 对话上下文利用
+
+### 推荐歌单 Planner 的关键设计
+
+文档中已明确推荐歌单规划应按以下阶段设计：
+
+1. 识别推荐目标
+2. 提取显式约束
+3. 读取近期聊天上下文
+4. 读取长期用户偏好
+5. 读取历史推荐歌单
+6. 生成候选曲目集合
+7. 对候选曲目进行排序与去重
+8. 生成并保存推荐歌单
+9. 如果用户要求，则立即开始播放
+10. 生成最终回复
+
+### 当前实现与目标的差距
+
+本轮文档中也明确指出：
+
+- 当前 `COMPOSITE_REQUEST` 里“搜索后取第一首再播放”的做法
+- 只适合早期 playback demo
+- 不适合作为推荐歌单 planner 的正式策略
+
+因此，后续 planner 优化时应优先做：
+
+1. 将推荐歌单相关 intent 从普通搜索 intent 中拆开
+2. 为推荐歌单生成建立单独的 plan 分支
+3. 在 plan 中显式接入：
+   - `users.preferences`
+   - `chat_messages`
+   - `playlists / playlist_tracks`
+   - 本地 session
+
+### 当前作用
+
+这两份文档的作用是：
+
+- 先把 planner 的产品边界固定下来
+- 避免后续直接围绕现有简化版实现做错误优化
+- 为下一步真正重构 planner 提供基线
+
 ## Spotify Catalog Client 接入
 
 ### 本轮目标
