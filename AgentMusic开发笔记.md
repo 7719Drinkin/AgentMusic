@@ -566,6 +566,19 @@ BUILD SUCCESS
   - current playback information card
   - feature coverage card
 
+## 2026-03-25 Chat page simplification pass
+
+- Removed the right-side information panel from the Agent chat page.
+- Reworked the chat page into a single-column layout closer to a standard chat product interaction model.
+- Empty state behavior:
+  - composer is centered in the page
+  - starter prompt cards are shown under the centered composer
+- Active conversation behavior:
+  - messages render in a vertical stream
+  - composer moves to the bottom area
+  - voice-input button remains available next to the send action
+- The music main page remains available through the separate `/music` route and navigation entry.
+
 ## Planner 设计说明
 
 ### 本轮目标

@@ -1,317 +1,227 @@
 .ChatPage {
   min-height: calc(100vh - 91px);
-  overflow-y: auto;
-  position: relative;
-  background: linear-gradient(180deg, rgba(26, 26, 26, 0.94), #121212 42%);
+  background: #121212;
 }
 
-.HoverBg,
-.Bg {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
+.PageShell {
+  width: min(960px, calc(100vw - 64px));
+  margin: 0 auto;
+  min-height: calc(100vh - 91px);
 }
 
-.HoverBg {
-  background: radial-gradient(circle at top left, rgba(29, 185, 84, 0.15), transparent 32%);
-}
-
-.Bg {
-  background: linear-gradient(180deg, rgba(32, 32, 32, 0.18), transparent 45%);
-}
-
-.Content {
-  position: relative;
-  z-index: 1;
-  padding: 24px 32px 120px;
+.EmptyPage .PageShell {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
-  gap: 24px;
+  place-items: center;
 }
 
-.ChatWorkspace,
-.Card {
+.HasMessages .PageShell {
+  display: block;
+  padding: 16px 0 120px;
+}
+
+.EmptyState {
+  width: 100%;
+}
+
+.EmptyContent {
+  width: min(820px, 100%);
+  margin: 0 auto;
+  text-align: center;
+}
+
+.Kicker {
+  margin: 0 0 10px;
+  color: #1db954;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.EmptyContent h1,
+.ChatHeader h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(32px, 6vw, 44px);
+  line-height: 1.05;
+}
+
+.Subtitle {
+  max-width: 680px;
+  margin: 14px auto 0;
+  color: #b3b3b3;
+  font-size: 16px;
+}
+
+.EmptyActions {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.SecondaryLink,
+.MinimalButton,
+.SuggestionChip,
+.PromptCard,
+.IconButton,
+.SendButton {
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.18s ease, background-color 0.18s ease;
+  text-decoration: none;
+  font: inherit;
+}
+
+.SecondaryLink,
+.MinimalButton,
+.SuggestionChip,
+.IconButton {
+  background: #2a2a2a;
+  color: #fff;
+  padding: 11px 16px;
+}
+
+.SendButton {
+  background: #1db954;
+  color: #000;
+  font-weight: 700;
+  padding: 11px 18px;
+}
+
+.PromptGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.PromptCard {
+  background: #1d1d1d;
+  color: #fff;
+  padding: 16px 18px;
+  text-align: left;
   border-radius: 18px;
-  background: rgba(24, 24, 24, 0.88);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
 }
 
-.ChatWorkspace {
-  padding: 24px;
+.ChatLayout {
   display: grid;
-  gap: 24px;
+  gap: 20px;
 }
 
 .ChatHeader {
   display: flex;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 24px;
+  gap: 16px;
+  padding-bottom: 8px;
 }
 
-.SectionKicker {
-  margin: 0 0 8px;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #1db954;
-}
-
-.ChatHeader h1,
-.CardHeader h2 {
-  margin: 0;
-  color: #fff;
-}
-
-.SectionDesc,
-.CardDesc {
-  color: #b3b3b3;
-}
-
-.HeaderActions,
-.ComposerActions,
-.SuggestionRow,
-.TagRow {
+.ChatHeaderActions {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.FeatureGrid {
-  margin-top: 16px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.PrimaryBtn,
-.SecondaryBtn,
-.VoiceBtn,
-.SuggestionChip,
-.HistoryItem {
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: transform 0.18s ease, background-color 0.18s ease;
-}
-
-.PrimaryBtn {
-  background: #1db954;
-  color: #000;
-  font-weight: 700;
-  padding: 12px 18px;
-}
-
-.SecondaryBtn,
-.VoiceBtn,
-.SuggestionChip {
-  background: #2a2a2a;
-  color: #fff;
-  padding: 12px 18px;
-}
-
-.PrimaryBtn:hover,
-.SecondaryBtn:hover,
-.VoiceBtn:hover,
-.SuggestionChip:hover,
-.HistoryItem:hover {
-  transform: translateY(-1px);
-}
-
-.ChatBody {
-  display: grid;
-  gap: 20px;
-}
-
 .ChatStream {
   display: grid;
-  gap: 14px;
+  gap: 18px;
 }
 
 .MessageBubble {
-  max-width: 86%;
+  max-width: min(760px, 100%);
   padding: 16px 18px;
   border-radius: 18px;
 }
 
 .MessageBubble p {
-  margin: 8px 0 0;
+  margin: 0;
   color: #fff;
   white-space: normal;
 }
 
-.MessageBubble small {
-  display: block;
-  margin-top: 8px;
-  color: #b3b3b3;
-}
-
 .AgentBubble {
-  background: #202020;
+  background: #1d1d1d;
 }
 
 .UserBubble {
   margin-left: auto;
-  background: linear-gradient(135deg, #1b7b46, #1db954);
+  background: linear-gradient(135deg, #16653b, #1db954);
 }
 
-.UserBubble p,
-.UserBubble .MessageRole,
-.UserBubble small {
-  color: #fff;
+.Composer {
+  width: 100%;
 }
 
-.MessageRole {
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #b3b3b3;
+.CenteredComposer {
+  margin-top: 28px;
 }
 
-.ComposerPanel {
-  padding: 18px;
-  border-radius: 18px;
-  background: #202020;
+.BottomComposer {
+  position: sticky;
+  bottom: 0;
+  padding-top: 12px;
+  background: linear-gradient(180deg, rgba(18, 18, 18, 0), #121212 24%);
 }
 
-.ComposerLabelRow,
-.CardHeader,
-.TrackRow {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: center;
+.InputShell {
+  border: 1px solid #303030;
+  border-radius: 28px;
+  background: #1d1d1d;
+  padding: 12px 14px;
 }
 
 .ChatInput {
   width: 100%;
-  margin-top: 16px;
-  padding: 16px;
-  border-radius: 16px;
-  border: 1px solid #333;
-  background: #121212;
+  border: none;
+  resize: none;
+  background: transparent;
   color: #fff;
-  resize: vertical;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.ChatInput:focus {
+  outline: none;
+}
+
+.InputActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 .SuggestionRow {
-  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
 }
 
-.ComposerActions {
-  margin-top: 20px;
-  justify-content: flex-end;
+.PromptCard:hover,
+.SecondaryLink:hover,
+.MinimalButton:hover,
+.SuggestionChip:hover,
+.IconButton:hover,
+.SendButton:hover {
+  transform: translateY(-1px);
 }
 
-.SidePanel {
-  display: grid;
-  gap: 18px;
-}
+@media screen and (max-width: 760px) {
+  .PageShell {
+    width: calc(100vw - 24px);
+  }
 
-.Card {
-  padding: 20px;
-}
+  .HasMessages .PageShell {
+    padding: 12px 0 112px;
+  }
 
-.CardHeader span {
-  color: #b3b3b3;
-}
-
-.Tag {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(29, 185, 84, 0.12);
-  color: #1db954;
-  font-size: 13px;
-}
-
-.TrackList,
-.HistoryList {
-  display: grid;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.TrackRow {
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: #202020;
-}
-
-.TrackRow strong,
-.HistoryItem strong,
-.PlaybackMeta strong,
-.FeatureItem strong {
-  color: #fff;
-}
-
-.TrackRow small,
-.TrackRow span,
-.HistoryItem span,
-.HistoryItem small,
-.PlaybackMeta span,
-.PlaybackMeta small,
-.PlaybackGrid label,
-.FeatureItem p {
-  color: #b3b3b3;
-}
-
-.HistoryItem {
-  padding: 14px 16px;
-  background: #202020;
-  display: grid;
-  text-align: left;
-}
-
-.PlaybackMeta {
-  display: grid;
-  gap: 4px;
-  margin-top: 16px;
-}
-
-.PlaybackGrid {
-  margin-top: 16px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.PlaybackGrid div,
-.FeatureItem {
-  padding: 14px;
-  border-radius: 14px;
-  background: #202020;
-}
-
-.PlaybackGrid p,
-.FeatureItem p {
-  margin: 6px 0 0;
-}
-
-@media screen and (max-width: 1100px) {
-  .Content {
+  .PromptGrid {
     grid-template-columns: 1fr;
   }
-}
 
-@media screen and (max-width: 640px) {
-  .Content {
-    padding: 20px 16px 110px;
-  }
-
-  .ChatHeader,
-  .ComposerLabelRow,
-  .CardHeader,
-  .TrackRow {
-    flex-direction: column;
+  .ChatHeader {
     align-items: flex-start;
-  }
-
-  .PlaybackGrid,
-  .FeatureGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .HeaderActions,
-  .ComposerActions {
-    width: 100%;
+    flex-direction: column;
   }
 }
