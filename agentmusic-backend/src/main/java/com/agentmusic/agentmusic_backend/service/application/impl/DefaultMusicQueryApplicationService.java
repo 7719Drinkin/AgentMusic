@@ -5,6 +5,7 @@ import com.agentmusic.agentmusic_backend.dto.TrackDto;
 import com.agentmusic.agentmusic_backend.mapper.DomainDtoMapper;
 import com.agentmusic.agentmusic_backend.service.MusicMetadataService;
 import com.agentmusic.agentmusic_backend.service.application.MusicQueryApplicationService;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
@@ -19,12 +20,18 @@ public class DefaultMusicQueryApplicationService implements MusicQueryApplicatio
 
     @Override
     public Optional<TrackDto> getTrack(String trackId) {
-        return musicMetadataService.findTrack(trackId).map(DomainDtoMapper::toDto);
+        return musicMetadataService.findTrackOrFetch(trackId).map(DomainDtoMapper::toDto);
     }
 
     @Override
     public Optional<ArtistDto> getArtist(String artistId) {
-        return musicMetadataService.findArtist(artistId).map(DomainDtoMapper::toDto);
+        return musicMetadataService.findArtistOrFetch(artistId).map(DomainDtoMapper::toDto);
+    }
+
+    @Override
+    public List<TrackDto> searchTracks(String query, int limit) {
+        return musicMetadataService.searchTracks(query, limit).stream()
+                .map(DomainDtoMapper::toDto)
+                .toList();
     }
 }
-

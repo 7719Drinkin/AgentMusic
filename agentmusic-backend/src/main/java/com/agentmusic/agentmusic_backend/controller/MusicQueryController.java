@@ -3,10 +3,12 @@ package com.agentmusic.agentmusic_backend.controller;
 import com.agentmusic.agentmusic_backend.dto.ArtistDto;
 import com.agentmusic.agentmusic_backend.dto.TrackDto;
 import com.agentmusic.agentmusic_backend.service.application.MusicQueryApplicationService;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -27,5 +29,13 @@ public class MusicQueryController {
     @GetMapping("/artists/{artistId}")
     public Optional<ArtistDto> getArtist(@PathVariable String artistId) {
         return musicQueryApplicationService.getArtist(artistId);
+    }
+
+    @GetMapping("/search/tracks")
+    public List<TrackDto> searchTracks(
+            @RequestParam String q,
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        return musicQueryApplicationService.searchTracks(q, limit);
     }
 }

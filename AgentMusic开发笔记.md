@@ -495,6 +495,67 @@ mvn test
 BUILD SUCCESS
 ```
 
+## Spotify Catalog Client 接入
+
+### 本轮目标
+
+在 bridge token 能工作的前提下，优先接入 Spotify 目录查询能力，不碰播放控制接口。
+
+### 已完成内容
+
+1. 新增 `SpotifyWebApiCatalogClient`
+   - 已实现：
+     - 根据 `trackId` 获取曲目信息
+     - 根据 `artistId` 获取歌手信息
+     - 根据关键字搜索歌曲
+
+2. 调整 `MusicMetadataService`
+   - 新增：
+     - `findTrackOrFetch`
+     - `findArtistOrFetch`
+     - `searchTracks`
+   - 行为改为：
+     - 先查本地缓存（内存仓储 / 后续可替换为 MySQL + Redis）
+     - miss 后再通过 bridge token 调 Spotify
+     - 命中 Spotify 后回写本地缓存
+
+3. 调整 `MusicQueryApplicationService`
+   - 查询歌曲 / 歌手时，已优先走“本地缓存 + Spotify fallback”
+   - 新增搜索歌曲能力
+
+4. 调整 `MusicQueryController`
+   - 新增接口：
+     - `GET /api/music/search/tracks?q=...&limit=...`
+
+### 当前边界
+
+当前只实现了 catalog 方向：
+
+- `get track`
+- `get artist`
+- `search tracks`
+
+当前尚未实现：
+
+- album 查询
+- recommendations 查询
+- top tracks / top artists
+- playback 相关 Spotify HTTP 接口
+
+### 架构收益
+
+本轮完成后，目录查询已经形成完整链路：
+
+```text
+Controller
+  -> Application Service
+    -> MusicMetadataService
+      -> SpotifyBridgeAuthService
+      -> SpotifyCatalogClient
+```
+
+这条链路已经满足后续 Agent / Planner 查询歌曲和艺人信息的基础能力。
+
 ## Spotify Bridge Mode 与 Planner 骨架
 
 ### 已新增正式设计文档
