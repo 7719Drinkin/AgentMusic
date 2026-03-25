@@ -504,6 +504,13 @@ BUILD SUCCESS
   - recommend-only requests
   - default recommend-and-play requests
 
+## 2026-03-25 Frontend reference split and modern scaffold
+
+- Renamed the cloned reference repository directory to `agentmusic-frontend-reference`.
+- Preserved the original reference project as a migration source.
+- Created a new `agentmusic-frontend` workspace on a modern Vite + React + TypeScript baseline.
+- Added a first-round migration plan for moving selected UI modules into the new frontend.
+
 ## Planner 设计说明
 
 ### 本轮目标

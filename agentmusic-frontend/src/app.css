@@ -1,0 +1,97 @@
+:root {
+  color: #f4f6f8;
+  background:
+    radial-gradient(circle at top left, rgba(34, 197, 94, 0.28), transparent 32%),
+    radial-gradient(circle at top right, rgba(15, 118, 110, 0.32), transparent 30%),
+    linear-gradient(180deg, #0a1011 0%, #12191b 55%, #0e1415 100%);
+  font-family: "Segoe UI", "Noto Sans", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+code {
+  font-family: "Cascadia Code", "Fira Code", monospace;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 32px 20px;
+}
+
+.hero-card {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  background: rgba(7, 12, 13, 0.72);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px);
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  color: #7ee0a2;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.82rem;
+}
+
+.hero-card h1 {
+  margin: 0;
+  max-width: 720px;
+  font-size: clamp(2.5rem, 5vw, 4.8rem);
+  line-height: 0.98;
+}
+
+.description {
+  max-width: 760px;
+  margin: 20px 0 0;
+  color: rgba(244, 246, 248, 0.78);
+  font-size: 1.05rem;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.status-item {
+  padding: 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.status-item h2 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.status-item p {
+  margin: 0;
+  color: rgba(244, 246, 248, 0.75);
+}
+
+@media (max-width: 640px) {
+  .app-shell {
+    padding: 18px;
+  }
+
+  .hero-card {
+    padding: 24px;
+    border-radius: 22px;
+  }
+}
