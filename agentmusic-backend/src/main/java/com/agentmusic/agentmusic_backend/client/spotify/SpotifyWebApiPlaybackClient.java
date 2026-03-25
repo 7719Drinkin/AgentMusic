@@ -1,0 +1,221 @@
+package com.agentmusic.agentmusic_backend.client.spotify;
+
+import com.agentmusic.agentmusic_backend.client.SpotifyBridgeDevice;
+import com.agentmusic.agentmusic_backend.client.SpotifyPlaybackClient;
+import com.agentmusic.agentmusic_backend.client.SpotifyPlaybackState;
+import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriComponentsBuilder;
+
+@Component
+public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
+
+    private static final String API_BASE_URL = "https://api.spotify.com/v1";
+
+    private final WebClient webClient;
+
+    public SpotifyWebApiPlaybackClient(WebClient.Builder webClientBuilder) {
+        this.webClient = webClientBuilder.baseUrl(API_BASE_URL).build();
+    }
+
+    @Override
+    public Optional<SpotifyPlaybackState> getPlaybackState(String accessToken) {
+        CurrentPlaybackResponse response = webClient.get()
+                .uri("/me/player")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .bodyToMono(CurrentPlaybackResponse.class)
+                .onErrorComplete()
+                .block();
+
+        if (response == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new SpotifyPlaybackState(
+                response.item() == null ? null : response.item().id(),
+                response.progressMs(),
+                Boolean.TRUE.equals(response.isPlaying()),
+                toPlaybackMode(response.shuffleState(), response.repeatState()),
+                response.device() == null ? null : response.device().id()
+        ));
+    }
+
+    @Override
+    public List<SpotifyBridgeDevice> getAvailableDevices(String accessToken) {
+        DevicesResponse response = webClient.get()
+                .uri("/me/player/devices")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .bodyToMono(DevicesResponse.class)
+                .onErrorReturn(new DevicesResponse(List.of()))
+                .block();
+
+        if (response == null || response.devices() == null) {
+            return List.of();
+        }
+        return response.devices().stream()
+                .map(device -> new SpotifyBridgeDevice(
+                        device.id(),
+                        device.name(),
+                        Boolean.TRUE.equals(device.isActive()),
+                        device.type(),
+                        device.volumePercent()
+                ))
+                .toList();
+    }
+
+    @Override
+    public void playTrack(String accessToken, String trackId, String deviceId) {
+        PlayRequest body = new PlayRequest(List.of("spotify:track:" + trackId));
+        webClient.put()
+                .uri(withOptionalDevice("/me/player/play", deviceId))
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .bodyValue(body)
+                .retrieve()
+                .toBodilessEntity()
+                .block();
+    }
+
+    @Override
+    public void pause(String accessToken, String deviceId) {
+        webClient.put()
+                .uri(withOptionalDevice("/me/player/pause", deviceId))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .toBodilessEntity()
+                .block();
+    }
+
+    @Override
+    public void seek(String accessToken, int positionMs, String deviceId) {
+        webClient.put()
+                .uri(UriComponentsBuilder.fromPath("/me/player/seek")
+                        .queryParam("position_ms", positionMs)
+                        .queryParamIfPresent("device_id", Optional.ofNullable(blankToNull(deviceId)))
+                        .build(true)
+                        .toUri())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .toBodilessEntity()
+                .block();
+    }
+
+    @Override
+    public void changePlaybackMode(String accessToken, PlaybackMode playbackMode, String deviceId) {
+        boolean shuffle = playbackMode == PlaybackMode.SHUFFLE;
+        String repeatState = switch (playbackMode) {
+            case SEQUENTIAL, SHUFFLE -> "off";
+            case LIST_LOOP -> "context";
+            case SINGLE_LOOP -> "track";
+        };
+
+        webClient.put()
+                .uri(UriComponentsBuilder.fromPath("/me/player/shuffle")
+                        .queryParam("state", shuffle)
+                        .queryParamIfPresent("device_id", Optional.ofNullable(blankToNull(deviceId)))
+                        .build(true)
+                        .toUri())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .toBodilessEntity()
+                .block();
+
+        webClient.put()
+                .uri(UriComponentsBuilder.fromPath("/me/player/repeat")
+                        .queryParam("state", repeatState)
+                        .queryParamIfPresent("device_id", Optional.ofNullable(blankToNull(deviceId)))
+                        .build(true)
+                        .toUri())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .toBodilessEntity()
+                .block();
+    }
+
+    private java.net.URI withOptionalDevice(String path, String deviceId) {
+        return UriComponentsBuilder.fromPath(path)
+                .queryParamIfPresent("device_id", Optional.ofNullable(blankToNull(deviceId)))
+                .build(true)
+                .toUri();
+    }
+
+    private PlaybackMode toPlaybackMode(Boolean shuffleState, String repeatState) {
+        if (Boolean.TRUE.equals(shuffleState)) {
+            return PlaybackMode.SHUFFLE;
+        }
+        if ("track".equalsIgnoreCase(repeatState)) {
+            return PlaybackMode.SINGLE_LOOP;
+        }
+        if ("context".equalsIgnoreCase(repeatState)) {
+            return PlaybackMode.LIST_LOOP;
+        }
+        return PlaybackMode.SEQUENTIAL;
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    private record PlayRequest(List<String> uris) {
+    }
+
+    private record DevicesResponse(List<DeviceResponse> devices) {
+    }
+
+    private record DeviceResponse(
+            String id,
+            String name,
+            String type,
+            Boolean isActive,
+            Integer volumePercent
+    ) {
+        @com.fasterxml.jackson.annotation.JsonProperty("is_active")
+        public Boolean isActive() {
+            return isActive;
+        }
+
+        @com.fasterxml.jackson.annotation.JsonProperty("volume_percent")
+        public Integer volumePercent() {
+            return volumePercent;
+        }
+    }
+
+    private record CurrentPlaybackResponse(
+            DeviceResponse device,
+            TrackItem item,
+            Integer progressMs,
+            Boolean isPlaying,
+            Boolean shuffleState,
+            String repeatState
+    ) {
+        @com.fasterxml.jackson.annotation.JsonProperty("progress_ms")
+        public Integer progressMs() {
+            return progressMs;
+        }
+
+        @com.fasterxml.jackson.annotation.JsonProperty("is_playing")
+        public Boolean isPlaying() {
+            return isPlaying;
+        }
+
+        @com.fasterxml.jackson.annotation.JsonProperty("shuffle_state")
+        public Boolean shuffleState() {
+            return shuffleState;
+        }
+
+        @com.fasterxml.jackson.annotation.JsonProperty("repeat_state")
+        public String repeatState() {
+            return repeatState;
+        }
+    }
+
+    private record TrackItem(String id) {
+    }
+}
+

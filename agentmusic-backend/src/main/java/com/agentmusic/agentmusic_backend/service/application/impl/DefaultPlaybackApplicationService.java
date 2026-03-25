@@ -1,7 +1,9 @@
 package com.agentmusic.agentmusic_backend.service.application.impl;
 
+import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
 import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
 import com.agentmusic.agentmusic_backend.dto.UpdatePlaybackSessionRequest;
+import com.agentmusic.agentmusic_backend.service.BridgePlaybackControlService;
 import com.agentmusic.agentmusic_backend.service.PlaybackSessionService;
 import com.agentmusic.agentmusic_backend.service.application.PlaybackApplicationService;
 import java.util.Optional;
@@ -11,9 +13,14 @@ import org.springframework.stereotype.Service;
 public class DefaultPlaybackApplicationService implements PlaybackApplicationService {
 
     private final PlaybackSessionService playbackSessionService;
+    private final BridgePlaybackControlService bridgePlaybackControlService;
 
-    public DefaultPlaybackApplicationService(PlaybackSessionService playbackSessionService) {
+    public DefaultPlaybackApplicationService(
+            PlaybackSessionService playbackSessionService,
+            BridgePlaybackControlService bridgePlaybackControlService
+    ) {
         this.playbackSessionService = playbackSessionService;
+        this.bridgePlaybackControlService = bridgePlaybackControlService;
     }
 
     @Override
@@ -33,5 +40,19 @@ public class DefaultPlaybackApplicationService implements PlaybackApplicationSer
                 request.deviceId()
         );
     }
-}
 
+    @Override
+    public PlaybackSessionDto playTrack(String userId, String trackId, String deviceId, PlaybackMode playbackMode) {
+        return bridgePlaybackControlService.playTrack(userId, trackId, playbackMode, deviceId);
+    }
+
+    @Override
+    public PlaybackSessionDto pause(String userId, String deviceId) {
+        return bridgePlaybackControlService.pause(userId, deviceId);
+    }
+
+    @Override
+    public Optional<PlaybackSessionDto> syncBridgeState(String userId) {
+        return Optional.ofNullable(bridgePlaybackControlService.syncPlaybackState(userId));
+    }
+}

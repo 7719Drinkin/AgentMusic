@@ -556,6 +556,90 @@ Controller
 
 这条链路已经满足后续 Agent / Planner 查询歌曲和艺人信息的基础能力。
 
+## Spotify Playback Client 与 Planner 执行接线
+
+### 本轮目标
+
+打通 bridge 模式下的播放控制链路，并让 Planner 的以下 intent 不再停留在占位层：
+
+- `PLAYBACK_CONTROL`
+- `COMPOSITE_REQUEST`
+
+### 已完成内容
+
+1. 新增 `SpotifyWebApiPlaybackClient`
+   - 已实现：
+     - 读取当前播放状态
+     - 读取可用设备列表
+     - 播放指定歌曲
+     - 暂停播放
+     - seek
+     - 切换播放模式（shuffle / repeat）
+
+2. 新增 bridge 播放内部模型
+   - `SpotifyPlaybackState`
+   - `SpotifyBridgeDevice`
+
+3. 新增 `BridgePlaybackControlService`
+   - 负责：
+     - 用 bridge token 调用 Spotify playback API
+     - 将结果同步写回本地 `sessions`
+
+4. 扩展 `PlaybackApplicationService`
+   - 新增：
+     - `playTrack`
+     - `pause`
+     - `syncBridgeState`
+
+### Planner 执行层变化
+
+`DefaultTaskExecutor` 已不再只是占位回复。
+
+当前行为：
+
+1. `PLAYBACK_CONTROL`
+   - 如果识别到暂停语义，则调用播放服务暂停
+   - 否则尝试读取当前本地 / bridge 状态，并按解析出的播放模式继续播放
+
+2. `COMPOSITE_REQUEST`
+   - 先走 `MusicQueryApplicationService.searchTracks`
+   - 选择第一首命中曲目
+   - 再调用 `PlaybackApplicationService.playTrack`
+
+### 当前效果
+
+这意味着 Agent 已经具备最小闭环：
+
+```text
+自然语言请求
+  -> Planner
+    -> 搜索歌曲
+    -> 调 bridge playback API
+    -> 同步本地 session
+    -> 返回执行结果
+```
+
+### 当前边界
+
+本轮仍然没有做：
+
+- next / previous
+- transfer playback
+- volume control
+- 更细的设备选择策略
+- 更强的多步 planner 参数抽取
+- 失败重试和异常翻译
+
+### 风险说明
+
+当前 `COMPOSITE_REQUEST` 选择的是搜索结果的第一首曲目，这只是第一版最小可运行策略。
+
+后续需要补：
+
+- 更强的参数抽取
+- 结果排序 / 置信度
+- 结合用户偏好做候选选择
+
 ## Spotify Bridge Mode 与 Planner 骨架
 
 ### 已新增正式设计文档

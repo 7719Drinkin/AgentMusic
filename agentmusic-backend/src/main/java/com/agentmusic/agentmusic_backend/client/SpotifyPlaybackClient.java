@@ -1,8 +1,14 @@
 package com.agentmusic.agentmusic_backend.client;
 
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
+import java.util.List;
+import java.util.Optional;
 
 public interface SpotifyPlaybackClient {
+
+    Optional<SpotifyPlaybackState> getPlaybackState(String accessToken);
+
+    List<SpotifyBridgeDevice> getAvailableDevices(String accessToken);
 
     void playTrack(String accessToken, String trackId, String deviceId);
 
