@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
 
 @Configuration
-@EnableConfigurationProperties(OpenAiProperties.class)
+@EnableConfigurationProperties({OpenAiProperties.class, AgentChatProperties.class})
 public class SemanticKernelConfig {
 
     @Bean

@@ -66,7 +66,7 @@ function AlbumTab() {
     <div>
       <TitleM>专辑</TitleM>
       <div className={styles.Grid}>
-        {PLAYLIST.filter((item) => item.type === 'alb眉m').map((item) => (
+        {PLAYLIST.filter((item) => item.type === 'album').map((item) => (
           <PlaylistCardM key={item.title} data={item} />
         ))}
       </div>

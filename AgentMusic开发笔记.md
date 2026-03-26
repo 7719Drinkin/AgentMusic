@@ -547,6 +547,42 @@ BUILD SUCCESS
   - 左侧歌单区 -> `/api/playlists/{userId}`
   - 底部播放器状态 -> `/api/playback/{userId}/session`
 
+## 2026-03-26 Minimal player dataset and optional live LLM branch
+
+### 前端静态数据收缩
+
+- 将旧前端静态歌单数据缩减为最小测试集
+- 删除大部分第三方 mp3 直链
+- 保留一个 Spotify preview 链接作为底部播放器测试音源
+
+这样做的目的：
+
+- 避免页面启动时继续请求大量不稳定的旧音频地址
+- 在未接入 Spotify bridge 播放控制前，保留最小播放器联调能力
+
+### CHAT_ONLY 的真实 LLM 分支
+
+- 为 `CHAT_ONLY / UNKNOWN` 增加了一个可开关的真实 LLM 回复分支
+- 默认关闭，不会在日常开发中消耗 token
+- 配置项：
+  - `agent.chat.live-llm-enabled`
+  - 默认值：`false`
+
+### 当前行为
+
+- 默认情况下：
+  - 仍然走本地硬编码 / planner skeleton 逻辑
+- 手动开启 `agent.chat.live-llm-enabled=true` 时：
+  - `CHAT_ONLY / UNKNOWN` 会尝试请求 OpenAI Chat Completions
+  - 失败时回退到本地提示文案
+
+### 验证情况
+
+- 前端 `npm run build` 通过
+- 后端 `mvn test` 通过
+- 由于当前本机到 `api.openai.com:443` 的直连请求被网络层阻断，未能在本轮内完成实时在线验证
+- 代码路径已接好，后续可在本地重启 Spring Boot 后，临时开启配置打一条聊天请求进行验证
+
 ## 2026-03-25 Planner intent relationship refactor
 
 - Updated planner docs so `PLAY_RECOMMENDATION` is the default recommendation path.
