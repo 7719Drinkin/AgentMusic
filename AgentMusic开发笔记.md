@@ -602,6 +602,28 @@ BUILD SUCCESS
 - 基本功能开发已开始从“聊天页联通”进入“推荐歌单联通”
 - 下一步优先继续接底部播放器的后端会话状态
 
+## 2026-03-26 Footer playback session integration
+
+### 本轮范围
+
+- 底部播放器开始读取后端 `GET /api/playback/{userId}/session`
+- 若 session 中存在 `currentTrackId`，再请求 `GET /api/music/tracks/{trackId}`
+- 将返回的曲目预览地址、曲名、封面、播放状态同步到前端播放器状态
+
+### 当前策略
+
+- 保留现有播放器 UI 和本地控制壳
+- 后端 session 数据优先
+- 静态测试音源继续作为兜底数据
+- 聊天页若收到 `session`，会触发底部播放器刷新
+
+### 结果
+
+- 底部播放器已开始从“纯静态前端数据”向“后端真实播放会话”过渡
+- 下一步继续接：
+  - 播放/暂停/模式切换 -> 后端 playback API
+  - 进度拖动 -> 后端 playback API
+
 ## 2026-03-26 Local config loading fix for live LLM switch
 
 ### 问题

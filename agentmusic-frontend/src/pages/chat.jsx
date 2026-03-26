@@ -98,6 +98,9 @@ function ChatPage() {
       if (Array.isArray(response.recommendedPlaylists) && response.recommendedPlaylists.length > 0) {
         window.dispatchEvent(new CustomEvent('agentmusic:playlists-updated'))
       }
+      if (response.session) {
+        window.dispatchEvent(new CustomEvent('agentmusic:playback-session-updated'))
+      }
     } catch (error) {
       setMessages((current) => [
         ...current,
