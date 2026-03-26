@@ -15,3 +15,12 @@
     height: 1px;
     min-height: 1px;
 }
+
+.PlaylistList{
+    display: grid;
+    gap: 4px;
+}
+
+.PlaylistItem{
+    padding: 2px 0;
+}

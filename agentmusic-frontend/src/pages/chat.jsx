@@ -95,6 +95,9 @@ function ChatPage() {
 
       const reply = normalizeMessage(response.reply)
       setMessages((current) => [...current, reply])
+      if (Array.isArray(response.recommendedPlaylists) && response.recommendedPlaylists.length > 0) {
+        window.dispatchEvent(new CustomEvent('agentmusic:playlists-updated'))
+      }
     } catch (error) {
       setMessages((current) => [
         ...current,

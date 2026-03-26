@@ -583,6 +583,25 @@ BUILD SUCCESS
 - 由于当前本机到 `api.openai.com:443` 的直连请求被网络层阻断，未能在本轮内完成实时在线验证
 - 代码路径已接好，后续可在本地重启 Spring Boot 后，临时开启配置打一条聊天请求进行验证
 
+## 2026-03-26 Sidebar playlist integration
+
+### 已实现内容
+
+- 左侧推荐歌单区开始通过前端 API 调用后端 `GET /api/playlists/{userId}`
+- 默认用户先固定为 `demo-user`
+- 聊天页在收到后端推荐歌单结果后，会触发一次侧栏歌单刷新
+
+### 当前范围
+
+- 本轮只先实现“后端歌单历史 -> 前端侧栏列表”
+- 暂未改造歌单详情页去读取后端 playlist DTO
+- 暂未将播放控制和后端会话状态接入底部播放器
+
+### 结果
+
+- 基本功能开发已开始从“聊天页联通”进入“推荐歌单联通”
+- 下一步优先继续接底部播放器的后端会话状态
+
 ## 2026-03-25 Planner intent relationship refactor
 
 - Updated planner docs so `PLAY_RECOMMENDATION` is the default recommendation path.
