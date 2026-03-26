@@ -636,6 +636,21 @@ BUILD SUCCESS
 
 这样可以直接判断当前运行实例是否真正读取到了 live LLM 配置和 OpenAI key。
 
+### OpenAI key 显式环境变量通道
+
+根据运行时诊断结果：
+
+- `liveLlmEnabledConfigured=true`
+- `openAiKeyPresent=false`
+
+说明运行实例已经读到 live LLM 开关，但没有成功读到 `openai.api.key`。
+
+为避免继续依赖本地文件导入路径，本轮补充：
+
+- `openai.api.key=${OPENAI_API_KEY:}`
+
+这样可以直接通过环境变量 `OPENAI_API_KEY` 为后端提供 key。
+
 ## 2026-03-25 Planner intent relationship refactor
 
 - Updated planner docs so `PLAY_RECOMMENDATION` is the default recommendation path.
