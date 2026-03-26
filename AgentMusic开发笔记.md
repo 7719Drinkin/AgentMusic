@@ -516,6 +516,37 @@ BUILD SUCCESS
 - 有消息时，底部输入框不会再被播放器栏遮挡
 - 聊天消息列表的可滚动终点位于播放器栏上方
 
+## 2026-03-26 Agent chat frontend-backend integration
+
+### 本轮目标
+
+先打通第一条真实联通链路：
+
+- 前端聊天页
+- `/api/agent/history/{userId}`
+- `/api/agent/chat`
+
+### 后端调整
+
+- 新增开发期 CORS 配置，允许前端开发服务器访问 `/api/**`
+- 新增配置项 `app.cors.allowed-origins`
+
+### 前端调整
+
+- 新增前端 API 请求封装
+- 聊天页启动时读取聊天历史
+- 发送消息时调用后端 `POST /api/agent/chat`
+- 保留现有聊天输入交互：回车发送、Shift+回车换行、输入框自动增高
+- 发送失败时在聊天流中直接显示错误反馈
+
+### 当前结果
+
+- Agent 聊天页已不再依赖纯前端 mock 消息
+- 前后端第一条真实业务链路已具备联通条件
+- 下一步应继续接：
+  - 左侧歌单区 -> `/api/playlists/{userId}`
+  - 底部播放器状态 -> `/api/playback/{userId}/session`
+
 ## 2026-03-25 Planner intent relationship refactor
 
 - Updated planner docs so `PLAY_RECOMMENDATION` is the default recommendation path.

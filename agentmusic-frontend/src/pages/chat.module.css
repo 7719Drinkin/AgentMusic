@@ -176,6 +176,10 @@
   outline: none;
 }
 
+.ChatInput:disabled {
+  opacity: 0.7;
+}
+
 .InputActions {
   display: flex;
   justify-content: flex-end;
@@ -195,6 +199,11 @@
   background: #2a2a2a;
   color: #fff;
   cursor: pointer;
+}
+
+.IconButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .IconButton svg {
@@ -238,6 +247,12 @@
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 14px;
+}
+
+.StatusText {
+  margin: 16px 0 0;
+  color: #b3b3b3;
+  font-size: 14px;
 }
 
 .PromptCard:hover,
