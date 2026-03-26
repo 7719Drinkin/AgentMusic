@@ -602,6 +602,29 @@ BUILD SUCCESS
 - 基本功能开发已开始从“聊天页联通”进入“推荐歌单联通”
 - 下一步优先继续接底部播放器的后端会话状态
 
+## 2026-03-26 Local config loading fix for live LLM switch
+
+### 问题
+
+在 `application-local.properties` 中设置：
+
+- `agent.chat.live-llm-enabled=true`
+
+但运行中的聊天接口仍返回 `planner-skeleton`。
+
+### 处理
+
+- 将 `spring.config.import` 扩展为同时支持：
+  - 从 `agentmusic-backend` 目录启动
+  - 从项目根目录启动
+- 将 `agent.chat.live-llm-enabled` 改为基础默认值 `false`
+- 允许 `application-local.properties` 直接覆盖该值
+
+### 结果
+
+- 本地私有配置中的 `agent.chat.live-llm-enabled=true` 现在能更稳定地被 Spring Boot 读取
+- 后续验证 live LLM 时，只需修改本地配置并完全重启后端即可
+
 ## 2026-03-25 Planner intent relationship refactor
 
 - Updated planner docs so `PLAY_RECOMMENDATION` is the default recommendation path.
