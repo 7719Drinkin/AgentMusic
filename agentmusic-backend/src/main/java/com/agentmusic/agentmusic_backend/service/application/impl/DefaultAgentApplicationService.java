@@ -61,10 +61,15 @@ public class DefaultAgentApplicationService implements AgentApplicationService {
         PlannerExecutionResult executionResult = executePlan(plan, planningContext);
 
         Map<String, Object> replyMetadata = new HashMap<>();
+        var runtimeStatus = liveChatReplyService.getRuntimeStatus();
         replyMetadata.put("stage", resolveReplyStage(plan));
         replyMetadata.put("intent", executionResult.plan().intent().name());
         replyMetadata.put("stepCount", executionResult.plan().steps().size());
         replyMetadata.put("planSummary", executionResult.plan().summary());
+        replyMetadata.put("liveLlmEnabledConfigured", runtimeStatus.liveLlmEnabledConfigured());
+        replyMetadata.put("openAiKeyPresent", runtimeStatus.openAiKeyPresent());
+        replyMetadata.put("openAiModelId", runtimeStatus.openAiModelId());
+        replyMetadata.put("liveLlmAvailable", runtimeStatus.liveLlmAvailable());
 
         ChatMessageDto reply = chatMemoryService.appendMessage(
                 request.userId(),

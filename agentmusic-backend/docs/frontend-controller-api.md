@@ -62,6 +62,19 @@ Response shape:
 
 - returns `ChatMessageDto[]`
 
+### `GET /api/agent/runtime-status`
+
+Response shape:
+
+```json
+{
+  "liveLlmEnabledConfigured": true,
+  "openAiKeyPresent": true,
+  "openAiModelId": "gpt-4o",
+  "liveLlmAvailable": true
+}
+```
+
 ## Playlist API
 
 ### `GET /api/playlists/{userId}?limit=10`

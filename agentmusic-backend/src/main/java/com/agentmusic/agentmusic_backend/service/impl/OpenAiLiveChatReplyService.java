@@ -2,6 +2,7 @@ package com.agentmusic.agentmusic_backend.service.impl;
 
 import com.agentmusic.agentmusic_backend.config.AgentChatProperties;
 import com.agentmusic.agentmusic_backend.config.OpenAiProperties;
+import com.agentmusic.agentmusic_backend.dto.AgentRuntimeStatusDto;
 import com.agentmusic.agentmusic_backend.service.LiveChatReplyService;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -89,6 +90,18 @@ public class OpenAiLiveChatReplyService implements LiveChatReplyService {
                 && StringUtils.hasText(openAiProperties.apiKey())
                 && openAiProperties.chat() != null
                 && StringUtils.hasText(openAiProperties.chat().modelId());
+    }
+
+    @Override
+    public AgentRuntimeStatusDto getRuntimeStatus() {
+        return new AgentRuntimeStatusDto(
+                agentChatProperties.liveLlmEnabled(),
+                openAiProperties != null && StringUtils.hasText(openAiProperties.apiKey()),
+                openAiProperties != null && openAiProperties.chat() != null
+                        ? openAiProperties.chat().modelId()
+                        : null,
+                isEnabled()
+        );
     }
 
     @SuppressWarnings("unchecked")

@@ -625,6 +625,17 @@ BUILD SUCCESS
 - 本地私有配置中的 `agent.chat.live-llm-enabled=true` 现在能更稳定地被 Spring Boot 读取
 - 后续验证 live LLM 时，只需修改本地配置并完全重启后端即可
 
+### 额外诊断支持
+
+- 新增 `GET /api/agent/runtime-status`
+- 同时在聊天回复 `metadata` 中增加：
+  - `liveLlmEnabledConfigured`
+  - `openAiKeyPresent`
+  - `openAiModelId`
+  - `liveLlmAvailable`
+
+这样可以直接判断当前运行实例是否真正读取到了 live LLM 配置和 OpenAI key。
+
 ## 2026-03-25 Planner intent relationship refactor
 
 - Updated planner docs so `PLAY_RECOMMENDATION` is the default recommendation path.
