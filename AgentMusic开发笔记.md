@@ -710,6 +710,19 @@ BUILD SUCCESS
 
 这样可以直接通过环境变量 `OPENAI_API_KEY` 为后端提供 key。
 
+## 2026-04-02 SRS document baseline
+
+### 本轮新增
+
+- 在项目根目录新增正式需求分析文档：
+  - `AgentMusic需求分析说明书.md`
+
+### 文档目标
+
+- 严格按 SRS 思路整理项目需求
+- 明确目标、边界、角色、场景、异常流程、约束、验收标准与变更机制
+- 为后续开发与课程验收提供统一基线
+
 ## 2026-03-25 Planner intent relationship refactor
 
 - Updated planner docs so `PLAY_RECOMMENDATION` is the default recommendation path.
