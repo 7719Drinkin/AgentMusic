@@ -539,6 +539,40 @@ npm run build
 build success
 ```
 
+## 2026-04-02：Spotify 授权 scope 编码修复
+
+### 问题现象
+
+- 访问 `/api/auth/spotify/login` 时后端返回 500
+- 错误原因为 Spotify 授权 URL 中的 `scope` 参数包含空格，但未经过合法编码
+- 导致授权流程未跳转到 Spotify，`/api/auth/spotify/status` 一直为 `authorized=false`
+
+### 修复内容
+
+- 修改 `SpotifyWebApiAuthClient` 的授权 URL 构造方式
+- 由 `UriComponentsBuilder` 负责对 query 参数进行标准编码
+- 避免 `scope` 中的空格以非法字符形式进入 URL
+- 新增最小单元测试，验证授权地址中的 `scope` 参数已被编码
+
+### 修改文件
+
+- `agentmusic-backend/src/main/java/com/agentmusic/agentmusic_backend/client/spotify/SpotifyWebApiAuthClient.java`
+- `agentmusic-backend/src/test/java/com/agentmusic/agentmusic_backend/SpotifyWebApiAuthClientTests.java`
+
+### 验证
+
+后端执行：
+
+```bash
+mvn test
+```
+
+预期结果：
+
+```text
+BUILD SUCCESS
+```
+
 ## 2026-03-25 Chat page bottom boundary adjustment
 
 ### 调整内容

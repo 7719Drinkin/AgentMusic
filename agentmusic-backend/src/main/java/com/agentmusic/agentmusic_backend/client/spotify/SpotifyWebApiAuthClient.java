@@ -59,7 +59,8 @@ public class SpotifyWebApiAuthClient implements SpotifyAuthClient {
                 .queryParam("scope", String.join(" ", DEFAULT_SCOPES))
                 .queryParam("redirect_uri", spotifyBridgeProperties.redirectUri())
                 .queryParam("state", state)
-                .build(true)
+                .build()
+                .encode()
                 .toUri();
     }
 
@@ -122,4 +123,3 @@ public class SpotifyWebApiAuthClient implements SpotifyAuthClient {
     ) {
     }
 }
-
