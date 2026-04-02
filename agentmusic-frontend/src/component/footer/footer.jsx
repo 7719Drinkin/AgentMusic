@@ -64,7 +64,7 @@ function Footer(props){
                 payload = {
                     ...payload,
                     trackId: track.trackId,
-                    track: track.previewUrl || props.trackData.track,
+                    track: track.previewUrl || null,
                     trackName: track.title,
                     trackImg: track.albumImageUrl || props.trackData.trackImg,
                     trackArtist: artistName,
@@ -117,6 +117,17 @@ function Footer(props){
           audioRef.current.pause();
         }
     }, [props.trackData.track, props.isPlaying]);
+
+    useEffect(() => {
+        if (!audioRef.current) {
+            return;
+        }
+
+        const targetSeconds = (props.currentPositionMs || 0) / 1000;
+        if (Math.abs(audioRef.current.currentTime - targetSeconds) > 0.75) {
+            audioRef.current.currentTime = targetSeconds;
+        }
+    }, [props.currentPositionMs, props.trackData.trackId]);
 
     useEffect(() => {
         if (audioRef.current) {

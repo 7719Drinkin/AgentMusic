@@ -539,6 +539,49 @@ npm run build
 build success
 ```
 
+## 2026-04-02：无 Premium 播放闭环前端联动补齐
+
+### 本轮目标
+
+1. 让左侧推荐歌单具备播放入口
+2. 避免播放器在无 preview 音频时错误沿用旧音源
+3. 让后端 `session` 中的进度更准确回显到前端音频组件
+
+### 前端改动
+
+- 左侧推荐歌单列表改为可点击：
+  - 点击某个推荐歌单后，取首曲并调用 `/api/playback/{userId}/play`
+  - 同时带上：
+    - `playlistId`
+    - `trackIndex`
+  - 触发底部播放器刷新事件
+- 播放器会话同步逻辑调整：
+  - 若后端曲目无 `previewUrl`，不再回退到旧音源
+  - 避免页面显示新曲目、实际仍播放旧测试音源
+- 增加会话进度对 `<audio>` 的反向同步：
+  - 当前端收到新的 `currentPositionMs` 时，主动更新音频组件播放位置
+
+### 修改文件
+
+- `agentmusic-frontend/src/component/sidebar/playlist.jsx`
+- `agentmusic-frontend/src/component/sidebar/playlist.module.css`
+- `agentmusic-frontend/src/component/footer/footer.jsx`
+- `agentmusic-frontend/src/component/footer/audio.jsx`
+
+### 验证
+
+前端执行：
+
+```bash
+npm run build
+```
+
+预期结果：
+
+```text
+build success
+```
+
 ## 2026-04-02：Spotify 授权 scope 编码修复
 
 ### 问题现象
