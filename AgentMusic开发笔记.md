@@ -495,6 +495,50 @@ mvn test
 BUILD SUCCESS
 ```
 
+## 2026-04-02：底部播放器歌手名与 SRS 追踪表补充
+
+### 本轮目标
+
+1. 将底部播放器展示的 `artistId` 替换为真实歌手名
+2. 在 SRS 说明书中补充“已实现 / 未实现 / 待验证”的需求追踪表
+3. 明确将“设备列表展示”和“设备切换”调整为 Priority 2
+
+### 前端改动
+
+- 更新底部播放器会话同步逻辑：
+  - 在读取播放会话中的 `currentTrackId` 后，先查询曲目详情
+  - 若曲目包含 `artistId`，继续查询歌手详情接口
+  - 以真实歌手名填充播放器左侧显示区域
+- 修改文件：
+  - `agentmusic-frontend/src/api/music.js`
+  - `agentmusic-frontend/src/component/footer/footer.jsx`
+
+### 文档改动
+
+- 重写并规范化《AgentMusic需求分析说明书》编码与结构
+- 在说明书中新增需求追踪表，标记当前需求状态：
+  - 已实现
+  - 部分实现
+  - 未实现
+  - 待验证
+- 在需求优先级中明确：
+  - 设备列表展示：Priority 2
+  - 设备切换：Priority 2
+
+### 验证
+
+前端执行：
+
+```bash
+npm run build
+```
+
+预期结果：
+
+```text
+build success
+```
+
 ## 2026-03-25 Chat page bottom boundary adjustment
 
 ### 调整内容

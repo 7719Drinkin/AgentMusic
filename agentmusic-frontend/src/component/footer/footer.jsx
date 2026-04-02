@@ -17,7 +17,7 @@ import {
     seekPlayback,
     syncPlaybackSession
 } from '../../api/playback';
-import { fetchTrack } from '../../api/music';
+import { fetchArtist, fetchTrack } from '../../api/music';
 
 import { PLAYLIST } from "../../data/index";
 import CONST from '../../constants/index';
@@ -49,13 +49,23 @@ function Footer(props){
         if (session.currentTrackId) {
             const track = await fetchTrack(session.currentTrackId);
             if (track) {
+                let artistName = track.artistId || 'Spotify 曲目';
+
+                if (track.artistId) {
+                    try {
+                        const artist = await fetchArtist(track.artistId);
+                        artistName = artist?.name || artistName;
+                    } catch {
+                    }
+                }
+
                 payload = {
                     ...payload,
                     trackId: track.trackId,
                     track: track.previewUrl || props.trackData.track,
                     trackName: track.title,
                     trackImg: track.albumImageUrl || props.trackData.trackImg,
-                    trackArtist: track.artistId || 'Spotify 曲目',
+                    trackArtist: artistName,
                     durationMs: track.durationMs
                 };
             }
