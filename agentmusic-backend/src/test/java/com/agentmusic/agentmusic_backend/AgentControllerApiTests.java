@@ -58,16 +58,18 @@ class AgentControllerApiTests {
                 .andExpect(jsonPath("$.recommendedPlaylists.length()").value(1))
                 .andExpect(jsonPath("$.recommendedPlaylists[0].tracks.length()").value(5));
 
-        verify(playbackApplicationService, never()).playTrack(any(), any(), any(), any());
+        verify(playbackApplicationService, never()).playTrack(any(), any(), any(), any(), any(), any());
     }
 
     @Test
     void chatApiShouldUsePlayRecommendationAsDefaultRecommendationPath() throws Exception {
         when(musicQueryApplicationService.searchTracks(anyString(), anyInt())).thenReturn(sampleTracks());
-        when(playbackApplicationService.playTrack(anyString(), anyString(), any(), any()))
+        when(playbackApplicationService.playTrack(anyString(), anyString(), any(), any(), any(), any()))
                 .thenReturn(new PlaybackSessionDto(
                         "session-1",
                         "track-1",
+                        "playlist-1",
+                        0,
                         0,
                         true,
                         PlaybackMode.SHUFFLE,

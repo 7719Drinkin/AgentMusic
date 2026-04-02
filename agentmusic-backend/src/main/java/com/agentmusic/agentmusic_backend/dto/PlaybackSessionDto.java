@@ -6,6 +6,8 @@ import java.time.LocalDateTime;
 public record PlaybackSessionDto(
         String sessionId,
         String currentTrackId,
+        String currentPlaylistId,
+        Integer currentTrackIndex,
         Integer currentPositionMs,
         boolean isPlaying,
         PlaybackMode playbackMode,
@@ -13,4 +15,3 @@ public record PlaybackSessionDto(
         LocalDateTime lastUpdated
 ) {
 }
-

@@ -74,6 +74,8 @@ public class DefaultTaskExecutor implements TaskExecutor {
             PlaybackSessionDto session = playbackApplicationService.playTrack(
                     userId,
                     current.currentTrackId(),
+                    current.currentPlaylistId(),
+                    current.currentTrackIndex(),
                     current.deviceId(),
                     playbackMode
             );
@@ -99,6 +101,8 @@ public class DefaultTaskExecutor implements TaskExecutor {
         PlaybackSessionDto session = playbackApplicationService.playTrack(
                 userId,
                 entryTrack.trackId(),
+                recommendation.playlist().id(),
+                0,
                 null,
                 inferPlaybackMode(message)
         );
@@ -119,6 +123,8 @@ public class DefaultTaskExecutor implements TaskExecutor {
         PlaybackSessionDto session = playbackApplicationService.playTrack(
                 userId,
                 selected.trackId(),
+                null,
+                null,
                 null,
                 playbackMode
         );

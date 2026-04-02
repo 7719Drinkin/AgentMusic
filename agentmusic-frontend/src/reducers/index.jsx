@@ -17,6 +17,8 @@ const INITIAL_STATE = {
   currentPositionMs: 0,
   playbackMode: 'SEQUENTIAL',
   deviceId: null,
+  currentPlaylistId: null,
+  currentTrackIndex: null,
 };
 
 export const reducer = (state = INITIAL_STATE, action) => {
@@ -56,6 +58,8 @@ export const reducer = (state = INITIAL_STATE, action) => {
         currentPositionMs: action.payload.currentPositionMs ?? 0,
         playbackMode: action.payload.playbackMode ?? 'SEQUENTIAL',
         deviceId: action.payload.deviceId ?? null,
+        currentPlaylistId: action.payload.currentPlaylistId ?? null,
+        currentTrackIndex: action.payload.currentTrackIndex ?? null,
         trackData: {
           ...state.trackData,
           trackKey: [-1, -1],

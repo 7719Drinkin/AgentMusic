@@ -14,6 +14,7 @@ import com.agentmusic.agentmusic_backend.service.PlaylistService;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import org.springframework.stereotype.Service;
@@ -73,14 +74,22 @@ public class DefaultPlaylistService implements PlaylistService {
     @Override
     public List<PlaylistDto> getRecentPlaylists(String userId, int limit) {
         return playlistRepository.findRecentByUserId(userId, limit).stream()
-                .map(playlist -> {
-                    List<PlaylistTrack> playlistTracks = playlistTrackRepository.findByPlaylistId(playlist.id());
-                    List<Track> tracks = playlistTracks.stream()
-                            .map(playlistTrack -> musicMetadataService.findTrack(playlistTrack.trackId()).orElseThrow())
-                            .toList();
-                    return DomainDtoMapper.toDto(playlist, playlistTracks, tracks);
-                })
+                .map(this::toPlaylistDto)
                 .toList();
+    }
+
+    @Override
+    public Optional<PlaylistDto> getPlaylistById(String playlistId) {
+        return playlistRepository.findById(playlistId)
+                .map(this::toPlaylistDto);
+    }
+
+    private PlaylistDto toPlaylistDto(Playlist playlist) {
+        List<PlaylistTrack> playlistTracks = playlistTrackRepository.findByPlaylistId(playlist.id());
+        List<Track> tracks = playlistTracks.stream()
+                .map(playlistTrack -> musicMetadataService.findTrack(playlistTrack.trackId()).orElseThrow())
+                .toList();
+        return DomainDtoMapper.toDto(playlist, playlistTracks, tracks);
     }
 
     private Track toDomainTrack(TrackDto trackDto) {

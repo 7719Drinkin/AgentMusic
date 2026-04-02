@@ -6,6 +6,8 @@ public record PlaybackSession(
         String id,
         String userId,
         String currentTrackId,
+        String currentPlaylistId,
+        Integer currentTrackIndex,
         Integer currentPositionMs,
         boolean isPlaying,
         PlaybackMode playbackMode,
@@ -14,4 +16,3 @@ public record PlaybackSession(
         LocalDateTime expiresAt
 ) {
 }
-

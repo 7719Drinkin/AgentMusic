@@ -30,6 +30,8 @@ public class DefaultPlaybackSessionService implements PlaybackSessionService {
             String userId,
             String sessionId,
             String currentTrackId,
+            String currentPlaylistId,
+            Integer currentTrackIndex,
             Integer currentPositionMs,
             boolean isPlaying,
             PlaybackMode playbackMode,
@@ -40,6 +42,8 @@ public class DefaultPlaybackSessionService implements PlaybackSessionService {
                 sessionId == null || sessionId.isBlank() ? UUID.randomUUID().toString() : sessionId,
                 userId,
                 currentTrackId,
+                currentPlaylistId,
+                currentTrackIndex,
                 currentPositionMs,
                 isPlaying,
                 playbackMode,
@@ -57,4 +61,3 @@ public class DefaultPlaybackSessionService implements PlaybackSessionService {
                 .map(DomainDtoMapper::toDto);
     }
 }
-

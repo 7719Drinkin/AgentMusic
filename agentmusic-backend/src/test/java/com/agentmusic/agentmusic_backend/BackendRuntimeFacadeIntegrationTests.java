@@ -64,7 +64,7 @@ class BackendRuntimeFacadeIntegrationTests {
                 )
         );
         chatMemoryService.appendMessage(userId, ChatRole.USER, "来点轻松的粤语歌", null);
-        playbackSessionService.saveSession(userId, null, "track-1", 12000, true, PlaybackMode.SHUFFLE, "device-1");
+        playbackSessionService.saveSession(userId, null, "track-1", playlist.id(), 0, 12000, true, PlaybackMode.SHUFFLE, "device-1");
 
         assertThat(backendRuntimeFacade.getRecentPlaylists(userId))
                 .extracting(PlaylistDto::id)
@@ -78,4 +78,3 @@ class BackendRuntimeFacadeIntegrationTests {
                 .isEqualTo("track-1");
     }
 }
-

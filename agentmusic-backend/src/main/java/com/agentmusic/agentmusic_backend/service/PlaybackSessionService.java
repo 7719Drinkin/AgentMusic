@@ -10,6 +10,8 @@ public interface PlaybackSessionService {
             String userId,
             String sessionId,
             String currentTrackId,
+            String currentPlaylistId,
+            Integer currentTrackIndex,
             Integer currentPositionMs,
             boolean isPlaying,
             PlaybackMode playbackMode,
@@ -18,4 +20,3 @@ public interface PlaybackSessionService {
 
     Optional<PlaybackSessionDto> getActiveSession(String userId);
 }
-

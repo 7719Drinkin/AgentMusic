@@ -47,6 +47,8 @@ public class PlaybackController {
         return playbackApplicationService.playTrack(
                 userId,
                 request.trackId(),
+                request.playlistId(),
+                request.trackIndex(),
                 request.deviceId(),
                 request.playbackMode()
         );

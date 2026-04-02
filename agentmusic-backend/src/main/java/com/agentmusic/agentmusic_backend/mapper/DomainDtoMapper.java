@@ -68,6 +68,8 @@ public final class DomainDtoMapper {
         return new PlaybackSessionDto(
                 playbackSession.id(),
                 playbackSession.currentTrackId(),
+                playbackSession.currentPlaylistId(),
+                playbackSession.currentTrackIndex(),
                 playbackSession.currentPositionMs(),
                 playbackSession.isPlaying(),
                 playbackSession.playbackMode(),
@@ -101,4 +103,3 @@ public final class DomainDtoMapper {
                 .orElseThrow(() -> new IllegalArgumentException("Track not found for playlist mapping: " + trackId));
     }
 }
-

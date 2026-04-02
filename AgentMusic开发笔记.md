@@ -573,6 +573,79 @@ mvn test
 BUILD SUCCESS
 ```
 
+## 2026-04-02：无 Premium 可验证播放闭环第一阶段
+
+### 本轮目标
+
+1. 将“无 Premium 可验证版本”的开发链条固化为项目文档
+2. 让推荐结果默认写入本地 `PlaybackSession`
+3. 为本地上一首/下一首补齐歌单上下文
+4. 在 Spotify 调用失败时，播放器仍可退回本地 `session` 闭环
+
+### 文档新增
+
+- 新增《AgentMusic无Premium开发链路说明》：
+  - 明确当前阶段的权威状态源是 `PlaybackSession`
+  - 明确当前主路径是：
+    - 聊天推荐
+    - 歌单刷新
+    - 本地播放状态同步
+    - 底部播放器展示与本地控制
+
+### 后端改动
+
+- 扩展 `PlaybackSession` / `PlaybackSessionDto`：
+  - `currentPlaylistId`
+  - `currentTrackIndex`
+- 推荐播放路径现在会将：
+  - 推荐歌单 ID
+  - 首曲索引
+  一并写入本地播放会话
+- `PlaybackApplicationService` 新增本地 fallback 逻辑：
+  - 当 Spotify bridge 调用异常时
+  - 播放、暂停、seek、模式切换仍更新本地 `session`
+- 为上一首/下一首新增本地 fallback：
+  - 基于当前 `currentPlaylistId` 和 `currentTrackIndex`
+  - 从歌单上下文内切换当前曲目
+
+### 前端改动
+
+- 底部播放器 Redux 状态新增：
+  - `currentPlaylistId`
+  - `currentTrackIndex`
+- 播放器发起播放请求时，会把当前歌单上下文一起传给后端
+
+### 接口文档同步
+
+- 更新 `frontend-controller-api.md`
+- 明确 `PlaybackSessionDto` 与 `POST /api/playback/{userId}/play` 的新增字段
+
+### 验证
+
+后端执行：
+
+```bash
+mvn test
+```
+
+结果：
+
+```text
+BUILD SUCCESS
+```
+
+前端执行：
+
+```bash
+npm run build
+```
+
+结果：
+
+```text
+build success
+```
+
 ## 2026-03-25 Chat page bottom boundary adjustment
 
 ### 调整内容

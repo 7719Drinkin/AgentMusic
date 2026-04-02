@@ -43,7 +43,9 @@ function Footer(props){
             currentPositionMs: session.currentPositionMs,
             isPlaying: session.isPlaying,
             playbackMode: session.playbackMode,
-            deviceId: session.deviceId
+            deviceId: session.deviceId,
+            currentPlaylistId: session.currentPlaylistId,
+            currentTrackIndex: session.currentTrackIndex
         };
 
         if (session.currentTrackId) {
@@ -185,6 +187,8 @@ function Footer(props){
                 ? await pausePlayback(DEMO_USER_ID, props.deviceId)
                 : await playTrack(DEMO_USER_ID, {
                     trackId: props.trackData.trackId,
+                    playlistId: props.currentPlaylistId,
+                    trackIndex: props.currentTrackIndex,
                     deviceId: props.deviceId,
                     playbackMode: props.playbackMode
                 });
@@ -299,7 +303,9 @@ const mapStateToProps = (state) => {
         isPlaying: state.isPlaying,
         currentPositionMs: state.currentPositionMs,
         playbackMode: state.playbackMode,
-        deviceId: state.deviceId
+        deviceId: state.deviceId,
+        currentPlaylistId: state.currentPlaylistId,
+        currentTrackIndex: state.currentTrackIndex
     };
 };
   

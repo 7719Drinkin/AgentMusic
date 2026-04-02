@@ -40,6 +40,8 @@ Response shape:
   "session": {
     "sessionId": "session-id",
     "currentTrackId": "track-id",
+    "currentPlaylistId": "playlist-id",
+    "currentTrackIndex": 0,
     "currentPositionMs": 0,
     "isPlaying": true,
     "playbackMode": "SHUFFLE",
@@ -119,6 +121,8 @@ Request body:
 {
   "sessionId": "session-id",
   "currentTrackId": "track-id",
+  "currentPlaylistId": "playlist-id",
+  "currentTrackIndex": 0,
   "currentPositionMs": 12500,
   "isPlaying": true,
   "playbackMode": "SEQUENTIAL",
@@ -135,6 +139,8 @@ Request body:
 ```json
 {
   "trackId": "track-id",
+  "playlistId": "playlist-id",
+  "trackIndex": 0,
   "deviceId": "device-id",
   "playbackMode": "SEQUENTIAL"
 }
@@ -275,6 +281,8 @@ Response shape:
 
 - `sessionId`
 - `currentTrackId`
+- `currentPlaylistId`
+- `currentTrackIndex`
 - `currentPositionMs`
 - `isPlaying`
 - `playbackMode`
