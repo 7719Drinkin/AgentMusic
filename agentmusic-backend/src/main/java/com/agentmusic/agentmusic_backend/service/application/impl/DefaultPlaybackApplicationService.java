@@ -52,6 +52,26 @@ public class DefaultPlaybackApplicationService implements PlaybackApplicationSer
     }
 
     @Override
+    public PlaybackSessionDto nextTrack(String userId, String deviceId) {
+        return bridgePlaybackControlService.nextTrack(userId, deviceId);
+    }
+
+    @Override
+    public PlaybackSessionDto previousTrack(String userId, String deviceId) {
+        return bridgePlaybackControlService.previousTrack(userId, deviceId);
+    }
+
+    @Override
+    public PlaybackSessionDto seek(String userId, Integer positionMs, String deviceId) {
+        return bridgePlaybackControlService.seek(userId, positionMs == null ? 0 : positionMs, deviceId);
+    }
+
+    @Override
+    public PlaybackSessionDto changePlaybackMode(String userId, PlaybackMode playbackMode, String deviceId) {
+        return bridgePlaybackControlService.changePlaybackMode(userId, playbackMode, deviceId);
+    }
+
+    @Override
     public Optional<PlaybackSessionDto> syncBridgeState(String userId) {
         return Optional.ofNullable(bridgePlaybackControlService.syncPlaybackState(userId));
     }

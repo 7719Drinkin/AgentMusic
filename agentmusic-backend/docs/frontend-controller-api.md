@@ -128,6 +128,86 @@ Request body:
 
 - returns `PlaybackSessionDto`
 
+### `POST /api/playback/{userId}/play`
+
+Request body:
+
+```json
+{
+  "trackId": "track-id",
+  "deviceId": "device-id",
+  "playbackMode": "SEQUENTIAL"
+}
+```
+
+- returns `PlaybackSessionDto`
+
+### `POST /api/playback/{userId}/pause`
+
+Request body:
+
+```json
+{
+  "deviceId": "device-id"
+}
+```
+
+- returns `PlaybackSessionDto`
+
+### `POST /api/playback/{userId}/next`
+
+Request body:
+
+```json
+{
+  "deviceId": "device-id"
+}
+```
+
+- returns `PlaybackSessionDto`
+
+### `POST /api/playback/{userId}/previous`
+
+Request body:
+
+```json
+{
+  "deviceId": "device-id"
+}
+```
+
+- returns `PlaybackSessionDto`
+
+### `POST /api/playback/{userId}/seek`
+
+Request body:
+
+```json
+{
+  "positionMs": 12500,
+  "deviceId": "device-id"
+}
+```
+
+- returns `PlaybackSessionDto`
+
+### `POST /api/playback/{userId}/mode`
+
+Request body:
+
+```json
+{
+  "playbackMode": "SHUFFLE",
+  "deviceId": "device-id"
+}
+```
+
+- returns `PlaybackSessionDto`
+
+### `POST /api/playback/{userId}/sync`
+
+- returns `Optional<PlaybackSessionDto>`
+
 ## Music Query API
 
 ### `GET /api/music/tracks/{trackId}`

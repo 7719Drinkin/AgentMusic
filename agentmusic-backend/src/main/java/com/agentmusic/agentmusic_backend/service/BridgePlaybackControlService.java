@@ -9,6 +9,13 @@ public interface BridgePlaybackControlService {
 
     PlaybackSessionDto pause(String userId, String deviceId);
 
+    PlaybackSessionDto nextTrack(String userId, String deviceId);
+
+    PlaybackSessionDto previousTrack(String userId, String deviceId);
+
+    PlaybackSessionDto seek(String userId, int positionMs, String deviceId);
+
+    PlaybackSessionDto changePlaybackMode(String userId, PlaybackMode playbackMode, String deviceId);
+
     PlaybackSessionDto syncPlaybackState(String userId);
 }
-

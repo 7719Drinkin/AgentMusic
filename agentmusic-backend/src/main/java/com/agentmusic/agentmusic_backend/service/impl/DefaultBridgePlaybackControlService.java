@@ -35,9 +35,10 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
     @Override
     public PlaybackSessionDto playTrack(String userId, String trackId, PlaybackMode playbackMode, String deviceId) {
         String resolvedDeviceId = resolveDeviceId(deviceId);
+        PlaybackMode resolvedPlaybackMode = playbackMode == null ? PlaybackMode.SEQUENTIAL : playbackMode;
         return spotifyBridgeAuthService.getValidAccessToken()
                 .map(accessToken -> {
-                    spotifyPlaybackClient.changePlaybackMode(accessToken, playbackMode, resolvedDeviceId);
+                    spotifyPlaybackClient.changePlaybackMode(accessToken, resolvedPlaybackMode, resolvedDeviceId);
                     spotifyPlaybackClient.playTrack(accessToken, trackId, resolvedDeviceId);
                     return playbackSessionService.saveSession(
                             userId,
@@ -45,7 +46,7 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
                             trackId,
                             0,
                             true,
-                            playbackMode,
+                            resolvedPlaybackMode,
                             resolvedDeviceId
                     );
                 })
@@ -55,7 +56,7 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
                         trackId,
                         0,
                         true,
-                        playbackMode,
+                        resolvedPlaybackMode,
                         resolvedDeviceId
                 ));
     }
@@ -86,6 +87,69 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
                         PlaybackMode.SEQUENTIAL,
                         resolvedDeviceId
                 ));
+    }
+
+    @Override
+    public PlaybackSessionDto nextTrack(String userId, String deviceId) {
+        String resolvedDeviceId = resolveDeviceId(deviceId);
+        return spotifyBridgeAuthService.getValidAccessToken()
+                .map(accessToken -> {
+                    spotifyPlaybackClient.nextTrack(accessToken, resolvedDeviceId);
+                    return syncPlaybackState(userId);
+                })
+                .orElseGet(() -> playbackSessionService.getActiveSession(userId).orElse(null));
+    }
+
+    @Override
+    public PlaybackSessionDto previousTrack(String userId, String deviceId) {
+        String resolvedDeviceId = resolveDeviceId(deviceId);
+        return spotifyBridgeAuthService.getValidAccessToken()
+                .map(accessToken -> {
+                    spotifyPlaybackClient.previousTrack(accessToken, resolvedDeviceId);
+                    return syncPlaybackState(userId);
+                })
+                .orElseGet(() -> playbackSessionService.getActiveSession(userId).orElse(null));
+    }
+
+    @Override
+    public PlaybackSessionDto seek(String userId, int positionMs, String deviceId) {
+        String resolvedDeviceId = resolveDeviceId(deviceId);
+        return spotifyBridgeAuthService.getValidAccessToken()
+                .map(accessToken -> {
+                    spotifyPlaybackClient.seek(accessToken, positionMs, resolvedDeviceId);
+                    PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
+                    return playbackSessionService.saveSession(
+                            userId,
+                            current == null ? null : current.sessionId(),
+                            current == null ? null : current.currentTrackId(),
+                            positionMs,
+                            current != null && current.isPlaying(),
+                            current == null ? PlaybackMode.SEQUENTIAL : current.playbackMode(),
+                            resolvedDeviceId
+                    );
+                })
+                .orElseGet(() -> playbackSessionService.getActiveSession(userId).orElse(null));
+    }
+
+    @Override
+    public PlaybackSessionDto changePlaybackMode(String userId, PlaybackMode playbackMode, String deviceId) {
+        String resolvedDeviceId = resolveDeviceId(deviceId);
+        PlaybackMode resolvedPlaybackMode = playbackMode == null ? PlaybackMode.SEQUENTIAL : playbackMode;
+        return spotifyBridgeAuthService.getValidAccessToken()
+                .map(accessToken -> {
+                    spotifyPlaybackClient.changePlaybackMode(accessToken, resolvedPlaybackMode, resolvedDeviceId);
+                    PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
+                    return playbackSessionService.saveSession(
+                            userId,
+                            current == null ? null : current.sessionId(),
+                            current == null ? null : current.currentTrackId(),
+                            current == null ? 0 : current.currentPositionMs(),
+                            current != null && current.isPlaying(),
+                            resolvedPlaybackMode,
+                            resolvedDeviceId
+                    );
+                })
+                .orElseGet(() -> playbackSessionService.getActiveSession(userId).orElse(null));
     }
 
     @Override
@@ -120,4 +184,3 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
         return null;
     }
 }
-

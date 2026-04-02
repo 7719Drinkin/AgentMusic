@@ -624,6 +624,43 @@ BUILD SUCCESS
   - 播放/暂停/模式切换 -> 后端 playback API
   - 进度拖动 -> 后端 playback API
 
+## 2026-04-02 Footer playback control wiring
+
+### 后端新增控制接口
+
+为底部播放器补齐了以下 playback controller 接口：
+
+- `POST /api/playback/{userId}/play`
+- `POST /api/playback/{userId}/pause`
+- `POST /api/playback/{userId}/next`
+- `POST /api/playback/{userId}/previous`
+- `POST /api/playback/{userId}/seek`
+- `POST /api/playback/{userId}/mode`
+- `POST /api/playback/{userId}/sync`
+
+同时将 application service / bridge playback service / Spotify playback client 一并接通。
+
+### 前端接入范围
+
+底部播放器当前已将以下操作接到后端 playback API：
+
+- 播放 / 暂停
+- 上一首 / 下一首
+- 进度拖动 seek
+- Shuffle 切换
+- 循环模式切换
+
+### 当前策略
+
+- 若当前播放器状态来自后端 session，则优先走后端控制链路
+- 若当前仍是本地静态测试音源，则保留前端本地交互作为兜底
+- 这样可以在 Spotify 设备可用时直接验证真实播放器控制，也不会阻塞静态联调
+
+### 验证
+
+- `mvn test` 通过
+- `npm run build` 通过
+
 ## 2026-03-26 Local config loading fix for live LLM switch
 
 ### 问题

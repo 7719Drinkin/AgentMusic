@@ -14,8 +14,11 @@ public interface SpotifyPlaybackClient {
 
     void pause(String accessToken, String deviceId);
 
+    void nextTrack(String accessToken, String deviceId);
+
+    void previousTrack(String accessToken, String deviceId);
+
     void seek(String accessToken, int positionMs, String deviceId);
 
     void changePlaybackMode(String accessToken, PlaybackMode playbackMode, String deviceId);
 }
-

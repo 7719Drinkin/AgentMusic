@@ -14,5 +14,13 @@ public interface PlaybackApplicationService {
 
     PlaybackSessionDto pause(String userId, String deviceId);
 
+    PlaybackSessionDto nextTrack(String userId, String deviceId);
+
+    PlaybackSessionDto previousTrack(String userId, String deviceId);
+
+    PlaybackSessionDto seek(String userId, Integer positionMs, String deviceId);
+
+    PlaybackSessionDto changePlaybackMode(String userId, com.agentmusic.agentmusic_backend.domain.PlaybackMode playbackMode, String deviceId);
+
     Optional<PlaybackSessionDto> syncBridgeState(String userId);
 }

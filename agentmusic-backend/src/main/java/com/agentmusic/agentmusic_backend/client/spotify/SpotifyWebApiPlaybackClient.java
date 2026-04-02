@@ -93,6 +93,26 @@ public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
     }
 
     @Override
+    public void nextTrack(String accessToken, String deviceId) {
+        webClient.post()
+                .uri(withOptionalDevice("/me/player/next", deviceId))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .toBodilessEntity()
+                .block();
+    }
+
+    @Override
+    public void previousTrack(String accessToken, String deviceId) {
+        webClient.post()
+                .uri(withOptionalDevice("/me/player/previous", deviceId))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .toBodilessEntity()
+                .block();
+    }
+
+    @Override
     public void seek(String accessToken, int positionMs, String deviceId) {
         webClient.put()
                 .uri(UriComponentsBuilder.fromPath("/me/player/seek")
@@ -218,4 +238,3 @@ public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
     private record TrackItem(String id) {
     }
 }
-

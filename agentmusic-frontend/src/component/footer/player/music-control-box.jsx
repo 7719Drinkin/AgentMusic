@@ -1,44 +1,45 @@
-import { connect } from 'react-redux';
-import { changeTrack } from '../../../actions';
-import * as Icons from '../../icons';
-import IconButton from '../../buttons/icon-button';
-import PlayButton from '../../buttons/play-button';
+import * as Icons from '../../icons'
+import styles from "./music-control-box.module.css"
 
-import { PLAYLIST } from "../../../data/index";
-import styles from "./music-control-box.module.css";
-
-function MusicControlBox(props){
-
-    function decreaseIndex(){
-        if(props.trackData.trackKey[1] == 0){ }else{
-            props.changeTrack([props.trackData.trackKey[0], props.trackData.trackKey[1]-1])
-        }
-    }
-    function increaseIndex(){
-        if(props.trackData.trackKey[1] == (PLAYLIST[props.trackData.trackKey[0]].playlistData.length)-1){ }else{
-            props.changeTrack([props.trackData.trackKey[0], parseInt(props.trackData.trackKey[1])+1])
-        }
-    }
+function MusicControlBox({
+    isPlaying,
+    playbackMode,
+    onTogglePlay,
+    onPrevious,
+    onNext,
+    onToggleShuffle,
+    onCycleLoopMode
+}){
+    const shuffleActive = playbackMode === 'SHUFFLE'
+    const loopActive = playbackMode === 'LIST_LOOP' || playbackMode === 'SINGLE_LOOP'
 
     return (
         <div className={styles.musicControl}>
-            <IconButton icon={<Icons.Mix />} activeicon={<Icons.Mix />}/>
-            <button className={styles.button} onClick={decreaseIndex}>
+            <button
+                className={`${styles.button} ${shuffleActive ? styles.activeButton : ''}`}
+                onClick={onToggleShuffle}
+                type="button"
+            >
+                <Icons.Mix />
+            </button>
+            <button className={styles.button} onClick={onPrevious} type="button">
                 <Icons.Prev />
             </button>
-            <PlayButton isthisplay={true}/>
-            <button className={styles.button} onClick={increaseIndex}>
+            <button className={`${styles.button} ${styles.playButton}`} onClick={onTogglePlay} type="button">
+                {isPlaying ? <Icons.Pause /> : <Icons.Play />}
+            </button>
+            <button className={styles.button} onClick={onNext} type="button">
                 <Icons.Next />
             </button>
-            <IconButton icon={<Icons.Loop />} activeicon={<Icons.Loop />}/>
+            <button
+                className={`${styles.button} ${loopActive ? styles.activeButton : ''}`}
+                onClick={onCycleLoopMode}
+                type="button"
+            >
+                <Icons.Loop />
+            </button>
         </div>
     );
 }
 
-const mapStateToProps = (state) => {
-    return {
-      trackData: state.trackData
-    };
-};
-  
-export default connect(mapStateToProps, { changeTrack })(MusicControlBox);
+export default MusicControlBox;
