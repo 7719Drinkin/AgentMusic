@@ -8,7 +8,11 @@ function MusicControlBox({
     onPrevious,
     onNext,
     onToggleShuffle,
-    onCycleLoopMode
+    onCycleLoopMode,
+    disablePlay,
+    disableSkip,
+    disableModeToggle,
+    isBusy
 }){
     const shuffleActive = playbackMode === 'SHUFFLE'
     const loopActive = playbackMode === 'LIST_LOOP' || playbackMode === 'SINGLE_LOOP'
@@ -19,22 +23,29 @@ function MusicControlBox({
                 className={`${styles.button} ${shuffleActive ? styles.activeButton : ''}`}
                 onClick={onToggleShuffle}
                 type="button"
+                disabled={disableModeToggle || isBusy}
             >
                 <Icons.Mix />
             </button>
-            <button className={styles.button} onClick={onPrevious} type="button">
+            <button className={styles.button} onClick={onPrevious} type="button" disabled={disableSkip || isBusy}>
                 <Icons.Prev />
             </button>
-            <button className={`${styles.button} ${styles.playButton}`} onClick={onTogglePlay} type="button">
+            <button
+                className={`${styles.button} ${styles.playButton}`}
+                onClick={onTogglePlay}
+                type="button"
+                disabled={disablePlay || isBusy}
+            >
                 {isPlaying ? <Icons.Pause /> : <Icons.Play />}
             </button>
-            <button className={styles.button} onClick={onNext} type="button">
+            <button className={styles.button} onClick={onNext} type="button" disabled={disableSkip || isBusy}>
                 <Icons.Next />
             </button>
             <button
                 className={`${styles.button} ${loopActive ? styles.activeButton : ''}`}
                 onClick={onCycleLoopMode}
                 type="button"
+                disabled={disableModeToggle || isBusy}
             >
                 <Icons.Loop />
             </button>

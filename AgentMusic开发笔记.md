@@ -539,6 +539,51 @@ npm run build
 build success
 ```
 
+## 2026-04-02：底部播放器状态边界补稳
+
+### 本轮目标
+
+1. 在无当前曲目时禁用不应可用的控制按钮
+2. 在请求进行中阻止重复点击，避免状态抖动
+3. 在无音源、无封面、无可拖动进度时提供稳定兜底行为
+
+### 前端改动
+
+- 底部播放器增加本地忙碌状态 `isPlaybackBusy`
+- 以下按钮按状态禁用：
+  - 无曲目时禁用播放/暂停
+  - 无歌单上下文时禁用上一首/下一首
+  - 无曲目时禁用模式切换
+  - 无可用时长时禁用进度条拖动
+- 请求发起期间统一禁用重复点击，等待接口返回后恢复
+- `<audio>` 在无可播放音源时主动暂停
+- 封面图在缺失时回退到默认占位图
+- 进度条组件与控制按钮组件增加 `disabled` 状态样式
+
+### 修改文件
+
+- `agentmusic-frontend/src/component/footer/footer-left.jsx`
+- `agentmusic-frontend/src/component/footer/footer.jsx`
+- `agentmusic-frontend/src/component/footer/player/music-control-box.jsx`
+- `agentmusic-frontend/src/component/footer/player/music-control-box.module.css`
+- `agentmusic-frontend/src/component/footer/player/music-progress-bar.jsx`
+- `agentmusic-frontend/src/component/footer/range-slider.jsx`
+- `agentmusic-frontend/src/component/footer/range-slider.module.css`
+
+### 验证
+
+前端执行：
+
+```bash
+npm run build
+```
+
+结果：
+
+```text
+build success
+```
+
 ## 2026-04-02：无 Premium 播放闭环前端联动补齐
 
 ### 本轮目标

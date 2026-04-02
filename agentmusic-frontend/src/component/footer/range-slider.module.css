@@ -3,6 +3,11 @@
     align-items: center;
 	position: relative;
 }
+
+.disabledProgressBar{
+    opacity: 0.45;
+}
+
 .range__slider {
 	-webkit-appearance: none;
 	background-color: #535353;
@@ -10,6 +15,10 @@
 	overflow: hidden;
 	width: auto;
 	border-radius: 2px;
+}
+
+.range__slider:disabled{
+    cursor: not-allowed;
 }
 .spanThumb{
 	width: 10px;

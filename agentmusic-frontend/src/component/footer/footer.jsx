@@ -32,7 +32,12 @@ function Footer(props){
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [volume, setVolume] = useState(1);
+    const [isPlaybackBusy, setIsPlaybackBusy] = useState(false);
     const audioRef = useRef(null);
+    const hasTrackContext = Boolean(props.trackData.trackId || props.trackData.track);
+    const hasPlaylistContext = props.trackData.trackKey[0] >= 0 || Boolean(props.currentPlaylistId);
+    const canSkipTrack = hasTrackContext && hasPlaylistContext;
+    const canSeek = hasTrackContext && ((duration || ((props.trackData.durationMs || 0) / 1000)) > 0);
 
     const applyPlaybackSession = async (session) => {
         if (!session) {
@@ -108,6 +113,9 @@ function Footer(props){
 
     useEffect(() => {
         if (!audioRef.current || !props.trackData.track) {
+          if (audioRef.current) {
+            audioRef.current.pause();
+          }
           return;
         }
 
@@ -164,6 +172,10 @@ function Footer(props){
     }, [props.trackData.trackKey, props.trackData.trackId]);
 
     const handleTrackClick = async (position) => {
+        if (!canSeek || isPlaybackBusy) {
+            return;
+        }
+
         if (audioRef.current) {
             audioRef.current.currentTime = position;
         }
@@ -171,6 +183,7 @@ function Footer(props){
 
         if (props.trackData.trackId) {
             try {
+                setIsPlaybackBusy(true);
                 const session = await seekPlayback(
                     DEMO_USER_ID,
                     Math.round(position * 1000),
@@ -178,11 +191,17 @@ function Footer(props){
                 );
                 await applyPlaybackSession(session);
             } catch {
+            } finally {
+                setIsPlaybackBusy(false);
             }
         }
     };
 
     const handleTogglePlay = async () => {
+        if (!hasTrackContext || isPlaybackBusy) {
+            return;
+        }
+
         if (!props.trackData.trackId) {
             props.syncPlaybackSessionAction({
                 isPlaying: !props.isPlaying,
@@ -194,6 +213,7 @@ function Footer(props){
         }
 
         try {
+            setIsPlaybackBusy(true);
             const session = props.isPlaying
                 ? await pausePlayback(DEMO_USER_ID, props.deviceId)
                 : await playTrack(DEMO_USER_ID, {
@@ -205,10 +225,16 @@ function Footer(props){
                 });
             await applyPlaybackSession(session);
         } catch {
+        } finally {
+            setIsPlaybackBusy(false);
         }
     };
 
     const handleNext = async () => {
+        if (!canSkipTrack || isPlaybackBusy) {
+            return;
+        }
+
         if (!props.trackData.trackId) {
             if(props.trackData.trackKey[1] === (PLAYLIST[props.trackData.trackKey[0]].playlistData.length)-1){ return; }
             props.changeTrack([props.trackData.trackKey[0], parseInt(props.trackData.trackKey[1])+1]);
@@ -216,13 +242,20 @@ function Footer(props){
         }
 
         try {
+            setIsPlaybackBusy(true);
             await nextTrack(DEMO_USER_ID, props.deviceId);
             await refreshPlaybackSession(true);
         } catch {
+        } finally {
+            setIsPlaybackBusy(false);
         }
     };
 
     const handlePrevious = async () => {
+        if (!canSkipTrack || isPlaybackBusy) {
+            return;
+        }
+
         if (!props.trackData.trackId) {
             if(props.trackData.trackKey[1] === 0){ return; }
             props.changeTrack([props.trackData.trackKey[0], props.trackData.trackKey[1]-1]);
@@ -230,9 +263,12 @@ function Footer(props){
         }
 
         try {
+            setIsPlaybackBusy(true);
             await previousTrack(DEMO_USER_ID, props.deviceId);
             await refreshPlaybackSession(true);
         } catch {
+        } finally {
+            setIsPlaybackBusy(false);
         }
     };
 
@@ -252,6 +288,10 @@ function Footer(props){
     };
 
     const updatePlaybackMode = async (nextMode) => {
+        if (!hasTrackContext || isPlaybackBusy) {
+            return;
+        }
+
         if (!props.trackData.trackId) {
             props.syncPlaybackSessionAction({
                 isPlaying: props.isPlaying,
@@ -263,9 +303,12 @@ function Footer(props){
         }
 
         try {
+            setIsPlaybackBusy(true);
             const session = await changePlaybackMode(DEMO_USER_ID, nextMode, props.deviceId);
             await applyPlaybackSession(session);
         } catch {
+        } finally {
+            setIsPlaybackBusy(false);
         }
     };
 
@@ -282,11 +325,16 @@ function Footer(props){
                         onNext={handleNext}
                         onToggleShuffle={handleToggleShuffle}
                         onCycleLoopMode={handleCycleLoopMode}
+                        disablePlay={!hasTrackContext}
+                        disableSkip={!canSkipTrack}
+                        disableModeToggle={!hasTrackContext}
+                        isBusy={isPlaybackBusy}
                     />
                     <MusicProgressBar 
                         currentTime={currentTime} 
                         duration={duration || ((props.trackData.durationMs || 0) / 1000)} 
                         handleTrackClick={handleTrackClick}
+                        disabled={!canSeek || isPlaybackBusy}
                     />
                     <Audio
                         ref={audioRef}

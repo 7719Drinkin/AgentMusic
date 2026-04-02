@@ -21,9 +21,11 @@ function FooterLeft(props){
 }
 
 function ImgBox({ trackData }){
+    const coverSrc = trackData.trackImg || '/image/Playlist/liked-songs.PNG';
+
     return (
         <div className={styles.imgBox}>
-            <img src={trackData.trackImg} alt="Gavurlar"/>
+            <img src={coverSrc} alt={trackData.trackName || '当前曲目封面'}/>
         </div>
     );
 }
