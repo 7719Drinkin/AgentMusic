@@ -8,6 +8,7 @@ function FooterRight({ volume, setVolume, onOpenNowPlayingPanel, currentPanelVie
   return (
     <div className={styles.footerRight}>
       <IconButton
+        className={styles.footerIcon}
         icon={<Icons.Lyrics />}
         active={isNowPlayingOpen && currentPanelView === 'lyrics'}
         tooltip="歌词"
@@ -17,6 +18,7 @@ function FooterRight({ volume, setVolume, onOpenNowPlayingPanel, currentPanelVie
         disabled={!hasTrackContext}
       />
       <IconButton
+        className={styles.footerIcon}
         icon={<Icons.Queue />}
         active={isNowPlayingOpen && currentPanelView === 'queue'}
         tooltip="队列"
@@ -26,6 +28,7 @@ function FooterRight({ volume, setVolume, onOpenNowPlayingPanel, currentPanelVie
         disabled={!hasTrackContext}
       />
       <IconButton
+        className={styles.footerIcon}
         icon={<Icons.MiniPlayer />}
         tooltip="迷你播放器（Priority 2）"
         ariaLabel="迷你播放器"
@@ -52,6 +55,7 @@ function SoundLevel({ volume, setVolume }) {
   return (
     <div className={styles.soundBar}>
       <IconButton
+        className={styles.footerIcon}
         icon={<Icons.Sound />}
         activeicon={<Icons.SoundClose />}
         tooltip={volume === 0 ? '恢复音量' : '静音'}

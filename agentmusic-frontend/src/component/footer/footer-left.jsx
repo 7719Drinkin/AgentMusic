@@ -18,6 +18,7 @@ function FooterLeft({ trackData, onToggleNowPlayingPanel }) {
       </button>
       <SongDetails trackData={trackData} onOpenPanel={onToggleNowPlayingPanel} />
       <IconButton
+        className={styles.footerIcon}
         icon={<Icons.Like />}
         activeicon={<Icons.LikeActive />}
         tooltip="加入歌单"
@@ -25,6 +26,7 @@ function FooterLeft({ trackData, onToggleNowPlayingPanel }) {
         disabled={!hasTrack}
       />
       <IconButton
+        className={styles.footerIcon}
         icon={<Icons.Corner />}
         activeicon={<Icons.Corner />}
         tooltip="打开当前播放栏"

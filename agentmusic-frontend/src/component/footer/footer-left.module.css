@@ -5,6 +5,11 @@
     min-width: 0;
     gap: 4px;
 }
+.footerIcon svg{
+    font-size: 9.6px;
+    width: 9.6px;
+    height: 9.6px;
+}
 .coverButton{
     border: 0;
     background: transparent;
