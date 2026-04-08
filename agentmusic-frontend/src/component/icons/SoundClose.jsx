@@ -1,19 +1,10 @@
-import * as React from "react";
-
 function SvgSoundClose(props) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      height="1em"
-      width="1em"
-      aria-label="Ses kapalı"
-      viewBox="0 0 16 16"
-      className=""
-      {...props}
-    >
-      <path d="M0 5v6h2.804L8 14V2L2.804 5H0zm7-1.268v8.536L3.072 10H1V6h2.072L7 3.732zm8.623 2.121l-.707-.707-2.147 2.147-2.146-2.147-.707.707L12.062 8l-2.146 2.146.707.707 2.146-2.147 2.147 2.147.707-.707L13.477 8l2.146-2.147z" />
+    <svg viewBox="0 0 16 16" aria-hidden="true" {...props}>
+      <path d="M0 5v6h2.804L8 14V2L2.804 5H0zm7-1.268v8.536L3.072 10H1V6h2.072L7 3.732z" />
+      <path d="m10.36 5.64.7-.7L12.77 6.65l1.72-1.71.7.7-1.71 1.72 1.71 1.72-.7.7-1.72-1.71-1.71 1.71-.7-.7 1.71-1.72-1.71-1.72Z" />
     </svg>
-  );
+  )
 }
 
-export default SvgSoundClose;
+export default SvgSoundClose

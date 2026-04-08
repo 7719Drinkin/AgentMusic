@@ -1,18 +1,9 @@
-import * as React from "react";
-
 function SvgPlay(props) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      height="1em"
-      width="1em"
-      viewBox="0 0 16 16"
-      className="play_svg__Svg-ulyrgf-0 play_svg__hJgLcF"
-      {...props}
-    >
-      <path d="M4.018 14L14.41 8 4.018 2z" />
+    <svg viewBox="0 0 16 16" aria-hidden="true" {...props}>
+      <path d="M4.5 2.75v10.5l8-5.25-8-5.25Z" />
     </svg>
-  );
+  )
 }
 
-export default SvgPlay;
+export default SvgPlay

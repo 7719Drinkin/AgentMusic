@@ -4,14 +4,7 @@ import RangeSlider from './range-slider'
 import IconButton from '../buttons/icon-button'
 import styles from './footer-right.module.css'
 
-function FooterRight({
-  volume,
-  setVolume,
-  onOpenNowPlayingPanel,
-  currentPanelView,
-  isNowPlayingOpen,
-  hasTrackContext,
-}) {
+function FooterRight({ volume, setVolume, onOpenNowPlayingPanel, currentPanelView, isNowPlayingOpen, hasTrackContext }) {
   return (
     <div className={styles.footerRight}>
       <IconButton
@@ -34,12 +27,10 @@ function FooterRight({
       />
       <IconButton
         icon={<Icons.MiniPlayer />}
-        active={isNowPlayingOpen && currentPanelView === 'mini'}
-        tooltip="打开迷你播放器"
-        ariaLabel="打开迷你播放器"
-        onClick={() => onOpenNowPlayingPanel?.('mini')}
+        tooltip="迷你播放器（Priority 2）"
+        ariaLabel="迷你播放器"
         toggleOnClick={false}
-        disabled={!hasTrackContext}
+        disabled
       />
       <SoundLevel volume={volume} setVolume={setVolume} />
     </div>

@@ -1,23 +1,13 @@
 import { connect } from 'react-redux'
-import * as Icons from '../icons'
 import styles from './current-playing-panel.module.css'
 
 const VIEW_LABELS = {
   details: '当前播放',
   lyrics: '歌词',
   queue: '队列',
-  mini: '迷你播放器',
 }
 
-function CurrentPlayingPanel({
-  trackData,
-  currentPlaylistId,
-  currentTrackIndex,
-  isPlaying,
-  view,
-  onClose,
-  onSwitchView,
-}) {
+function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, isPlaying, view, onClose, onSwitchView }) {
   const coverSrc = trackData.trackImg || '/image/Playlist/liked-songs.PNG'
 
   return (
@@ -45,42 +35,18 @@ function CurrentPlayingPanel({
       </div>
 
       <div className={styles.quickTabs}>
-        <button
-          type="button"
-          className={`${styles.tabButton} ${view === 'details' ? styles.activeTab : ''}`}
-          onClick={() => onSwitchView('details')}
-        >
+        <button type="button" className={`${styles.tabButton} ${view === 'details' ? styles.activeTab : ''}`} onClick={() => onSwitchView('details')}>
           当前播放
         </button>
-        <button
-          type="button"
-          className={`${styles.tabButton} ${view === 'lyrics' ? styles.activeTab : ''}`}
-          onClick={() => onSwitchView('lyrics')}
-        >
+        <button type="button" className={`${styles.tabButton} ${view === 'lyrics' ? styles.activeTab : ''}`} onClick={() => onSwitchView('lyrics')}>
           歌词
         </button>
-        <button
-          type="button"
-          className={`${styles.tabButton} ${view === 'queue' ? styles.activeTab : ''}`}
-          onClick={() => onSwitchView('queue')}
-        >
+        <button type="button" className={`${styles.tabButton} ${view === 'queue' ? styles.activeTab : ''}`} onClick={() => onSwitchView('queue')}>
           队列
-        </button>
-        <button
-          type="button"
-          className={`${styles.tabButton} ${view === 'mini' ? styles.activeTab : ''}`}
-          onClick={() => onSwitchView('mini')}
-        >
-          迷你播放器
         </button>
       </div>
 
-      <PanelBody
-        view={view}
-        trackData={trackData}
-        currentPlaylistId={currentPlaylistId}
-        currentTrackIndex={currentTrackIndex}
-      />
+      <PanelBody view={view} trackData={trackData} currentPlaylistId={currentPlaylistId} currentTrackIndex={currentTrackIndex} />
     </aside>
   )
 }
@@ -117,30 +83,11 @@ function PanelBody({ view, trackData, currentPlaylistId, currentTrackIndex }) {
     )
   }
 
-  if (view === 'mini') {
-    return (
-      <section className={styles.section}>
-        <h4>迷你播放器</h4>
-        <div className={styles.miniPreview}>
-          <img src={trackData.trackImg || '/image/Playlist/liked-songs.PNG'} alt="" />
-          <div>
-            <strong>{trackData.trackName || '暂未播放'}</strong>
-            <span>{trackData.trackArtist || '等待推荐'}</span>
-          </div>
-          <Icons.Play />
-        </div>
-        <p>当前只补齐 UI 入口。真实迷你播放器行为后续再接。</p>
-      </section>
-    )
-  }
-
   return (
     <>
       <section className={styles.section}>
         <h4>关于这首歌</h4>
-        <p>
-          当前播放栏先承担播放器详情面板的职责。后续可以在这里叠加 Agent 推荐理由、当前歌单来源和更多歌曲信息。
-        </p>
+        <p>当前播放栏先承担播放器详情面板的职责。后续可以在这里叠加 Agent 推荐理由、当前歌单来源和更多歌曲信息。</p>
       </section>
       <section className={styles.section}>
         <h4>当前状态</h4>

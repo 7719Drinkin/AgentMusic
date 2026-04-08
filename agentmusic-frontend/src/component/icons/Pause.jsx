@@ -1,17 +1,9 @@
-import * as React from "react";
-
-function SvgPlay(props) {
+function SvgPause(props) {
   return (
-    <svg 
-      height=".7em" 
-      viewBox="-45 0 327 327" 
-      width=".7em" 
-      xmlns="http://www.w3.org/2000/svg"
-      {...props}
-    >
-        <path d="m158 0h71c4.417969 0 8 3.582031 8 8v311c0 4.417969-3.582031 8-8 8h-71c-4.417969 0-8-3.582031-8-8v-311c0-4.417969 3.582031-8 8-8zm0 0"/><path d="m8 0h71c4.417969 0 8 3.582031 8 8v311c0 4.417969-3.582031 8-8 8h-71c-4.417969 0-8-3.582031-8-8v-311c0-4.417969 3.582031-8 8-8zm0 0"/>
+    <svg viewBox="0 0 16 16" aria-hidden="true" {...props}>
+      <path d="M5.25 2.75h1.5v10.5h-1.5V2.75Zm4 0h1.5v10.5h-1.5V2.75Z" />
     </svg>
-  );
+  )
 }
 
-export default SvgPlay;
+export default SvgPause
