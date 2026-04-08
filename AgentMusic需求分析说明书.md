@@ -567,16 +567,16 @@ AgentMusic 当前版本的核心不是“做一个完整 Spotify 克隆”，而
 
 | 编号 | 需求项 | 优先级 | 当前状态 | 对应实现/说明 | 验收状态 |
 | --- | --- | --- | --- | --- | --- |
-| R1 | 聊天主页可发送消息并显示 Agent 回复 | P1 | 已实现 | 前端聊天页已接 `POST /api/agent/chat` | 待验证 |
+| R1 | 聊天主页可发送消息并显示 Agent 回复 | P1 | 已实现 | 前端聊天页已接 `POST /api/agent/chat`，当前普通问候语仍主要返回 planner skeleton/fallback | 已验证 |
 | R2 | 聊天历史读取 | P1 | 已实现 | 前端已接 `GET /api/agent/history/{userId}` | 待验证 |
 | R3 | 推荐歌单生成 | P1 | 部分实现 | 后端已具备 planner + playlist 生成链路，推荐质量仍需继续优化 | 待验证 |
-| R4 | 左侧历史推荐歌单展示 | P1 | 已实现 | 前端侧栏已接 `GET /api/playlists/{userId}` | 待验证 |
+| R4 | 左侧历史推荐歌单展示 | P1 | 已实现 | 前端侧栏已接 `GET /api/playlists/{userId}`，但聊天推荐后的自动刷新尚未完成稳定验证 | 待验证 |
 | R5 | 推荐歌单版本化保存 | P1 | 已实现 | 后端歌单服务与历史版本列表已联通 | 待验证 |
-| R6 | 底部播放器读取播放会话 | P1 | 已实现 | 前端已接 `GET /api/playback/{userId}/session` | 待验证 |
+| R6 | 底部播放器读取播放会话 | P1 | 已实现 | 前端已接 `GET /api/playback/{userId}/session`，播放器基础状态显示已可用 | 已验证 |
 | R7 | 底部播放器显示真实曲目名与歌手名 | P1 | 已实现 | 曲目详情与歌手详情联查后展示真实名称 | 待验证 |
-| R8 | 播放/暂停/上一首/下一首/进度拖动/播放模式切换 | P1 | 部分实现 | 前端控制链路已接后端，仍依赖 Spotify bridge 可用性验证 | 待验证 |
+| R8 | 播放/暂停/上一首/下一首/进度拖动/播放模式切换 | P1 | 部分实现 | 前端控制链路已接后端，并支持本地 session fallback；真实推荐场景下仍需继续联调验证 | 待验证 |
 | R9 | 音乐元数据查询（曲目/歌手/搜索） | P1 | 已实现 | 后端 `MusicQueryController` 与 Spotify catalog 调用链已存在 | 待验证 |
-| R10 | Spotify bridge 鉴权与 token 刷新 | P1 | 已实现 | 后端 bridge auth 与 token 刷新已实现 | 待验证 |
+| R10 | Spotify bridge 鉴权与 token 刷新 | P1 | 已实现 | 后端 bridge auth 与 token 刷新已实现，但完整授权成功尚未完成实测 | 待验证 |
 | R11 | 普通聊天真实 LLM 调用 | P2 | 部分实现 | 已有可开关 live-LLM 分支，但当前受外部网络限制 | 待验证 |
 | R12 | 语音输入 UI 入口 | P1 | 已实现 | 前端聊天页已保留语音按钮与提示 | 已验证 |
 | R13 | 语音识别完整链路 | P2 | 未实现 | 当前版本只保留 UI 入口 | 未验证 |
