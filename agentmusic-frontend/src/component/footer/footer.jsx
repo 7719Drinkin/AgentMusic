@@ -316,6 +316,7 @@ function Footer(props){
         <footer className={styles.footer}>
             <div className={styles.nowplayingbar}>
                 <FooterLeft />
+                <FooterLeft onToggleNowPlayingPanel={props.onToggleNowPlayingPanel} />
                 <div className={styles.footerMid}>
                     <MusicControlBox
                         isPlaying={props.isPlaying}
@@ -348,6 +349,10 @@ function Footer(props){
                     <FooterRight 
                         volume={volume} 
                         setVolume={setVolume}
+                        onOpenNowPlayingPanel={props.onOpenNowPlayingPanel}
+                        currentPanelView={props.currentPanelView}
+                        isNowPlayingOpen={props.isNowPlayingOpen}
+                        hasTrackContext={hasTrackContext}
                     />
                 }
             </div>

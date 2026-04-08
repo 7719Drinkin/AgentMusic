@@ -2,10 +2,12 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
+    gap: 2px;
 }
 .soundBar{
     display: flex;
     align-items: center;
+    margin-left: 8px;
 }
 .soundBar input{
     width: 93px;

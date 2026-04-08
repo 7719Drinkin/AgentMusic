@@ -7,6 +7,15 @@
     display: grid;
     grid-template-columns: auto 1fr;
 }
+.layoutWithPanel{
+    grid-template-columns: auto minmax(0, 1fr) 360px;
+}
+.mainArea{
+    min-width: 0;
+}
+.panelArea{
+    min-width: 0;
+}
 @media screen and (max-width: 640px) {
     .layout{
         grid-template-columns: 1fr;

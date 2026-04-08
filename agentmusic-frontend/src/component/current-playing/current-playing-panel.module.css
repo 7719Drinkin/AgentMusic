@@ -1,0 +1,156 @@
+.panel{
+    height: calc(100vh - 96px);
+    margin: 8px 8px 96px 0;
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(28, 28, 28, 0.98), rgba(18, 18, 18, 0.98));
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #fff;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow-y: auto;
+}
+.panelHeader{
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+.panelHeader h2{
+    margin: 4px 0 0;
+    font-size: 20px;
+}
+.overline{
+    margin: 0;
+    color: rgba(255,255,255,0.6);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.closeButton{
+    border: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    cursor: pointer;
+}
+.coverCard{
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.coverArt{
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+}
+.meta h3{
+    margin: 0 0 4px;
+    font-size: 24px;
+}
+.meta p{
+    margin: 0;
+    color: rgba(255,255,255,0.7);
+}
+.metaPills{
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.metaPills span,
+.tabButton{
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.82);
+    font-size: 12px;
+}
+.metaPills span{
+    padding: 6px 10px;
+}
+.quickTabs{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.tabButton{
+    padding: 8px 12px;
+    cursor: pointer;
+}
+.activeTab{
+    background: rgba(29,185,84,0.18);
+    border-color: rgba(29,185,84,0.55);
+    color: #fff;
+}
+.section{
+    padding: 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+}
+.section h4{
+    margin: 0 0 10px;
+    font-size: 15px;
+}
+.section p{
+    margin: 0;
+    color: rgba(255,255,255,0.72);
+    line-height: 1.6;
+}
+.statusList,
+.queueList{
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.statusList li,
+.queueList li{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.statusList span,
+.queueList span{
+    color: rgba(255,255,255,0.58);
+    font-size: 12px;
+}
+.miniPreview{
+    display: grid;
+    grid-template-columns: 72px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(0,0,0,0.22);
+    margin-bottom: 12px;
+}
+.miniPreview img{
+    width: 72px;
+    height: 72px;
+    border-radius: 10px;
+    object-fit: cover;
+}
+.miniPreview div{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.miniPreview span{
+    color: rgba(255,255,255,0.64);
+    font-size: 12px;
+}
+.miniPreview svg{
+    width: 18px;
+    height: 18px;
+    fill: #fff;
+    color: #fff;
+}

@@ -17,6 +17,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    border-radius: 999px;
 }
 .button:disabled{
     opacity: 0.35;
@@ -30,6 +32,9 @@
     font-size: 16px;
     fill: hsla(0,0%,100%,.7);
     color: hsla(0,0%,100%,.7);
+}
+.button:hover:not(:disabled){
+    background: rgba(255,255,255,0.08);
 }
 .musicControl svg:hover{
     fill: rgb(255, 255, 255);
@@ -51,4 +56,36 @@
 .playButton svg{
     fill: #000;
     color: #000;
+}
+.tooltip{
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: rgba(18,18,18,0.96);
+    color: #fff;
+    font-size: 11px;
+    line-height: 1;
+    white-space: nowrap;
+    padding: 8px 10px;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.tooltip::after{
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 5px 5px 0 5px;
+    border-style: solid;
+    border-color: rgba(18,18,18,0.96) transparent transparent transparent;
+}
+.button:hover .tooltip,
+.button:focus-visible .tooltip{
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
 }

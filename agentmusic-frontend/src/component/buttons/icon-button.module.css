@@ -7,13 +7,70 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    border-radius: 999px;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
 }
 .iconButton svg{
     font-size: 16px;
     fill: hsla(0,0%,100%,.7);
     color: hsla(0,0%,100%,.7);
+    transition: fill 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 .iconButton:hover svg{
     fill: rgb(255, 255, 255);
     color: rgb(255, 255, 255);
+}
+.iconButton:hover{
+    background: rgba(255,255,255,0.08);
+}
+.iconButton:hover svg{
+    transform: scale(1.04);
+}
+.iconButton:disabled{
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+.iconButton:disabled:hover{
+    background: transparent;
+}
+.iconButton:disabled:hover svg{
+    transform: none;
+}
+.activeButton svg{
+    fill: #1db954;
+    color: #1db954;
+}
+.tooltip{
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: rgba(18, 18, 18, 0.96);
+    color: #ffffff;
+    font-size: 11px;
+    line-height: 1;
+    padding: 8px 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    z-index: 8;
+}
+.tooltip::after{
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 5px 5px 0 5px;
+    border-style: solid;
+    border-color: rgba(18, 18, 18, 0.96) transparent transparent transparent;
+}
+.iconButton:hover .tooltip,
+.iconButton:focus-visible .tooltip{
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
 }
