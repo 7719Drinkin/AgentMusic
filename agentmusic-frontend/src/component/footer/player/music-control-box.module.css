@@ -29,9 +29,9 @@
     color: hsla(0,0%,100%,.35);
 }
 .button svg{
-    font-size: 9.6px;
-    width: 9.6px;
-    height: 9.6px;
+    font-size: 19.2px;
+    width: 19.2px;
+    height: 19.2px;
     fill: hsla(0,0%,100%,.7);
     color: hsla(0,0%,100%,.7);
 }
@@ -56,9 +56,9 @@
     background: rgba(255,255,255,0.5);
 }
 .playButton svg{
-    font-size: 9.6px;
-    width: 9.6px;
-    height: 9.6px;
+    font-size: 19.2px;
+    width: 19.2px;
+    height: 19.2px;
     fill: #000;
     color: #000;
 }
