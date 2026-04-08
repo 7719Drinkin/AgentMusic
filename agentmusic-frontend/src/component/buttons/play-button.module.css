@@ -14,3 +14,8 @@
 .playBtn svg{
     fill: #000 !important;
 }
+.playIcon svg,
+.pauseIcon svg{
+    width: 12px;
+    height: 12px;
+}

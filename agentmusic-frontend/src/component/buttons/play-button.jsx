@@ -10,8 +10,8 @@ function PlayButton(props) {
         return (
             <div className={styles.playBtn} tabIndex="0" role="button" onClick={() => props.changePlay(!props.isPlaying)}>
                 {props.isPlaying && props.isthisplay
-                        ? <IconButton icon={<Icons.Pause />} activeicon={<Icons.Pause />}/>
-                        : <IconButton icon={<Icons.Play />} activeicon={<Icons.Play />}/>
+                        ? <IconButton className={styles.pauseIcon} icon={<Icons.Pause />} activeicon={<Icons.Pause />}/>
+                        : <IconButton className={styles.playIcon} icon={<Icons.Play />} activeicon={<Icons.Play />}/>
                 }
             </div>
         );
