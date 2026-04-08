@@ -176,3 +176,37 @@
 - `AgentMusic任务清单.md`
 - `AgentMusic无Premium开发链路说明.md`
 - `agentmusic-backend/docs/frontend-controller-api.md`
+
+## 8. 2026-04-08：Spotify Web UI 对比结论
+
+### 本轮目的
+
+- 对照 `https://open.spotify.com/` 的播放器 UI
+- 识别当前 AgentMusic 前端在底部播放器与当前播放栏上的缺口
+
+### 结论
+
+当前前端尚未实现以下 Spotify Web 常见播放器能力：
+
+- 加入歌单入口
+- 歌词入口
+- 队列入口
+- 迷你播放器入口
+- 底部按钮 tooltip
+- 曲名 / 歌手名点击行为
+- 封面点击打开右侧当前播放栏
+
+### 当前播放栏代码检查结果
+
+检查 `App.jsx`、`home.jsx`、`chat.jsx` 和 `src/component/**` 后，当前前端代码中不存在独立成型的“右侧当前播放栏”组件。
+
+后续若要实现该功能，需要新增：
+
+1. 当前播放栏组件
+2. 全局显隐状态
+3. 与底部专辑封面点击行为的联动
+
+### 文档
+
+- 已新增对比与参考文档：
+  - `AgentMusic-SpotifyUI对比与参考.md`
