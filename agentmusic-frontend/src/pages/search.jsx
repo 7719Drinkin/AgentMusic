@@ -1,8 +1,7 @@
 import { useLocation } from 'react-router-dom'
 import Topnav from '../component/topnav/topnav'
 import TitleM from '../component/text/title-m'
-import SearchPageCard from '../component/cards/searchpage-card'
-import { SEARCHCARDS } from '../data/index'
+import TextRegularM from '../component/text/text-regular-m'
 import styles from './search.module.css'
 
 function Search() {
@@ -21,26 +20,19 @@ function Search() {
           <section className={styles.artistHero}>
             <img src={artistImage} alt={artistName} />
             <div className={styles.artistHeroContent}>
-              <span>艺人主页（占位）</span>
+              <span>艺人主页占位</span>
               <h1>{artistName}</h1>
-              <p>当前前端已支持从底部播放器和当前播放栏跳转到艺人页入口。后续接入真实艺人资料后，这里将显示艺人热门歌曲、简介与相关歌单。</p>
+              <p>
+                当前只保留搜索与艺人页 UI 入口。后续会接入真实艺人搜索与艺人详情接口。
+              </p>
             </div>
           </section>
         ) : null}
 
-        <TitleM>{artistName ? '继续浏览' : '浏览全部分类'}</TitleM>
-        <div className={styles.SearchCardGrid}>
-          {SEARCHCARDS.map((card) => (
-            <SearchPageCard
-              key={card.title}
-              cardData={{
-                bgcolor: card.bgcolor,
-                title: card.title,
-                imgurl: card.imgurl,
-              }}
-            />
-          ))}
-        </div>
+        <TitleM>{artistName ? '继续浏览' : '搜索页'}</TitleM>
+        <TextRegularM>
+          搜索页当前仅保留 UI 骨架，不再使用前端静态分类卡片数据。
+        </TextRegularM>
       </div>
     </div>
   )

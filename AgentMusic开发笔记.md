@@ -332,3 +332,34 @@
   - 生成 2 首 demo fallback 推荐歌曲
   - 同时写入 `PlaybackSession`
 - 这说明当前阻塞点已经由“推荐搜索阶段不能把自然语言请求转成有效查询”转为“可以继续验证前端歌单刷新和播放器同步”
+
+## 17. 2026-04-11：去除后端 demo fallback 与前端静态业务数据依赖
+
+本轮按“代码保持可控、不再堆叠 mock / demo / sample data”的原则，执行了一次清理重构。
+
+后端清理：
+
+- 删除 `DemoMusicCatalog`
+- 从 `DefaultMusicMetadataService` 中移除 demo fallback
+- 删除基于 sample data / demo fallback 的测试：
+  - `AgentControllerApiTests`
+  - `MusicMetadataSearchIntegrationTests`
+- 保留：
+  - `planner / executor` 骨架
+  - `SearchQueryRefiner`
+  - Spotify bridge 与真实 service 分层
+
+前端清理：
+
+- 删除运行时静态业务数据文件 `src/data/index.jsx`
+- 底部播放器不再回退到本地静态歌单切曲
+- store 初始播放状态不再从静态歌曲初始化
+- 当前播放栏与队列不再从本地静态歌单推导
+- `home / library / playlist / search` 页面改为 UI 骨架占位，不再读取静态歌单或分类数据
+- 删除已不再被运行路径引用的旧歌单卡片与旧歌单详情组件
+
+当前结果：
+
+- 前端运行时主路径已不再依赖静态歌单 / 静态歌曲数据
+- 后端运行时主路径已不再依赖 demo 曲库 fallback
+- 后续联调将更真实地暴露“真实接口是否可用、Spotify 是否可用、Agent 是否真的在工作”

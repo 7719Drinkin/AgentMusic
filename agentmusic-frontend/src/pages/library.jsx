@@ -1,8 +1,6 @@
-import { Route } from 'react-router-dom'
 import TitleM from '../component/text/title-m'
 import Topnav from '../component/topnav/topnav'
-import PlaylistCardM from '../component/cards/playlist-card-m'
-import { PLAYLIST } from '../data/index'
+import TextRegularM from '../component/text/text-regular-m'
 import styles from './library.module.css'
 
 function Library() {
@@ -10,65 +8,10 @@ function Library() {
     <div className={styles.LibPage}>
       <Topnav tabButtons={true} />
       <div className={styles.Library}>
-        <Route exact path="/library">
-          <PlaylistTab />
-        </Route>
-        <Route path="/library/podcasts">
-          <PodcastTab />
-        </Route>
-        <Route path="/library/artists">
-          <ArtistTab />
-        </Route>
-        <Route path="/library/albums">
-          <AlbumTab />
-        </Route>
-      </div>
-    </div>
-  )
-}
-
-function PlaylistTab() {
-  return (
-    <div>
-      <TitleM>歌单</TitleM>
-      <div className={styles.Grid}>
-        {PLAYLIST.filter((item) => item.type === 'playlist').map((item) => (
-          <PlaylistCardM key={item.title} data={item} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function PodcastTab() {
-  return (
-    <div>
-      <TitleM>播客</TitleM>
-      <div className={styles.Grid}>
-        {PLAYLIST.filter((item) => item.type === 'podcast').map((item) => (
-          <PlaylistCardM key={item.title} data={item} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function ArtistTab() {
-  return (
-    <div>
-      <TitleM>歌手</TitleM>
-    </div>
-  )
-}
-
-function AlbumTab() {
-  return (
-    <div>
-      <TitleM>专辑</TitleM>
-      <div className={styles.Grid}>
-        {PLAYLIST.filter((item) => item.type === 'album').map((item) => (
-          <PlaylistCardM key={item.title} data={item} />
-        ))}
+        <TitleM>资料库</TitleM>
+        <TextRegularM>
+          资料库页面当前仅保留 UI 结构。后续会接入真实歌单、收藏和历史数据，不再依赖前端静态样例。
+        </TextRegularM>
       </div>
     </div>
   )

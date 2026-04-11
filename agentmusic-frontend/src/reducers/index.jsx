@@ -1,17 +1,13 @@
-import { PLAYLIST } from "../data/index";
-import { PLAYPAUSE, CHANGETRACK, SYNC_PLAYBACK_SESSION } from "../actions/index";
-
-const DEFAULT_TRACK = PLAYLIST[0].playlistData[0];
+import { PLAYPAUSE, SYNC_PLAYBACK_SESSION } from "../actions/index";
 
 const INITIAL_STATE = {
   trackData: {
-    trackKey: [0, 0],
     trackId: null,
-    track: `${DEFAULT_TRACK.link}`,
-    trackName: `${DEFAULT_TRACK.songName}`,
-    trackImg: `${DEFAULT_TRACK.songimg}`,
-    trackArtist: `${DEFAULT_TRACK.songArtist}`,
-    durationMs: 30000
+    track: null,
+    trackName: "",
+    trackImg: "",
+    trackArtist: "",
+    durationMs: 0
   },
   isPlaying: false,
   currentPositionMs: 0,
@@ -28,29 +24,6 @@ export const reducer = (state = INITIAL_STATE, action) => {
         ...state,
         isPlaying: action.payload
       };
-    case CHANGETRACK:
-      return {
-        ...state,
-        currentPositionMs: 0,
-        trackData: {
-          ...state.trackData,
-          trackKey: action.payload,
-          trackId: null,
-          track: `${
-            PLAYLIST[action.payload[0]].playlistData[action.payload[1]].link
-          }`,
-          trackName: `${
-            PLAYLIST[action.payload[0]].playlistData[action.payload[1]].songName
-          }`,
-          trackImg: `${
-            PLAYLIST[action.payload[0]].playlistData[action.payload[1]].songimg
-          }`,
-          trackArtist: `${
-            PLAYLIST[action.payload[0]].playlistData[action.payload[1]].songArtist
-          }`,
-          durationMs: 30000
-        }
-      };
     case SYNC_PLAYBACK_SESSION:
       return {
         ...state,
@@ -62,13 +35,12 @@ export const reducer = (state = INITIAL_STATE, action) => {
         currentTrackIndex: action.payload.currentTrackIndex ?? null,
         trackData: {
           ...state.trackData,
-          trackKey: [-1, -1],
           trackId: action.payload.trackId ?? null,
-          track: action.payload.track ?? state.trackData.track,
-          trackName: action.payload.trackName ?? state.trackData.trackName,
-          trackImg: action.payload.trackImg ?? state.trackData.trackImg,
-          trackArtist: action.payload.trackArtist ?? state.trackData.trackArtist,
-          durationMs: action.payload.durationMs ?? state.trackData.durationMs
+          track: action.payload.track ?? null,
+          trackName: action.payload.trackName ?? "",
+          trackImg: action.payload.trackImg ?? "",
+          trackArtist: action.payload.trackArtist ?? "",
+          durationMs: action.payload.durationMs ?? 0
         }
       };
     default:

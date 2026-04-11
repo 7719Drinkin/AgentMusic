@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react'
 import { connect } from 'react-redux'
-import { changeTrack, syncPlaybackSession as syncPlaybackSessionAction } from '../../actions'
+import { syncPlaybackSession as syncPlaybackSessionAction } from '../../actions'
 import useWindowSize from '../../hooks/useWindowSize'
 import FooterLeft from './footer-left'
 import MusicControlBox from './player/music-control-box'
@@ -18,7 +18,6 @@ import {
   syncPlaybackSession,
 } from '../../api/playback'
 import { fetchArtist, fetchTrack } from '../../api/music'
-import { PLAYLIST } from '../../data/index'
 import CONST from '../../constants/index'
 import styles from './footer.module.css'
 
@@ -35,7 +34,7 @@ function Footer(props) {
   const [isPlaybackBusy, setIsPlaybackBusy] = useState(false)
   const audioRef = useRef(null)
   const hasTrackContext = Boolean(props.trackData.trackId || props.trackData.track)
-  const hasPlaylistContext = props.trackData.trackKey[0] >= 0 || Boolean(props.currentPlaylistId)
+  const hasPlaylistContext = Boolean(props.currentPlaylistId)
   const canSkipTrack = hasTrackContext && hasPlaylistContext
   const canSeek = hasTrackContext && (duration || (props.trackData.durationMs || 0) / 1000) > 0
 
@@ -175,14 +174,6 @@ function Footer(props) {
       return
     }
 
-    if (!props.trackData.trackId) {
-      if (props.trackData.trackKey[1] === PLAYLIST[props.trackData.trackKey[0]].playlistData.length - 1) {
-        return
-      }
-      props.changeTrack([props.trackData.trackKey[0], parseInt(props.trackData.trackKey[1], 10) + 1])
-      return
-    }
-
     try {
       setIsPlaybackBusy(true)
       await nextTrack(DEMO_USER_ID, props.deviceId)
@@ -195,14 +186,6 @@ function Footer(props) {
 
   const handlePrevious = async () => {
     if (!canSkipTrack || isPlaybackBusy) {
-      return
-    }
-
-    if (!props.trackData.trackId) {
-      if (props.trackData.trackKey[1] === 0) {
-        return
-      }
-      props.changeTrack([props.trackData.trackKey[0], props.trackData.trackKey[1] - 1])
       return
     }
 
@@ -222,19 +205,8 @@ function Footer(props) {
     }
 
     const handleEnded = async () => {
-      if (props.trackData.trackId) {
+      if (canSkipTrack) {
         await handleNext()
-        return
-      }
-
-      if (props.trackData.trackKey[0] < 0) {
-        return
-      }
-
-      if (props.trackData.trackKey[1] === PLAYLIST[props.trackData.trackKey[0]].playlistData.length - 1) {
-        props.changeTrack([props.trackData.trackKey[0], 0])
-      } else {
-        props.changeTrack([props.trackData.trackKey[0], parseInt(props.trackData.trackKey[1], 10) + 1])
       }
     }
 
@@ -242,7 +214,7 @@ function Footer(props) {
     return () => {
       audioRef.current?.removeEventListener('ended', handleEnded)
     }
-  }, [props.trackData.trackKey, props.trackData.trackId, handleNext, props.changeTrack])
+  }, [canSkipTrack, handleNext])
 
   useEffect(() => {
     const requestNext = () => {
@@ -410,4 +382,4 @@ const mapStateToProps = (state) => {
   }
 }
 
-export default connect(mapStateToProps, { changeTrack, syncPlaybackSessionAction })(Footer)
+export default connect(mapStateToProps, { syncPlaybackSessionAction })(Footer)

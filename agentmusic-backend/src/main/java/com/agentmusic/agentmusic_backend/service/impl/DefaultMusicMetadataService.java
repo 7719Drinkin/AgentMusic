@@ -20,7 +20,6 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
     private final ArtistRepository artistRepository;
     private final SpotifyCatalogClient spotifyCatalogClient;
     private final SpotifyBridgeAuthService spotifyBridgeAuthService;
-    private final DemoMusicCatalog demoMusicCatalog;
     private final SearchQueryRefiner searchQueryRefiner;
     private final Clock clock;
 
@@ -29,7 +28,6 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
             ArtistRepository artistRepository,
             SpotifyCatalogClient spotifyCatalogClient,
             SpotifyBridgeAuthService spotifyBridgeAuthService,
-            DemoMusicCatalog demoMusicCatalog,
             SearchQueryRefiner searchQueryRefiner,
             Clock clock
     ) {
@@ -37,7 +35,6 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
         this.artistRepository = artistRepository;
         this.spotifyCatalogClient = spotifyCatalogClient;
         this.spotifyBridgeAuthService = spotifyBridgeAuthService;
-        this.demoMusicCatalog = demoMusicCatalog;
         this.searchQueryRefiner = searchQueryRefiner;
         this.clock = clock;
     }
@@ -93,8 +90,7 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
         if (spotifyTrack.isPresent()) {
             return spotifyTrack;
         }
-        return demoMusicCatalog.findTrackById(trackId)
-                .map(this::saveTrack);
+        return Optional.empty();
     }
 
     @Override
@@ -127,8 +123,7 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
         if (spotifyArtist.isPresent()) {
             return spotifyArtist;
         }
-        return demoMusicCatalog.findArtistById(artistId)
-                .map(this::saveArtist);
+        return Optional.empty();
     }
 
     @Override
@@ -146,15 +141,6 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
                     .orElse(List.of());
             if (!spotifyTracks.isEmpty()) {
                 return spotifyTracks;
-            }
-        }
-
-        for (String candidate : candidates) {
-            List<Track> demoTracks = demoMusicCatalog.searchTracks(candidate, limit).stream()
-                    .map(this::saveTrack)
-                    .toList();
-            if (!demoTracks.isEmpty()) {
-                return demoTracks;
             }
         }
 

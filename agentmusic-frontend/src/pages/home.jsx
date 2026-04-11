@@ -1,10 +1,7 @@
 import Topnav from '../component/topnav/topnav'
 import TitleL from '../component/text/title-l'
-import TitleM from '../component/text/title-m'
-import PlaylistCardS from '../component/cards/playlist-card-s'
-import PlaylistCardM from '../component/cards/playlist-card-m'
+import TextRegularM from '../component/text/text-regular-m'
 import styles from './home.module.css'
-import { PLAYLIST } from '../data/index'
 
 function Home() {
   return (
@@ -16,26 +13,12 @@ function Home() {
       <div className={styles.Content}>
         <section>
           <div className={styles.SectionTitle}>
-            <TitleL>今日推荐</TitleL>
+            <TitleL>音乐主页</TitleL>
           </div>
 
-          <div className={styles.SectionCards}>
-            {PLAYLIST.map((item) => (
-              <PlaylistCardS key={item.title} data={item} />
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <div className={styles.SectionTitle}>
-            <TitleM>最近播放</TitleM>
-          </div>
-
-          <div className={styles.SectionCardsMedium}>
-            {PLAYLIST.slice(0, 6).map((item) => (
-              <PlaylistCardM key={item.title} data={item} />
-            ))}
-          </div>
+          <TextRegularM>
+            当前页面保留为 UI 骨架。业务数据接入将统一通过后端接口完成，不再使用前端静态歌单。
+          </TextRegularM>
         </section>
       </div>
     </div>

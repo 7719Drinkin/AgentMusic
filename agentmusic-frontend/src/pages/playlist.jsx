@@ -1,97 +1,31 @@
-import { useParams } from 'react-router';
-import { connect } from 'react-redux';
-import { changeTrack } from '../actions';
-import Topnav from '../component/topnav/topnav';
-import TextRegularM from "../component/text/text-regular-m";
-import PlayButton from '../component/buttons/play-button';
-import IconButton from '../component/buttons/icon-button';
-import PlaylistDetails from '../component/playlist/playlist-details';
-import PlaylistTrack from '../component/playlist/playlist-track';
-import * as Icons from '../component/icons';
-import { PLAYLIST } from "../data/index";
+import { useParams } from 'react-router'
+import Topnav from '../component/topnav/topnav'
+import TextRegularM from '../component/text/text-regular-m'
+import TitleL from '../component/text/title-l'
+import styles from './playlist.module.css'
 
-import styles from './playlist.module.css';
-import { useEffect, useState } from 'react';
+function PlaylistPage() {
+  const { path } = useParams()
 
-function PlaylistPage(props) {
-	const[playlistIndex, setPlaylistIndex] = useState(undefined);
-	const[isthisplay, setIsthisPlay] = useState(false);
-	const { path } = useParams();
+  return (
+    <div className={styles.PlaylistPage}>
+      <div className={styles.gradientBg}></div>
+      <div className={styles.gradientBgSoft}></div>
+      <div className={styles.Bg}></div>
 
-	function changeBg(color){
-		document.documentElement.style.setProperty('--hover-home-bg', color);
-	}
+      <Topnav />
 
-	useEffect(() => {
-		setIsthisPlay(playlistIndex === props.trackData.trackKey[0])
-	})
-
-	return (
-		<div className={styles.PlaylistPage}>
-			<div className={styles.gradientBg}></div>
-            <div className={styles.gradientBgSoft}></div>
-			<div className={styles.Bg}></div>
-
-			<Topnav />
-
-			{PLAYLIST.map((item) => {
-                if(item.link == path){
-                    return (
-                        <div key={item.title} onLoad={() => {
-							changeBg(item.playlistBg);
-							setPlaylistIndex(PLAYLIST.indexOf(item))
-						}}>
-
-							<PlaylistDetails data={item} />
-
-							<div className={styles.PlaylistIcons}>
-								<button
-									onClick={() => props.changeTrack([PLAYLIST.indexOf(item), 0])} 
-								>
-									<PlayButton isthisplay={isthisplay}/>
-								</button>
-								<IconButton icon={<Icons.Like />} activeicon={<Icons.LikeActive />}/>
-								<Icons.More className={styles.moreIcon}/>
-							</div>
-
-							<div className={styles.ListHead}>
-								<TextRegularM>#</TextRegularM>
-								<TextRegularM>BAŞLIK</TextRegularM>
-								<Icons.Time/>
-							</div>
-
-							<div className={styles.PlaylistSongs}>
-								{item.playlistData.map((song) => {
-									return (
-										<button 
-											key={song.index} 
-											onClick={() => props.changeTrack([PLAYLIST.indexOf(item), item.playlistData.indexOf(song)])} 
-											className={styles.SongBtn}
-										>
-											<PlaylistTrack 
-												data={{
-													listType: item.type,
-													song: song
-												}}
-											/>
-										</button>
-									);
-								})}
-							</div>
-                        </div>
-                    );
-                }
-			})}
-		</div>
-	);
+      <div className={styles.PlaylistDetailsFallback}>
+        <TitleL>歌单详情</TitleL>
+        <TextRegularM>
+          当前路由已保留，但歌单详情页不再读取前端静态歌单数据。后续将接入后端歌单详情接口。
+        </TextRegularM>
+        <TextRegularM>
+          当前歌单标识：{path}
+        </TextRegularM>
+      </div>
+    </div>
+  )
 }
 
-
-
-const mapStateToProps = (state) => {
-	return {
-		trackData: state.trackData,
-	};
-};
-  
-export default connect(mapStateToProps, { changeTrack })(PlaylistPage);
+export default PlaylistPage
