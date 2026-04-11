@@ -47,15 +47,27 @@ public class SimpleTaskPlanner implements TaskPlanner {
     }
 
     private AgentIntent classify(String message) {
-        boolean mentionsPlay = containsAny(message, "播放", "播", "放歌", "pause", "play", "shuffle", "repeat", "随机");
-        boolean mentionsPause = containsAny(message, "暂停", "pause");
-        boolean mentionsPlaylist = containsAny(message, "歌单", "playlist");
-        boolean mentionsArtist = containsAny(message, "歌手", "artist");
-        boolean mentionsSearch = containsAny(message, "搜索", "查找", "search", "查一下");
-        boolean mentionsHistory = containsAny(message, "历史歌单", "上次", "上一版", "之前的歌单");
+        boolean mentionsPlay = containsAny(
+                message,
+                "播放",
+                "播一下",
+                "放歌",
+                "继续播放",
+                "开始播放",
+                "play",
+                "resume",
+                "shuffle",
+                "repeat",
+                "随机"
+        );
+        boolean mentionsPause = containsAny(message, "暂停", "pause", "stop");
+        boolean mentionsPlaylist = containsAny(message, "歌单", "playlist", "mix");
+        boolean mentionsArtist = containsAny(message, "歌手", "艺人", "artist");
+        boolean mentionsSearch = containsAny(message, "搜索", "查找", "搜一下", "查一下", "search", "find");
+        boolean mentionsHistory = containsAny(message, "历史歌单", "上次推荐", "上一版歌单", "之前的歌单", "最近推荐");
         boolean recommendOnly = containsAny(
                 message,
-                "先不要播",
+                "先不播放",
                 "不要播放",
                 "先别播",
                 "我先看看",
@@ -68,9 +80,11 @@ public class SimpleTaskPlanner implements TaskPlanner {
                 "来点",
                 "给我来",
                 "来一些",
-                "来首",
+                "来一首",
                 "歌单",
-                "mix"
+                "mix",
+                "适合",
+                "想听"
         );
 
         if (mentionsHistory) {

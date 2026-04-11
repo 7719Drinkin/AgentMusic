@@ -20,6 +20,7 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
     private final ArtistRepository artistRepository;
     private final SpotifyCatalogClient spotifyCatalogClient;
     private final SpotifyBridgeAuthService spotifyBridgeAuthService;
+    private final DemoMusicCatalog demoMusicCatalog;
     private final Clock clock;
 
     public DefaultMusicMetadataService(
@@ -27,12 +28,14 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
             ArtistRepository artistRepository,
             SpotifyCatalogClient spotifyCatalogClient,
             SpotifyBridgeAuthService spotifyBridgeAuthService,
+            DemoMusicCatalog demoMusicCatalog,
             Clock clock
     ) {
         this.trackRepository = trackRepository;
         this.artistRepository = artistRepository;
         this.spotifyCatalogClient = spotifyCatalogClient;
         this.spotifyBridgeAuthService = spotifyBridgeAuthService;
+        this.demoMusicCatalog = demoMusicCatalog;
         this.clock = clock;
     }
 
@@ -81,8 +84,13 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
         if (local.isPresent()) {
             return local;
         }
-        return spotifyBridgeAuthService.getValidAccessToken()
+        Optional<Track> spotifyTrack = spotifyBridgeAuthService.getValidAccessToken()
                 .flatMap(accessToken -> spotifyCatalogClient.getTrack(trackId, accessToken))
+                .map(this::saveTrack);
+        if (spotifyTrack.isPresent()) {
+            return spotifyTrack;
+        }
+        return demoMusicCatalog.findTrackById(trackId)
                 .map(this::saveTrack);
     }
 
@@ -110,17 +118,28 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
         if (local.isPresent()) {
             return local;
         }
-        return spotifyBridgeAuthService.getValidAccessToken()
+        Optional<Artist> spotifyArtist = spotifyBridgeAuthService.getValidAccessToken()
                 .flatMap(accessToken -> spotifyCatalogClient.getArtist(artistId, accessToken))
+                .map(this::saveArtist);
+        if (spotifyArtist.isPresent()) {
+            return spotifyArtist;
+        }
+        return demoMusicCatalog.findArtistById(artistId)
                 .map(this::saveArtist);
     }
 
     @Override
     public List<Track> searchTracks(String query, int limit) {
-        return spotifyBridgeAuthService.getValidAccessToken()
+        List<Track> spotifyTracks = spotifyBridgeAuthService.getValidAccessToken()
                 .map(accessToken -> spotifyCatalogClient.searchTracks(query, accessToken, limit).stream()
                         .map(this::saveTrack)
                         .toList())
                 .orElse(List.of());
+        if (!spotifyTracks.isEmpty()) {
+            return spotifyTracks;
+        }
+        return demoMusicCatalog.searchTracks(query, limit).stream()
+                .map(this::saveTrack)
+                .toList();
     }
 }
