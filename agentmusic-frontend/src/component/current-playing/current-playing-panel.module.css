@@ -26,8 +26,17 @@
     overflow-x: hidden;
     overscroll-behavior: contain;
     padding-right: 4px;
+    padding-bottom: 18px;
+    box-sizing: border-box;
+    scroll-padding-bottom: 18px;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+.content::after{
+    content: '';
+    display: block;
+    min-height: 1px;
+    flex-shrink: 0;
 }
 .content::-webkit-scrollbar{
     width: 8px;
