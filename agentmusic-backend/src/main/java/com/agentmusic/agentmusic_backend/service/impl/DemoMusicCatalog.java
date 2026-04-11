@@ -58,12 +58,8 @@ public class DemoMusicCatalog {
     private int score(DemoTrack track, Set<String> tokens) {
         int score = 0;
         for (String token : tokens) {
-            if (track.matchFields().contains(token)) {
-                score += 3;
-            }
-            if (track.tags().contains(token)) {
-                score += 5;
-            }
+            score += scoreMatches(token, track.matchFields(), 3);
+            score += scoreMatches(token, track.tags(), 5);
         }
         return score;
     }
@@ -155,6 +151,22 @@ public class DemoMusicCatalog {
                         Set.of("随机", "活力", "流行", "运动")
                 )
         );
+    }
+
+    private int scoreMatches(String token, Set<String> values, int matchedValue) {
+        int score = 0;
+        String normalizedToken = token.toLowerCase(Locale.ROOT);
+        for (String value : values) {
+            String normalizedValue = value.toLowerCase(Locale.ROOT);
+            if (normalizedValue.equals(normalizedToken)) {
+                score += matchedValue + 2;
+                continue;
+            }
+            if (normalizedValue.contains(normalizedToken) || normalizedToken.contains(normalizedValue)) {
+                score += matchedValue;
+            }
+        }
+        return score;
     }
 
     private Map<String, DemoArtist> artists() {

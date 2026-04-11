@@ -21,6 +21,7 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
     private final SpotifyCatalogClient spotifyCatalogClient;
     private final SpotifyBridgeAuthService spotifyBridgeAuthService;
     private final DemoMusicCatalog demoMusicCatalog;
+    private final SearchQueryRefiner searchQueryRefiner;
     private final Clock clock;
 
     public DefaultMusicMetadataService(
@@ -29,6 +30,7 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
             SpotifyCatalogClient spotifyCatalogClient,
             SpotifyBridgeAuthService spotifyBridgeAuthService,
             DemoMusicCatalog demoMusicCatalog,
+            SearchQueryRefiner searchQueryRefiner,
             Clock clock
     ) {
         this.trackRepository = trackRepository;
@@ -36,6 +38,7 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
         this.spotifyCatalogClient = spotifyCatalogClient;
         this.spotifyBridgeAuthService = spotifyBridgeAuthService;
         this.demoMusicCatalog = demoMusicCatalog;
+        this.searchQueryRefiner = searchQueryRefiner;
         this.clock = clock;
     }
 
@@ -130,16 +133,31 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
 
     @Override
     public List<Track> searchTracks(String query, int limit) {
-        List<Track> spotifyTracks = spotifyBridgeAuthService.getValidAccessToken()
-                .map(accessToken -> spotifyCatalogClient.searchTracks(query, accessToken, limit).stream()
-                        .map(this::saveTrack)
-                        .toList())
-                .orElse(List.of());
-        if (!spotifyTracks.isEmpty()) {
-            return spotifyTracks;
+        List<String> candidates = searchQueryRefiner.buildCandidates(query);
+        if (candidates.isEmpty()) {
+            return List.of();
         }
-        return demoMusicCatalog.searchTracks(query, limit).stream()
-                .map(this::saveTrack)
-                .toList();
+
+        for (String candidate : candidates) {
+            List<Track> spotifyTracks = spotifyBridgeAuthService.getValidAccessToken()
+                    .map(accessToken -> spotifyCatalogClient.searchTracks(candidate, accessToken, limit).stream()
+                            .map(this::saveTrack)
+                            .toList())
+                    .orElse(List.of());
+            if (!spotifyTracks.isEmpty()) {
+                return spotifyTracks;
+            }
+        }
+
+        for (String candidate : candidates) {
+            List<Track> demoTracks = demoMusicCatalog.searchTracks(candidate, limit).stream()
+                    .map(this::saveTrack)
+                    .toList();
+            if (!demoTracks.isEmpty()) {
+                return demoTracks;
+            }
+        }
+
+        return List.of();
     }
 }

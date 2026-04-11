@@ -307,3 +307,28 @@
 
 1. 外层面板底边与播放器上边对齐
 2. 内层滚动区为末尾内容预留足够显示空间
+
+## 16. 2026-04-11：推荐搜索查询提炼修正
+
+针对“给我来点轻松的粤语歌，随机播放”这类自然语言推荐请求，后端之前会将整句话原样传递给 Spotify 搜索和本地 demo fallback，导致搜索结果为空，最终回复 `No suitable tracks were found for the current recommendation request.`
+
+本轮修正：
+
+- 新增 `SearchQueryRefiner`
+  - 将自然语言推荐请求提炼为更可用的搜索候选词，例如将“给我来点轻松的粤语歌，随机播放”提炼为“轻松 粤语”等候选查询
+- `DefaultMusicMetadataService.searchTracks(...)`
+  - 改为对每个候选查询词依次尝试 Spotify 搜索
+  - 若 Spotify 返回为空，再依次尝试本地 `DemoMusicCatalog` fallback
+- `DemoMusicCatalog`
+  - 搜索评分由精确匹配扩展到包含关系匹配，提高自然语言查询命中率
+- 新增测试
+  - `SearchQueryRefinerTests`
+  - `MusicMetadataSearchIntegrationTests`
+
+当前结果：
+
+- 运行中的 `/api/agent/chat` 已成功返回
+  - `intent = PLAY_RECOMMENDATION`
+  - 生成 2 首 demo fallback 推荐歌曲
+  - 同时写入 `PlaybackSession`
+- 这说明当前阻塞点已经由“推荐搜索阶段不能把自然语言请求转成有效查询”转为“可以继续验证前端歌单刷新和播放器同步”
