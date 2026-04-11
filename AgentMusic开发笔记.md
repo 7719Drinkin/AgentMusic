@@ -363,3 +363,13 @@
 - 前端运行时主路径已不再依赖静态歌单 / 静态歌曲数据
 - 后端运行时主路径已不再依赖 demo 曲库 fallback
 - 后续联调将更真实地暴露“真实接口是否可用、Spotify 是否可用、Agent 是否真的在工作”
+## 2026-04-11 补充：Spotify bridge 持久化与搜索链路修正
+
+- 将 Spotify bridge token 仓储从纯内存实现改为本地文件持久化，解决后端重启后 `authorized=false` 的问题。
+- 持久化文件路径统一为 `agentmusic-backend/.spotify-bridge-token.properties`，并加入 `.gitignore`。
+- 修正 `SpotifyWebApiCatalogClient` 的搜索 URI 构造方式，避免中文查询参数在 `/search` 请求中编码异常。
+- 当前阶段的真实验证顺序调整为：
+  1. 启动后端
+  2. 完成一次 Spotify bridge 授权
+  3. 直接验证 `/api/music/search/tracks`
+  4. 搜索成功后再回到聊天推荐闭环联调

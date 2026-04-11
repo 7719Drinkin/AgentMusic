@@ -8,15 +8,18 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.util.UriComponentsBuilder;
+import reactor.core.publisher.Mono;
 
 @Component
 public class SpotifyWebApiCatalogClient implements SpotifyCatalogClient {
 
     private static final String API_BASE_URL = "https://api.spotify.com/v1";
+    private static final Logger log = LoggerFactory.getLogger(SpotifyWebApiCatalogClient.class);
 
     private final WebClient webClient;
     private final Clock clock;
@@ -33,7 +36,10 @@ public class SpotifyWebApiCatalogClient implements SpotifyCatalogClient {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
                 .bodyToMono(TrackResponse.class)
-                .onErrorComplete()
+                .onErrorResume(error -> {
+                    log.warn("Spotify track lookup failed for trackId={}", trackId, error);
+                    return Mono.empty();
+                })
                 .block();
 
         return Optional.ofNullable(response).map(this::toDomainTrack);
@@ -46,7 +52,10 @@ public class SpotifyWebApiCatalogClient implements SpotifyCatalogClient {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
                 .bodyToMono(ArtistResponse.class)
-                .onErrorComplete()
+                .onErrorResume(error -> {
+                    log.warn("Spotify artist lookup failed for artistId={}", artistId, error);
+                    return Mono.empty();
+                })
                 .block();
 
         return Optional.ofNullable(response).map(this::toDomainArtist);
@@ -55,16 +64,19 @@ public class SpotifyWebApiCatalogClient implements SpotifyCatalogClient {
     @Override
     public List<Track> searchTracks(String query, String accessToken, int limit) {
         SearchTracksResponse response = webClient.get()
-                .uri(UriComponentsBuilder.fromPath("/search")
+                .uri(uriBuilder -> uriBuilder
+                        .path("/search")
                         .queryParam("q", query)
                         .queryParam("type", "track")
                         .queryParam("limit", limit)
-                        .build(true)
-                        .toUri())
+                        .build())
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
                 .bodyToMono(SearchTracksResponse.class)
-                .onErrorReturn(new SearchTracksResponse(new TracksPage(List.of())))
+                .onErrorResume(error -> {
+                    log.warn("Spotify track search failed for query='{}'", query, error);
+                    return Mono.just(new SearchTracksResponse(new TracksPage(List.of())));
+                })
                 .block();
 
         if (response == null || response.tracks() == null || response.tracks().items() == null) {
@@ -169,4 +181,3 @@ public class SpotifyWebApiCatalogClient implements SpotifyCatalogClient {
     private record ImageResponse(String url) {
     }
 }
-

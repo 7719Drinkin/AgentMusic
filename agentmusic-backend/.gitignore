@@ -34,4 +34,5 @@ build/
 .vscode/
 
 application-local.properties
+.spotify-bridge-token.properties
 .env
