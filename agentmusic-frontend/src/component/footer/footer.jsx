@@ -28,6 +28,7 @@ const QUEUE_NEXT_REQUEST_EVENT = 'agentmusic:queue-next-request'
 
 function Footer(props) {
   const size = useWindowSize()
+  const footerRef = useRef(null)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(1)
@@ -90,6 +91,33 @@ function Footer(props) {
     } catch {
     }
   }
+
+  useEffect(() => {
+    if (!footerRef.current) {
+      return undefined
+    }
+
+    const applyFooterHeight = () => {
+      const nextHeight = Math.ceil(footerRef.current?.getBoundingClientRect().height || 0)
+      if (nextHeight > 0) {
+        document.documentElement.style.setProperty('--footer-safe-height', `${nextHeight}px`)
+      }
+    }
+
+    applyFooterHeight()
+
+    const observer = new ResizeObserver(() => {
+      applyFooterHeight()
+    })
+
+    observer.observe(footerRef.current)
+    window.addEventListener('resize', applyFooterHeight)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', applyFooterHeight)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -323,7 +351,7 @@ function Footer(props) {
   }
 
   return (
-    <footer className={styles.footer}>
+    <footer ref={footerRef} className={styles.footer}>
       <div className={styles.nowplayingbar}>
         <FooterLeft onOpenNowPlayingPanel={props.onOpenNowPlayingPanel} />
         <div className={styles.footerMid}>

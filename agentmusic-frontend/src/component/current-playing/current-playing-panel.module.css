@@ -1,6 +1,6 @@
 .panelShell{
-    height: calc(100vh - var(--footer-safe-height, 132px) - 16px);
-    margin: 8px 8px 8px 0;
+    height: calc(100vh - var(--footer-safe-height, 104px) - 8px);
+    margin: 8px 8px 0 0;
     position: relative;
     overflow: hidden;
 }
