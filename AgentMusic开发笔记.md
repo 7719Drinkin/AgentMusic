@@ -234,3 +234,34 @@
 - 统一底部播放器主要图标风格，保持与歌词/队列图标风格一致
 - 将底部播放器图标尺寸缩小到约原来的 60%，并恢复侧栏 Liked 图标的旧样式
 - 修正 playlist 页面悬浮播放按钮中播放图标过大的问题，使其与暂停图标尺寸一致
+## 11. 2026-04-11：右侧当前播放栏布局修正
+
+针对右侧“当前播放栏”与参考 UI 不一致的问题，本轮完成：
+
+- 将顶部标题区从滚动内容中拆出，固定在右侧栏上方
+- 将右侧栏正文改为独立滚动内容区
+- 调整右侧栏高度计算方式，使其底部以上方播放器为边界
+- 保持右侧栏封面为圆角正方形
+
+当前状态：
+
+- 代码结构已完成“固定头部 + 可滚动内容区”的分离
+- 前端 `npm run build` 通过
+- 页面最终视觉效果仍需在浏览器中继续确认
+
+## 12. 2026-04-11：Playwright 前端检查入口
+
+为后续直接检查前端页面，已在前端工程中补充 Playwright 最小检查骨架：
+
+- `agentmusic-frontend/scripts/inspect-ui.js`
+- `agentmusic-frontend/scripts/inspect-current-playing.js`
+- `agentmusic-frontend/package.json`
+  - `npm run inspect:ui`
+  - `npm run inspect:current-playing`
+
+当前结论：
+
+- Playwright 依赖已安装
+- 本地 `npm run dev` 服务可读，地址为 `http://localhost:5173/`
+- 但在当前会话沙箱中启动 Chromium 会报 `spawn EPERM`
+- 因此这套脚本目前更适合在用户本机终端直接执行，用于生成截图和检查页面

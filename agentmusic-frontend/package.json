@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "inspect:ui": "node scripts/inspect-ui.js",
+    "inspect:current-playing": "node scripts/inspect-current-playing.js"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -19,6 +21,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^5.0.4",
+    "playwright": "^1.59.1",
     "typescript": "~5.9.3",
     "vite": "^8.0.1"
   }

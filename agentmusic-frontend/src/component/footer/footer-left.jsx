@@ -1,22 +1,38 @@
 import { connect } from 'react-redux'
+import { useHistory } from 'react-router-dom'
 import * as Icons from '../icons'
 import IconButton from '../buttons/icon-button'
+import { buildArtistSearchLocation } from '../current-playing/current-playing-helpers'
 import styles from './footer-left.module.css'
 
-function FooterLeft({ trackData, onToggleNowPlayingPanel }) {
+function FooterLeft({ trackData, onOpenNowPlayingPanel }) {
+  const history = useHistory()
   const hasTrack = Boolean(trackData.trackName)
+
+  const handleArtistClick = () => {
+    if (!trackData.trackArtist) {
+      return
+    }
+
+    history.push(
+      buildArtistSearchLocation(trackData.trackArtist, {
+        artistImage: trackData.trackImg,
+        from: 'footer-player',
+      }),
+    )
+  }
 
   return (
     <div className={styles.footerLeft}>
       <button
         className={styles.coverButton}
         type="button"
-        onClick={() => onToggleNowPlayingPanel?.('details')}
+        onClick={() => onOpenNowPlayingPanel?.()}
         aria-label="打开当前播放栏"
       >
         <ImgBox trackData={trackData} />
       </button>
-      <SongDetails trackData={trackData} onOpenPanel={onToggleNowPlayingPanel} />
+      <SongDetails trackData={trackData} onOpenPanel={onOpenNowPlayingPanel} onArtistClick={handleArtistClick} />
       <IconButton
         className={styles.footerIcon}
         icon={<Icons.Like />}
@@ -31,7 +47,7 @@ function FooterLeft({ trackData, onToggleNowPlayingPanel }) {
         activeicon={<Icons.Corner />}
         tooltip="打开当前播放栏"
         ariaLabel="打开当前播放栏"
-        onClick={() => onToggleNowPlayingPanel?.('details')}
+        onClick={() => onOpenNowPlayingPanel?.()}
         toggleOnClick={false}
         disabled={!hasTrack}
       />
@@ -49,13 +65,13 @@ function ImgBox({ trackData }) {
   )
 }
 
-function SongDetails({ trackData, onOpenPanel }) {
+function SongDetails({ trackData, onOpenPanel, onArtistClick }) {
   return (
     <div className={styles.songDetails}>
-      <button className={styles.trackLink} type="button" onClick={() => onOpenPanel?.('details')}>
-        {trackData.trackName || '暂未播放'}
+      <button className={styles.trackLink} type="button" onClick={() => onOpenPanel?.()}>
+        {trackData.trackName || '暂无播放'}
       </button>
-      <button className={styles.artistLink} type="button" onClick={() => onOpenPanel?.('details')}>
+      <button className={styles.artistLink} type="button" onClick={onArtistClick}>
         {trackData.trackArtist || '等待推荐'}
       </button>
     </div>

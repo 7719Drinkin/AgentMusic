@@ -15,24 +15,32 @@ import styles from './style/App.module.css'
 
 function App() {
   const size = useWindowSize()
-  const [nowPlayingPanel, setNowPlayingPanel] = useState({
-    open: false,
-    view: 'details',
-  })
-  const showNowPlayingPanel = size.width > CONST.MOBILE_SIZE && nowPlayingPanel.open
+  const [isNowPlayingOpen, setIsNowPlayingOpen] = useState(false)
+  const [isQueueOpen, setIsQueueOpen] = useState(false)
+  const showNowPlayingPanel = size.width > CONST.MOBILE_SIZE && isNowPlayingOpen
 
-  const handleOpenNowPlayingPanel = (view = 'details') => {
-    setNowPlayingPanel({ open: true, view })
+  const handleOpenNowPlayingPanel = () => {
+    setIsNowPlayingOpen(true)
   }
 
-  const handleToggleNowPlayingPanel = (view = 'details') => {
-    setNowPlayingPanel((current) => {
-      if (current.open && current.view === view) {
-        return { ...current, open: false }
+  const handleToggleNowPlayingPanel = () => {
+    setIsNowPlayingOpen((current) => {
+      const next = !current
+      if (!next) {
+        setIsQueueOpen(false)
       }
-
-      return { open: true, view }
+      return next
     })
+  }
+
+  const handleToggleQueueDrawer = () => {
+    setIsNowPlayingOpen(true)
+    setIsQueueOpen((current) => !current)
+  }
+
+  const handleCloseNowPlayingPanel = () => {
+    setIsNowPlayingOpen(false)
+    setIsQueueOpen(false)
   }
 
   return (
@@ -61,17 +69,18 @@ function App() {
         {showNowPlayingPanel ? (
           <div className={styles.panelArea}>
             <CurrentPlayingPanel
-              view={nowPlayingPanel.view}
-              onClose={() => setNowPlayingPanel((current) => ({ ...current, open: false }))}
-              onSwitchView={(view) => setNowPlayingPanel({ open: true, view })}
+              isQueueOpen={isQueueOpen}
+              onClose={handleCloseNowPlayingPanel}
+              onToggleQueue={handleToggleQueueDrawer}
             />
           </div>
         ) : null}
         <Footer
           onOpenNowPlayingPanel={handleOpenNowPlayingPanel}
           onToggleNowPlayingPanel={handleToggleNowPlayingPanel}
+          onToggleQueueDrawer={handleToggleQueueDrawer}
           isNowPlayingOpen={showNowPlayingPanel}
-          currentPanelView={nowPlayingPanel.view}
+          isQueueOpen={showNowPlayingPanel && isQueueOpen}
         />
       </div>
     </Router>

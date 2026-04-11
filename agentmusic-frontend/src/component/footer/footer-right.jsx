@@ -4,26 +4,24 @@ import RangeSlider from './range-slider'
 import IconButton from '../buttons/icon-button'
 import styles from './footer-right.module.css'
 
-function FooterRight({ volume, setVolume, onOpenNowPlayingPanel, currentPanelView, isNowPlayingOpen, hasTrackContext }) {
+function FooterRight({ volume, setVolume, onOpenNowPlayingPanel, onToggleQueueDrawer, isNowPlayingOpen, isQueueOpen, hasTrackContext }) {
   return (
     <div className={styles.footerRight}>
       <IconButton
         className={styles.footerIcon}
         icon={<Icons.Lyrics />}
-        active={isNowPlayingOpen && currentPanelView === 'lyrics'}
-        tooltip="歌词"
-        ariaLabel="打开歌词面板"
-        onClick={() => onOpenNowPlayingPanel?.('lyrics')}
+        tooltip="歌词（稍后实现）"
+        ariaLabel="歌词（稍后实现）"
         toggleOnClick={false}
-        disabled={!hasTrackContext}
+        disabled
       />
       <IconButton
         className={styles.footerIcon}
         icon={<Icons.Queue />}
-        active={isNowPlayingOpen && currentPanelView === 'queue'}
-        tooltip="队列"
-        ariaLabel="打开播放队列"
-        onClick={() => onOpenNowPlayingPanel?.('queue')}
+        active={isNowPlayingOpen && isQueueOpen}
+        tooltip="打开队列"
+        ariaLabel="打开队列"
+        onClick={onToggleQueueDrawer}
         toggleOnClick={false}
         disabled={!hasTrackContext}
       />
@@ -31,9 +29,19 @@ function FooterRight({ volume, setVolume, onOpenNowPlayingPanel, currentPanelVie
         className={styles.footerIcon}
         icon={<Icons.MiniPlayer />}
         tooltip="迷你播放器（Priority 2）"
-        ariaLabel="迷你播放器"
+        ariaLabel="迷你播放器（Priority 2）"
         toggleOnClick={false}
         disabled
+      />
+      <IconButton
+        className={styles.footerIcon}
+        icon={<Icons.Corner />}
+        active={isNowPlayingOpen && !isQueueOpen}
+        tooltip="打开当前播放栏"
+        ariaLabel="打开当前播放栏"
+        onClick={onOpenNowPlayingPanel}
+        toggleOnClick={false}
+        disabled={!hasTrackContext}
       />
       <SoundLevel volume={volume} setVolume={setVolume} />
     </div>

@@ -1,0 +1,93 @@
+.drawer{
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 18px;
+    border-radius: 16px;
+    background: #181818;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 16px 36px rgba(0,0,0,0.4);
+    transform: translateY(calc(100% + 24px));
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.22s ease, opacity 0.22s ease;
+    z-index: 20;
+}
+.drawerOpen{
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+.drawerHeader{
+    padding: 16px 18px 12px;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: start;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.drawerHeader p{
+    margin: 0 0 4px;
+    color: rgba(255,255,255,0.6);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.drawerHeader h3{
+    margin: 0;
+    font-size: 15px;
+}
+.drawerHeader button{
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: rgba(255,255,255,0.74);
+    cursor: pointer;
+}
+.drawerBody{
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 8px 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.queueItem{
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 8px;
+    border-radius: 10px;
+}
+.queueItem:hover{
+    background: rgba(255,255,255,0.05);
+}
+.queueItem img{
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+.queueMeta{
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.queueMeta strong,
+.queueMeta span{
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.queueMeta span,
+.queueOrder{
+    color: rgba(255,255,255,0.62);
+    font-size: 12px;
+}
+.emptyState{
+    padding: 18px 10px;
+    color: rgba(255,255,255,0.62);
+    font-size: 13px;
+}

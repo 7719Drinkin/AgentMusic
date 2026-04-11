@@ -24,6 +24,7 @@ import styles from './footer.module.css'
 
 const DEMO_USER_ID = 'demo-user'
 const PLAYBACK_REFRESH_EVENT = 'agentmusic:playback-session-updated'
+const QUEUE_NEXT_REQUEST_EVENT = 'agentmusic:queue-next-request'
 
 function Footer(props) {
   const size = useWindowSize()
@@ -141,6 +142,52 @@ function Footer(props) {
     }
   }, [volume])
 
+  const handleNext = async () => {
+    if (!canSkipTrack || isPlaybackBusy) {
+      return
+    }
+
+    if (!props.trackData.trackId) {
+      if (props.trackData.trackKey[1] === PLAYLIST[props.trackData.trackKey[0]].playlistData.length - 1) {
+        return
+      }
+      props.changeTrack([props.trackData.trackKey[0], parseInt(props.trackData.trackKey[1], 10) + 1])
+      return
+    }
+
+    try {
+      setIsPlaybackBusy(true)
+      await nextTrack(DEMO_USER_ID, props.deviceId)
+      await refreshPlaybackSession(true)
+    } catch {
+    } finally {
+      setIsPlaybackBusy(false)
+    }
+  }
+
+  const handlePrevious = async () => {
+    if (!canSkipTrack || isPlaybackBusy) {
+      return
+    }
+
+    if (!props.trackData.trackId) {
+      if (props.trackData.trackKey[1] === 0) {
+        return
+      }
+      props.changeTrack([props.trackData.trackKey[0], props.trackData.trackKey[1] - 1])
+      return
+    }
+
+    try {
+      setIsPlaybackBusy(true)
+      await previousTrack(DEMO_USER_ID, props.deviceId)
+      await refreshPlaybackSession(true)
+    } catch {
+    } finally {
+      setIsPlaybackBusy(false)
+    }
+  }
+
   useEffect(() => {
     if (!audioRef.current) {
       return
@@ -159,7 +206,7 @@ function Footer(props) {
       if (props.trackData.trackKey[1] === PLAYLIST[props.trackData.trackKey[0]].playlistData.length - 1) {
         props.changeTrack([props.trackData.trackKey[0], 0])
       } else {
-        props.changeTrack([props.trackData.trackKey[0], parseInt(props.trackData.trackKey[1]) + 1])
+        props.changeTrack([props.trackData.trackKey[0], parseInt(props.trackData.trackKey[1], 10) + 1])
       }
     }
 
@@ -167,7 +214,18 @@ function Footer(props) {
     return () => {
       audioRef.current?.removeEventListener('ended', handleEnded)
     }
-  }, [props.trackData.trackKey, props.trackData.trackId])
+  }, [props.trackData.trackKey, props.trackData.trackId, handleNext, props.changeTrack])
+
+  useEffect(() => {
+    const requestNext = () => {
+      handleNext()
+    }
+
+    window.addEventListener(QUEUE_NEXT_REQUEST_EVENT, requestNext)
+    return () => {
+      window.removeEventListener(QUEUE_NEXT_REQUEST_EVENT, requestNext)
+    }
+  }, [handleNext])
 
   const handleTrackClick = async (position) => {
     if (!canSeek || isPlaybackBusy) {
@@ -224,52 +282,6 @@ function Footer(props) {
     }
   }
 
-  const handleNext = async () => {
-    if (!canSkipTrack || isPlaybackBusy) {
-      return
-    }
-
-    if (!props.trackData.trackId) {
-      if (props.trackData.trackKey[1] === PLAYLIST[props.trackData.trackKey[0]].playlistData.length - 1) {
-        return
-      }
-      props.changeTrack([props.trackData.trackKey[0], parseInt(props.trackData.trackKey[1]) + 1])
-      return
-    }
-
-    try {
-      setIsPlaybackBusy(true)
-      await nextTrack(DEMO_USER_ID, props.deviceId)
-      await refreshPlaybackSession(true)
-    } catch {
-    } finally {
-      setIsPlaybackBusy(false)
-    }
-  }
-
-  const handlePrevious = async () => {
-    if (!canSkipTrack || isPlaybackBusy) {
-      return
-    }
-
-    if (!props.trackData.trackId) {
-      if (props.trackData.trackKey[1] === 0) {
-        return
-      }
-      props.changeTrack([props.trackData.trackKey[0], props.trackData.trackKey[1] - 1])
-      return
-    }
-
-    try {
-      setIsPlaybackBusy(true)
-      await previousTrack(DEMO_USER_ID, props.deviceId)
-      await refreshPlaybackSession(true)
-    } catch {
-    } finally {
-      setIsPlaybackBusy(false)
-    }
-  }
-
   const handleToggleShuffle = async () => {
     const nextMode = props.playbackMode === 'SHUFFLE' ? 'SEQUENTIAL' : 'SHUFFLE'
     await updatePlaybackMode(nextMode)
@@ -313,7 +325,7 @@ function Footer(props) {
   return (
     <footer className={styles.footer}>
       <div className={styles.nowplayingbar}>
-        <FooterLeft onToggleNowPlayingPanel={props.onToggleNowPlayingPanel} />
+        <FooterLeft onOpenNowPlayingPanel={props.onOpenNowPlayingPanel} />
         <div className={styles.footerMid}>
           <MusicControlBox
             isPlaying={props.isPlaying}
@@ -347,8 +359,9 @@ function Footer(props) {
             volume={volume}
             setVolume={setVolume}
             onOpenNowPlayingPanel={props.onOpenNowPlayingPanel}
-            currentPanelView={props.currentPanelView}
+            onToggleQueueDrawer={props.onToggleQueueDrawer}
             isNowPlayingOpen={props.isNowPlayingOpen}
+            isQueueOpen={props.isQueueOpen}
             hasTrackContext={hasTrackContext}
           />
         ) : null}

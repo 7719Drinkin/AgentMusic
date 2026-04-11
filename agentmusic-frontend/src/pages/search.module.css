@@ -5,9 +5,43 @@
     overflow-x: hidden;
 }
 .Search{
-    padding: 0px 32px;
-    padding-bottom: 32px;
+    padding: 0 32px 32px;
     margin-bottom: 95px;
+}
+.artistHero{
+    margin: 28px 0 28px;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 24px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(29, 185, 84, 0.32), rgba(33, 33, 33, 0.96));
+}
+.artistHero img{
+    width: 160px;
+    height: 160px;
+    object-fit: cover;
+    border-radius: 999px;
+}
+.artistHeroContent{
+    align-self: end;
+}
+.artistHeroContent span{
+    color: rgba(255,255,255,0.72);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.artistHeroContent h1{
+    margin: 10px 0 12px;
+    font-size: 40px;
+    line-height: 1.05;
+}
+.artistHeroContent p{
+    max-width: 720px;
+    margin: 0;
+    color: rgba(255,255,255,0.78);
+    line-height: 1.6;
 }
 .SearchCardGrid{
     display: grid;
@@ -20,6 +54,19 @@
         padding: 16px;
         margin-bottom: 180px;
         margin-top: 24px;
+    }
+    .artistHero{
+        margin-top: 8px;
+        padding: 20px;
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .artistHero img{
+        width: 120px;
+        height: 120px;
+    }
+    .artistHeroContent h1{
+        font-size: 28px;
     }
     .SearchCardGrid{
         grid-gap: 16px;
