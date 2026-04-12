@@ -47,7 +47,7 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
                             .filter(state -> resolvedDeviceId == null || resolvedDeviceId.equals(state.deviceId()))
                             .isPresent();
 
-                    ensureTargetDevice(accessToken, resolvedDeviceId, !shouldResume);
+                    ensureTargetDevice(accessToken, resolvedDeviceId);
                     if (shouldResume) {
                         spotifyPlaybackClient.resumePlayback(accessToken, resolvedDeviceId);
                     } else {
@@ -267,15 +267,17 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
                 .findFirst();
     }
 
-    private void ensureTargetDevice(String accessToken, String deviceId, boolean play) {
+    private void ensureTargetDevice(String accessToken, String deviceId) {
         if (deviceId == null || deviceId.isBlank()) {
             return;
         }
-        Optional<SpotifyPlaybackState> playbackState = spotifyPlaybackClient.getPlaybackState(accessToken);
-        if (playbackState.isPresent() && deviceId.equals(playbackState.get().deviceId())) {
+        boolean targetDeviceIsActive = spotifyPlaybackClient.getAvailableDevices(accessToken).stream()
+                .filter(device -> !device.restricted())
+                .anyMatch(device -> deviceId.equals(device.id()) && device.active());
+        if (targetDeviceIsActive) {
             return;
         }
-        spotifyPlaybackClient.transferPlayback(accessToken, deviceId, play);
+        spotifyPlaybackClient.transferPlayback(accessToken, deviceId, false);
     }
 
     private String resolveConfiguredDeviceId(String deviceId) {
