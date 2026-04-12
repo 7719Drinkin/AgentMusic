@@ -1,7 +1,10 @@
 package com.agentmusic.agentmusic_backend.service.application;
 
 import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
+import com.agentmusic.agentmusic_backend.dto.SpotifyPlaybackDeviceDto;
+import com.agentmusic.agentmusic_backend.dto.TransferPlaybackRequest;
 import com.agentmusic.agentmusic_backend.dto.UpdatePlaybackSessionRequest;
+import java.util.List;
 import java.util.Optional;
 
 public interface PlaybackApplicationService {
@@ -30,4 +33,8 @@ public interface PlaybackApplicationService {
     PlaybackSessionDto changePlaybackMode(String userId, com.agentmusic.agentmusic_backend.domain.PlaybackMode playbackMode, String deviceId);
 
     Optional<PlaybackSessionDto> syncBridgeState(String userId);
+
+    List<SpotifyPlaybackDeviceDto> getAvailableDevices(String userId);
+
+    PlaybackSessionDto transferPlayback(String userId, TransferPlaybackRequest request);
 }

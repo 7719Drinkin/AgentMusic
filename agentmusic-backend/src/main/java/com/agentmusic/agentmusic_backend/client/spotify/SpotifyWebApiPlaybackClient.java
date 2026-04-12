@@ -67,10 +67,25 @@ public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
                         device.id(),
                         device.name(),
                         Boolean.TRUE.equals(device.isActive()),
+                        Boolean.TRUE.equals(device.isRestricted()),
                         device.type(),
                         device.volumePercent()
                 ))
                 .toList();
+    }
+
+    @Override
+    public void transferPlayback(String accessToken, String deviceId, boolean play) {
+        TransferPlaybackRequest body = new TransferPlaybackRequest(List.of(deviceId), play);
+        webClient.put()
+                .uri("/me/player")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .bodyValue(body)
+                .retrieve()
+                .toBodilessEntity()
+                .timeout(REQUEST_TIMEOUT)
+                .block();
     }
 
     @Override
@@ -199,16 +214,29 @@ public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
     private record DevicesResponse(List<DeviceResponse> devices) {
     }
 
+    private record TransferPlaybackRequest(List<String> deviceIds, boolean play) {
+        @com.fasterxml.jackson.annotation.JsonProperty("device_ids")
+        public List<String> deviceIds() {
+            return deviceIds;
+        }
+    }
+
     private record DeviceResponse(
             String id,
             String name,
             String type,
             Boolean isActive,
+            Boolean isRestricted,
             Integer volumePercent
     ) {
         @com.fasterxml.jackson.annotation.JsonProperty("is_active")
         public Boolean isActive() {
             return isActive;
+        }
+
+        @com.fasterxml.jackson.annotation.JsonProperty("is_restricted")
+        public Boolean isRestricted() {
+            return isRestricted;
         }
 
         @com.fasterxml.jackson.annotation.JsonProperty("volume_percent")

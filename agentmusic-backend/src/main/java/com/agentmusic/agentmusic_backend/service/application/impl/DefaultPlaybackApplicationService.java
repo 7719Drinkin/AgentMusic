@@ -4,6 +4,8 @@ import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
 import com.agentmusic.agentmusic_backend.dto.PlaylistDto;
 import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
 import com.agentmusic.agentmusic_backend.dto.PlaylistTrackDto;
+import com.agentmusic.agentmusic_backend.dto.SpotifyPlaybackDeviceDto;
+import com.agentmusic.agentmusic_backend.dto.TransferPlaybackRequest;
 import com.agentmusic.agentmusic_backend.dto.UpdatePlaybackSessionRequest;
 import com.agentmusic.agentmusic_backend.service.BridgePlaybackControlService;
 import com.agentmusic.agentmusic_backend.service.PlaybackSessionService;
@@ -214,6 +216,30 @@ public class DefaultPlaybackApplicationService implements PlaybackApplicationSer
         } catch (RuntimeException ignored) {
             return playbackSessionService.getActiveSession(userId);
         }
+    }
+
+    @Override
+    public List<SpotifyPlaybackDeviceDto> getAvailableDevices(String userId) {
+        return bridgePlaybackControlService.getAvailableDevices(userId).stream()
+                .map(device -> new SpotifyPlaybackDeviceDto(
+                        device.id(),
+                        device.name(),
+                        device.active(),
+                        device.restricted(),
+                        device.type(),
+                        device.volumePercent()
+                ))
+                .toList();
+    }
+
+    @Override
+    public PlaybackSessionDto transferPlayback(String userId, TransferPlaybackRequest request) {
+        boolean play = request != null && Boolean.TRUE.equals(request.play());
+        return bridgePlaybackControlService.transferPlayback(
+                userId,
+                request == null ? null : request.deviceId(),
+                play
+        );
     }
 
     private PlaybackSessionDto moveWithinPlaylist(String userId, int step, String deviceId) {

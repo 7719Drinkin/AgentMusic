@@ -395,3 +395,10 @@
 - 因此右侧“当前播放栏”中的歌曲提供者区域当前只保留可真实获取字段
 - 完整 credits 显示不再作为当前主线开发项，优先级下调
 - 当前开发主线切换为：真实 Spotify 播放控制闭环
+
+## 2026-04-12 补充：设备发现与 transfer playback
+
+- 已新增 `GET /api/playback/{userId}/devices`，用于读取 bridge 账号当前可用设备。
+- 已新增 `POST /api/playback/{userId}/transfer`，用于显式切换目标设备。
+- `playTrack` 当前会先执行“设备发现 -> 目标设备确定 -> 必要时 transfer playback”，再向 Spotify 发起播放请求。
+- 当前实测结果：bridge 授权已成功，但设备列表返回空数组，说明同一 bridge 账号下暂时没有可被 Spotify Web API 控制的活跃设备。

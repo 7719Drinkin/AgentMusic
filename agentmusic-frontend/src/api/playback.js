@@ -4,6 +4,10 @@ export function fetchPlaybackSession(userId) {
   return httpRequest(`/api/playback/${encodeURIComponent(userId)}/session`)
 }
 
+export function fetchPlaybackDevices(userId) {
+  return httpRequest(`/api/playback/${encodeURIComponent(userId)}/devices`)
+}
+
 export function syncPlaybackSession(userId) {
   return httpRequest(`/api/playback/${encodeURIComponent(userId)}/sync`, {
     method: 'POST',
@@ -49,5 +53,12 @@ export function changePlaybackMode(userId, playbackMode, deviceId = null) {
   return httpRequest(`/api/playback/${encodeURIComponent(userId)}/mode`, {
     method: 'POST',
     body: JSON.stringify({ playbackMode, deviceId }),
+  })
+}
+
+export function transferPlayback(userId, deviceId, play = false) {
+  return httpRequest(`/api/playback/${encodeURIComponent(userId)}/transfer`, {
+    method: 'POST',
+    body: JSON.stringify({ deviceId, play }),
   })
 }

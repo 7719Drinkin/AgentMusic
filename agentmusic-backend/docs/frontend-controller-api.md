@@ -117,6 +117,10 @@ Request body:
 
 - returns `Optional<PlaybackSessionDto>`
 
+### `GET /api/playback/{userId}/devices`
+
+- returns `SpotifyPlaybackDeviceDto[]`
+
 ### `PUT /api/playback/{userId}/session`
 
 Request body:
@@ -218,6 +222,19 @@ Request body:
 
 - returns `Optional<PlaybackSessionDto>`
 
+### `POST /api/playback/{userId}/transfer`
+
+Request body:
+
+```json
+{
+  "deviceId": "device-id",
+  "play": true
+}
+```
+
+- returns `PlaybackSessionDto`
+
 ## Music Query API
 
 ### `GET /api/music/tracks/{trackId}`
@@ -292,6 +309,15 @@ Response shape:
 - `playbackMode`
 - `deviceId`
 - `lastUpdated`
+
+### `SpotifyPlaybackDeviceDto`
+
+- `id`
+- `name`
+- `active`
+- `restricted`
+- `type`
+- `volumePercent`
 
 ### `ChatMessageDto`
 

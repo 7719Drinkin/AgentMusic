@@ -1,6 +1,6 @@
-package com.agentmusic.agentmusic_backend.client;
+package com.agentmusic.agentmusic_backend.dto;
 
-public record SpotifyBridgeDevice(
+public record SpotifyPlaybackDeviceDto(
         String id,
         String name,
         boolean active,

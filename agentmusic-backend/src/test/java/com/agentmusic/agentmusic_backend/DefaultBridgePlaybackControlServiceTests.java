@@ -1,0 +1,160 @@
+package com.agentmusic.agentmusic_backend;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.agentmusic.agentmusic_backend.client.SpotifyBridgeDevice;
+import com.agentmusic.agentmusic_backend.client.SpotifyPlaybackClient;
+import com.agentmusic.agentmusic_backend.client.SpotifyPlaybackState;
+import com.agentmusic.agentmusic_backend.config.SpotifyBridgeProperties;
+import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
+import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
+import com.agentmusic.agentmusic_backend.service.PlaybackSessionService;
+import com.agentmusic.agentmusic_backend.service.SpotifyBridgeAuthService;
+import com.agentmusic.agentmusic_backend.service.impl.DefaultBridgePlaybackControlService;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class DefaultBridgePlaybackControlServiceTests {
+
+    @Mock
+    private SpotifyPlaybackClient spotifyPlaybackClient;
+
+    @Mock
+    private SpotifyBridgeAuthService spotifyBridgeAuthService;
+
+    @Mock
+    private PlaybackSessionService playbackSessionService;
+
+    @Test
+    void playTrackShouldResolveActiveDeviceAndTransferBeforePlaying() {
+        SpotifyBridgeProperties properties = new SpotifyBridgeProperties(
+                true,
+                "client-id",
+                "client-secret",
+                "http://127.0.0.1:8080/api/auth/spotify/callback",
+                "bridge-user",
+                ""
+        );
+        DefaultBridgePlaybackControlService service = new DefaultBridgePlaybackControlService(
+                spotifyPlaybackClient,
+                spotifyBridgeAuthService,
+                playbackSessionService,
+                properties
+        );
+
+        when(spotifyBridgeAuthService.getValidAccessToken()).thenReturn(Optional.of("token"));
+        when(playbackSessionService.getActiveSession("demo-user")).thenReturn(Optional.empty());
+        when(spotifyPlaybackClient.getAvailableDevices("token")).thenReturn(List.of(
+                new SpotifyBridgeDevice("restricted", "Restricted", false, true, "Computer", 50),
+                new SpotifyBridgeDevice("active-device", "Edge Player", true, false, "Computer", 80)
+        ));
+        when(spotifyPlaybackClient.getPlaybackState("token")).thenReturn(Optional.of(
+                new SpotifyPlaybackState(null, 0, false, PlaybackMode.SEQUENTIAL, null)
+        ));
+        when(playbackSessionService.saveSession(
+                eq("demo-user"),
+                any(),
+                eq("track-1"),
+                any(),
+                any(),
+                eq(0),
+                eq(true),
+                eq(PlaybackMode.SHUFFLE),
+                eq("active-device")
+        )).thenReturn(new PlaybackSessionDto(
+                "session-1",
+                "track-1",
+                null,
+                null,
+                0,
+                true,
+                PlaybackMode.SHUFFLE,
+                "active-device",
+                LocalDateTime.now()
+        ));
+
+        PlaybackSessionDto session = service.playTrack("demo-user", "track-1", PlaybackMode.SHUFFLE, null);
+
+        verify(spotifyPlaybackClient).transferPlayback("token", "active-device", true);
+        verify(spotifyPlaybackClient).changePlaybackMode("token", PlaybackMode.SHUFFLE, "active-device");
+        verify(spotifyPlaybackClient).playTrack("token", "track-1", "active-device");
+        assertEquals("active-device", session.deviceId());
+        assertEquals("track-1", session.currentTrackId());
+    }
+
+    @Test
+    void transferPlaybackShouldPreferExplicitDeviceId() {
+        SpotifyBridgeProperties properties = new SpotifyBridgeProperties(
+                true,
+                "client-id",
+                "client-secret",
+                "http://127.0.0.1:8080/api/auth/spotify/callback",
+                "bridge-user",
+                "default-device"
+        );
+        DefaultBridgePlaybackControlService service = new DefaultBridgePlaybackControlService(
+                spotifyPlaybackClient,
+                spotifyBridgeAuthService,
+                playbackSessionService,
+                properties
+        );
+        PlaybackSessionDto current = new PlaybackSessionDto(
+                "session-2",
+                "track-2",
+                "playlist-1",
+                1,
+                5000,
+                true,
+                PlaybackMode.SEQUENTIAL,
+                "default-device",
+                LocalDateTime.now()
+        );
+
+        when(spotifyBridgeAuthService.getValidAccessToken()).thenReturn(Optional.of("token"));
+        when(playbackSessionService.getActiveSession("demo-user")).thenReturn(Optional.of(current));
+        when(spotifyPlaybackClient.getAvailableDevices("token")).thenReturn(List.of(
+                new SpotifyBridgeDevice("default-device", "Default", true, false, "Computer", 50),
+                new SpotifyBridgeDevice("explicit-device", "Speaker", false, false, "Speaker", 40)
+        ));
+        when(playbackSessionService.saveSession(
+                eq("demo-user"),
+                eq("session-2"),
+                eq("track-2"),
+                eq("playlist-1"),
+                eq(1),
+                eq(5000),
+                eq(true),
+                eq(PlaybackMode.SEQUENTIAL),
+                eq("explicit-device")
+        )).thenReturn(new PlaybackSessionDto(
+                "session-2",
+                "track-2",
+                "playlist-1",
+                1,
+                5000,
+                true,
+                PlaybackMode.SEQUENTIAL,
+                "explicit-device",
+                LocalDateTime.now()
+        ));
+
+        PlaybackSessionDto session = service.transferPlayback("demo-user", "explicit-device", false);
+
+        verify(spotifyPlaybackClient).transferPlayback("token", "explicit-device", false);
+        assertEquals("explicit-device", session.deviceId());
+    }
+}

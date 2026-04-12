@@ -1,7 +1,9 @@
 package com.agentmusic.agentmusic_backend.service;
 
+import com.agentmusic.agentmusic_backend.client.SpotifyBridgeDevice;
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
 import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
+import java.util.List;
 
 public interface BridgePlaybackControlService {
 
@@ -18,4 +20,8 @@ public interface BridgePlaybackControlService {
     PlaybackSessionDto changePlaybackMode(String userId, PlaybackMode playbackMode, String deviceId);
 
     PlaybackSessionDto syncPlaybackState(String userId);
+
+    List<SpotifyBridgeDevice> getAvailableDevices(String userId);
+
+    PlaybackSessionDto transferPlayback(String userId, String deviceId, boolean play);
 }

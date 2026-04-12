@@ -5,8 +5,11 @@ import com.agentmusic.agentmusic_backend.dto.PlayTrackRequest;
 import com.agentmusic.agentmusic_backend.dto.PlaybackDeviceRequest;
 import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
 import com.agentmusic.agentmusic_backend.dto.SeekPlaybackRequest;
+import com.agentmusic.agentmusic_backend.dto.SpotifyPlaybackDeviceDto;
+import com.agentmusic.agentmusic_backend.dto.TransferPlaybackRequest;
 import com.agentmusic.agentmusic_backend.dto.UpdatePlaybackSessionRequest;
 import com.agentmusic.agentmusic_backend.service.application.PlaybackApplicationService;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,6 +32,11 @@ public class PlaybackController {
     @GetMapping("/{userId}/session")
     public Optional<PlaybackSessionDto> getActiveSession(@PathVariable String userId) {
         return playbackApplicationService.getActiveSession(userId);
+    }
+
+    @GetMapping("/{userId}/devices")
+    public List<SpotifyPlaybackDeviceDto> getAvailableDevices(@PathVariable String userId) {
+        return playbackApplicationService.getAvailableDevices(userId);
     }
 
     @PutMapping("/{userId}/session")
@@ -101,5 +109,13 @@ public class PlaybackController {
     @PostMapping("/{userId}/sync")
     public Optional<PlaybackSessionDto> sync(@PathVariable String userId) {
         return playbackApplicationService.syncBridgeState(userId);
+    }
+
+    @PostMapping("/{userId}/transfer")
+    public PlaybackSessionDto transferPlayback(
+            @PathVariable String userId,
+            @RequestBody TransferPlaybackRequest request
+    ) {
+        return playbackApplicationService.transferPlayback(userId, request);
     }
 }

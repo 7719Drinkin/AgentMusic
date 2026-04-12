@@ -10,6 +10,8 @@ public interface SpotifyPlaybackClient {
 
     List<SpotifyBridgeDevice> getAvailableDevices(String accessToken);
 
+    void transferPlayback(String accessToken, String deviceId, boolean play);
+
     void playTrack(String accessToken, String trackId, String deviceId);
 
     void pause(String accessToken, String deviceId);
