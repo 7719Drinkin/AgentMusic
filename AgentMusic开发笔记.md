@@ -389,3 +389,9 @@
   1. 真实 Spotify 播放控制
   2. 左侧推荐歌单进入真实歌单页
   3. MySQL / Redis 持久化排期
+## 2026-04-12 补充：歌曲提供者 credits 降级
+
+- 已确认当前 Spotify Web API 公开接口不提供 `Lyricist`、`Composer`、`Producer credits`
+- 因此右侧“当前播放栏”中的歌曲提供者区域当前只保留可真实获取字段
+- 完整 credits 显示不再作为当前主线开发项，优先级下调
+- 当前开发主线切换为：真实 Spotify 播放控制闭环

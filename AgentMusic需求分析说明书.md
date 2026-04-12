@@ -610,3 +610,17 @@ AgentMusic 当前版本的核心不是“做一个完整 Spotify 克隆”，而
 2. 流式聊天输出
 3. 语音识别
 4. 真实 LLM 在线对话
+## 2026-04-12 补充说明：歌曲提供者高级字段后置
+
+当前系统所使用的 Spotify Web API 公开接口，不提供完整的歌曲制作人员 credits 字段，例如：
+
+- `Lyricist`
+- `Composer`
+- `Producer`
+
+因此，该区域不再纳入当前主线验收目标。当前版本仅要求右侧“当前播放栏”在歌曲提供者区域显示当前可获取字段，例如：
+
+- `Main Artist`
+- `Album`
+
+完整 credits 显示调整为 `Priority 3`，后续若要实现，必须引入新的 metadata 数据源，而不是继续扩展当前 Spotify controller。

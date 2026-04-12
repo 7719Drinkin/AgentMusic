@@ -188,3 +188,19 @@
 2. 新 UI 入口必须通过局部状态管理，不污染全局逻辑
 3. 右侧栏变更不得影响左侧侧栏和底部播放器基础样式
 4. 视觉对齐 Spotify Web，但不盲目复制其全部功能
+## 2026-04-12 补充：歌曲提供者卡片范围收敛
+
+当前右侧“当前播放栏”中的歌曲提供者卡片，不再尝试在本阶段完整复现 Spotify Web 中可能存在的 credits 细节。
+
+原因：
+- 当前使用的 Spotify Web API 公开接口不提供完整 `Lyricist / Composer / Producer` 数据
+
+当前阶段只要求：
+- 显示 `Main Artist`
+- 显示 `Album`
+
+以下内容调整为 `Priority 3`：
+- `Lyricist`
+- `Composer`
+- `Producer`
+- 完整制作人员 credits

@@ -4,6 +4,7 @@ import com.agentmusic.agentmusic_backend.client.SpotifyBridgeDevice;
 import com.agentmusic.agentmusic_backend.client.SpotifyPlaybackClient;
 import com.agentmusic.agentmusic_backend.client.SpotifyPlaybackState;
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.http.HttpHeaders;
@@ -16,6 +17,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
 
     private static final String API_BASE_URL = "https://api.spotify.com/v1";
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(5);
 
     private final WebClient webClient;
 
@@ -30,6 +32,7 @@ public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
                 .bodyToMono(CurrentPlaybackResponse.class)
+                .timeout(REQUEST_TIMEOUT)
                 .onErrorComplete()
                 .block();
 
@@ -52,6 +55,7 @@ public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
                 .bodyToMono(DevicesResponse.class)
+                .timeout(REQUEST_TIMEOUT)
                 .onErrorReturn(new DevicesResponse(List.of()))
                 .block();
 
@@ -79,6 +83,7 @@ public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
                 .bodyValue(body)
                 .retrieve()
                 .toBodilessEntity()
+                .timeout(REQUEST_TIMEOUT)
                 .block();
     }
 
@@ -89,6 +94,7 @@ public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
                 .toBodilessEntity()
+                .timeout(REQUEST_TIMEOUT)
                 .block();
     }
 
@@ -99,6 +105,7 @@ public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
                 .toBodilessEntity()
+                .timeout(REQUEST_TIMEOUT)
                 .block();
     }
 
@@ -109,6 +116,7 @@ public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
                 .toBodilessEntity()
+                .timeout(REQUEST_TIMEOUT)
                 .block();
     }
 
@@ -118,11 +126,12 @@ public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
                 .uri(UriComponentsBuilder.fromPath("/me/player/seek")
                         .queryParam("position_ms", positionMs)
                         .queryParamIfPresent("device_id", Optional.ofNullable(blankToNull(deviceId)))
-                        .build(true)
-                        .toUri())
+                .build(true)
+                .toUri())
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
                 .toBodilessEntity()
+                .timeout(REQUEST_TIMEOUT)
                 .block();
     }
 
@@ -144,6 +153,7 @@ public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
                 .toBodilessEntity()
+                .timeout(REQUEST_TIMEOUT)
                 .block();
 
         webClient.put()
@@ -155,6 +165,7 @@ public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
                 .toBodilessEntity()
+                .timeout(REQUEST_TIMEOUT)
                 .block();
     }
 

@@ -200,3 +200,19 @@
 2. 流式聊天输出
 3. 语音识别完整链路
 4. 真实 LLM 聊天链路接入
+## 2026-04-12 补充：歌曲提供者信息优先级调整
+
+经确认，当前 Spotify Web API 公开接口不提供 `Lyricist`、`Composer`、`Producer credits` 这类完整歌曲署名字段。
+
+因此将“歌曲提供者卡片中的高级 credits 完整显示”调整为较低优先级事项：
+
+- 当前阶段仅保留：
+  - `Main Artist`
+  - `Album`
+- 以下内容降为 `Priority 3`：
+  - `Lyricist`
+  - `Composer`
+  - `Producer`
+  - 其他完整制作人员 credits
+
+当前主线不再围绕该区域继续补 controller 或 Spotify 接口，而优先推进真实 Spotify 播放控制闭环。

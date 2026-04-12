@@ -147,3 +147,14 @@ planner = FunctionCallingStepwisePlanner(service_id="gpt-4", options=planner_opt
 2. 流式输出
 3. 语音识别
 4. 真实 LLM 对话
+## 2026-04-12 补充说明：当前播放栏 credits 优先级调整
+
+右侧“当前播放栏”中的歌曲提供者区域，当前不再以完整 `Lyricist / Composer / Producer` 作为近期开发目标。
+
+原因：
+- 当前 Spotify Web API 公开接口不提供完整歌曲制作人员 credits
+
+因此：
+- 当前阶段只要求展示可直接获取的数据
+- 完整 credits 显示后置到 `Priority 3`
+- 当前主线转为真实 Spotify 播放控制闭环

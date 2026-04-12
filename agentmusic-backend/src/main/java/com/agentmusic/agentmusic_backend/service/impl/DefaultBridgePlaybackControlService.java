@@ -166,21 +166,22 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
 
     @Override
     public PlaybackSessionDto syncPlaybackState(String userId) {
+        PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
         Optional<String> accessToken = spotifyBridgeAuthService.getValidAccessToken();
         if (accessToken.isEmpty()) {
-            return playbackSessionService.getActiveSession(userId).orElse(null);
+            return current;
         }
         Optional<SpotifyPlaybackState> playbackState = spotifyPlaybackClient.getPlaybackState(accessToken.get());
         if (playbackState.isEmpty()) {
-            return playbackSessionService.getActiveSession(userId).orElse(null);
+            return current;
         }
         SpotifyPlaybackState state = playbackState.get();
         return playbackSessionService.saveSession(
                 userId,
-                null,
+                current == null ? null : current.sessionId(),
                 state.trackId(),
-                null,
-                null,
+                current == null ? null : current.currentPlaylistId(),
+                current == null ? null : current.currentTrackIndex(),
                 state.progressMs(),
                 state.isPlaying(),
                 state.playbackMode(),

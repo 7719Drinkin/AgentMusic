@@ -24,6 +24,7 @@ import styles from './footer.module.css'
 const DEMO_USER_ID = 'demo-user'
 const PLAYBACK_REFRESH_EVENT = 'agentmusic:playback-session-updated'
 const QUEUE_NEXT_REQUEST_EVENT = 'agentmusic:queue-next-request'
+const REMOTE_SYNC_INTERVAL_MS = 4000
 
 function Footer(props) {
   const size = useWindowSize()
@@ -37,6 +38,7 @@ function Footer(props) {
   const hasPlaylistContext = Boolean(props.currentPlaylistId)
   const canSkipTrack = hasTrackContext && hasPlaylistContext
   const canSeek = hasTrackContext && (duration || (props.trackData.durationMs || 0) / 1000) > 0
+  const shouldUseLocalPreview = Boolean(props.trackData.track) && !props.trackData.trackId
 
   const applyPlaybackSession = async (session) => {
     if (!session) {
@@ -68,7 +70,7 @@ function Footer(props) {
         payload = {
           ...payload,
           trackId: track.trackId,
-          track: track.previewUrl || null,
+          track: null,
           trackName: track.title,
           trackImg: track.albumImageUrl || props.trackData.trackImg,
           trackArtist: artistName,
@@ -141,7 +143,7 @@ function Footer(props) {
   }, [])
 
   useEffect(() => {
-    if (!audioRef.current || !props.trackData.track) {
+    if (!audioRef.current || !shouldUseLocalPreview) {
       if (audioRef.current) {
         audioRef.current.pause()
       }
@@ -153,10 +155,10 @@ function Footer(props) {
     } else {
       audioRef.current.pause()
     }
-  }, [props.trackData.track, props.isPlaying])
+  }, [shouldUseLocalPreview, props.isPlaying, props.trackData.track])
 
   useEffect(() => {
-    if (!audioRef.current) {
+    if (!audioRef.current || !shouldUseLocalPreview) {
       return
     }
 
@@ -164,13 +166,13 @@ function Footer(props) {
     if (Math.abs(audioRef.current.currentTime - targetSeconds) > 0.75) {
       audioRef.current.currentTime = targetSeconds
     }
-  }, [props.currentPositionMs, props.trackData.trackId])
+  }, [props.currentPositionMs, props.trackData.trackId, shouldUseLocalPreview])
 
   useEffect(() => {
-    if (audioRef.current) {
+    if (audioRef.current && shouldUseLocalPreview) {
       audioRef.current.volume = volume
     }
-  }, [volume])
+  }, [volume, shouldUseLocalPreview])
 
   const handleNext = async () => {
     if (!canSkipTrack || isPlaybackBusy) {
@@ -203,7 +205,7 @@ function Footer(props) {
   }
 
   useEffect(() => {
-    if (!audioRef.current) {
+    if (!audioRef.current || !shouldUseLocalPreview) {
       return
     }
 
@@ -217,7 +219,21 @@ function Footer(props) {
     return () => {
       audioRef.current?.removeEventListener('ended', handleEnded)
     }
-  }, [canSkipTrack, handleNext])
+  }, [canSkipTrack, handleNext, shouldUseLocalPreview])
+
+  useEffect(() => {
+    if (!props.isPlaying || !props.trackData.trackId || isPlaybackBusy) {
+      return undefined
+    }
+
+    const intervalId = window.setInterval(() => {
+      refreshPlaybackSession(true)
+    }, REMOTE_SYNC_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [props.isPlaying, props.trackData.trackId, isPlaybackBusy])
 
   useEffect(() => {
     const requestNext = () => {
