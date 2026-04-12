@@ -13,10 +13,14 @@ import com.agentmusic.agentmusic_backend.service.PlaylistService;
 import com.agentmusic.agentmusic_backend.service.application.PlaybackApplicationService;
 import java.util.List;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DefaultPlaybackApplicationService implements PlaybackApplicationService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultPlaybackApplicationService.class);
 
     private final PlaybackSessionService playbackSessionService;
     private final BridgePlaybackControlService bridgePlaybackControlService;
@@ -61,6 +65,7 @@ public class DefaultPlaybackApplicationService implements PlaybackApplicationSer
             String deviceId,
             PlaybackMode playbackMode
     ) {
+        PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
         PlaybackMode resolvedPlaybackMode = playbackMode == null ? PlaybackMode.SEQUENTIAL : playbackMode;
         try {
             PlaybackSessionDto session = bridgePlaybackControlService.playTrack(userId, trackId, resolvedPlaybackMode, deviceId);
@@ -70,22 +75,23 @@ public class DefaultPlaybackApplicationService implements PlaybackApplicationSer
                     trackId,
                     playlistId,
                     trackIndex,
-                    0,
+                    session.currentPositionMs(),
                     true,
                     session.playbackMode(),
                     session.deviceId()
             );
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException exception) {
+            LOGGER.warn("Falling back to local playback session for playTrack userId={} trackId={}", userId, trackId, exception);
             return playbackSessionService.saveSession(
                     userId,
-                    null,
+                    current == null ? null : current.sessionId(),
                     trackId,
                     playlistId,
                     trackIndex,
                     0,
                     true,
                     resolvedPlaybackMode,
-                    deviceId
+                    deviceId == null ? (current == null ? null : current.deviceId()) : deviceId
             );
         }
     }

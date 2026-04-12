@@ -48,10 +48,10 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
                             .isPresent();
 
                     ensureTargetDevice(accessToken, resolvedDeviceId, !shouldResume);
-                    spotifyPlaybackClient.changePlaybackMode(accessToken, resolvedPlaybackMode, resolvedDeviceId);
                     if (shouldResume) {
                         spotifyPlaybackClient.resumePlayback(accessToken, resolvedDeviceId);
                     } else {
+                        spotifyPlaybackClient.changePlaybackMode(accessToken, resolvedPlaybackMode, resolvedDeviceId);
                         spotifyPlaybackClient.playTrack(accessToken, trackId, resolvedDeviceId);
                     }
                     return playbackSessionService.saveSession(
