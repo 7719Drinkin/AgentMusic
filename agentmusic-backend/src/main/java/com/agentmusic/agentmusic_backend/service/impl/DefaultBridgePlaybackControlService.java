@@ -40,16 +40,27 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
         return spotifyBridgeAuthService.getValidAccessToken()
                 .map(accessToken -> {
                     String resolvedDeviceId = resolveTargetDeviceId(accessToken, userId, deviceId);
-                    ensureTargetDevice(accessToken, resolvedDeviceId, true);
+                    Optional<SpotifyPlaybackState> playbackState = spotifyPlaybackClient.getPlaybackState(accessToken);
+                    boolean shouldResume = playbackState
+                            .filter(state -> !state.isPlaying())
+                            .filter(state -> trackId.equals(state.trackId()))
+                            .filter(state -> resolvedDeviceId == null || resolvedDeviceId.equals(state.deviceId()))
+                            .isPresent();
+
+                    ensureTargetDevice(accessToken, resolvedDeviceId, !shouldResume);
                     spotifyPlaybackClient.changePlaybackMode(accessToken, resolvedPlaybackMode, resolvedDeviceId);
-                    spotifyPlaybackClient.playTrack(accessToken, trackId, resolvedDeviceId);
+                    if (shouldResume) {
+                        spotifyPlaybackClient.resumePlayback(accessToken, resolvedDeviceId);
+                    } else {
+                        spotifyPlaybackClient.playTrack(accessToken, trackId, resolvedDeviceId);
+                    }
                     return playbackSessionService.saveSession(
                             userId,
                             current == null ? null : current.sessionId(),
                             trackId,
                             current == null ? null : current.currentPlaylistId(),
                             current == null ? null : current.currentTrackIndex(),
-                            0,
+                            shouldResume && current != null ? current.currentPositionMs() : 0,
                             true,
                             resolvedPlaybackMode,
                             resolvedDeviceId
@@ -61,7 +72,7 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
                         trackId,
                         current == null ? null : current.currentPlaylistId(),
                         current == null ? null : current.currentTrackIndex(),
-                        0,
+                        current == null ? 0 : current.currentPositionMs(),
                         true,
                         resolvedPlaybackMode,
                         resolveConfiguredDeviceId(deviceId)

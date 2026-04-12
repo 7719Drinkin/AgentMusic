@@ -14,6 +14,8 @@ public interface SpotifyPlaybackClient {
 
     void playTrack(String accessToken, String trackId, String deviceId);
 
+    void resumePlayback(String accessToken, String deviceId);
+
     void pause(String accessToken, String deviceId);
 
     void nextTrack(String accessToken, String deviceId);

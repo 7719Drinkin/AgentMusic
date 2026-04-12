@@ -103,6 +103,17 @@ public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
     }
 
     @Override
+    public void resumePlayback(String accessToken, String deviceId) {
+        webClient.put()
+                .uri(withOptionalDevice("/me/player/play", deviceId))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .toBodilessEntity()
+                .timeout(REQUEST_TIMEOUT)
+                .block();
+    }
+
+    @Override
     public void pause(String accessToken, String deviceId) {
         webClient.put()
                 .uri(withOptionalDevice("/me/player/pause", deviceId))

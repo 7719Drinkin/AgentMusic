@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -156,5 +157,71 @@ class DefaultBridgePlaybackControlServiceTests {
 
         verify(spotifyPlaybackClient).transferPlayback("token", "explicit-device", false);
         assertEquals("explicit-device", session.deviceId());
+    }
+
+    @Test
+    void playTrackShouldResumeWhenSameTrackIsPausedOnResolvedDevice() {
+        SpotifyBridgeProperties properties = new SpotifyBridgeProperties(
+                true,
+                "client-id",
+                "client-secret",
+                "http://127.0.0.1:8080/api/auth/spotify/callback",
+                "bridge-user",
+                ""
+        );
+        DefaultBridgePlaybackControlService service = new DefaultBridgePlaybackControlService(
+                spotifyPlaybackClient,
+                spotifyBridgeAuthService,
+                playbackSessionService,
+                properties
+        );
+        PlaybackSessionDto current = new PlaybackSessionDto(
+                "session-3",
+                "track-3",
+                "playlist-3",
+                2,
+                42000,
+                false,
+                PlaybackMode.SEQUENTIAL,
+                "active-device",
+                LocalDateTime.now()
+        );
+
+        when(spotifyBridgeAuthService.getValidAccessToken()).thenReturn(Optional.of("token"));
+        when(playbackSessionService.getActiveSession("demo-user")).thenReturn(Optional.of(current));
+        when(spotifyPlaybackClient.getAvailableDevices("token")).thenReturn(List.of(
+                new SpotifyBridgeDevice("active-device", "Edge Player", true, false, "Computer", 80)
+        ));
+        when(spotifyPlaybackClient.getPlaybackState("token")).thenReturn(Optional.of(
+                new SpotifyPlaybackState("track-3", 42000, false, PlaybackMode.SEQUENTIAL, "active-device")
+        ));
+        when(playbackSessionService.saveSession(
+                eq("demo-user"),
+                eq("session-3"),
+                eq("track-3"),
+                eq("playlist-3"),
+                eq(2),
+                eq(42000),
+                eq(true),
+                eq(PlaybackMode.SEQUENTIAL),
+                eq("active-device")
+        )).thenReturn(new PlaybackSessionDto(
+                "session-3",
+                "track-3",
+                "playlist-3",
+                2,
+                42000,
+                true,
+                PlaybackMode.SEQUENTIAL,
+                "active-device",
+                LocalDateTime.now()
+        ));
+
+        PlaybackSessionDto session = service.playTrack("demo-user", "track-3", PlaybackMode.SEQUENTIAL, "active-device");
+
+        verify(spotifyPlaybackClient, never()).playTrack("token", "track-3", "active-device");
+        verify(spotifyPlaybackClient).resumePlayback("token", "active-device");
+        assertEquals(42000, session.currentPositionMs());
+        assertEquals("active-device", session.deviceId());
     }
 }
