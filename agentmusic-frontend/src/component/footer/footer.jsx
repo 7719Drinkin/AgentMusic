@@ -24,7 +24,7 @@ import styles from './footer.module.css'
 const DEMO_USER_ID = 'demo-user'
 const PLAYBACK_REFRESH_EVENT = 'agentmusic:playback-session-updated'
 const QUEUE_NEXT_REQUEST_EVENT = 'agentmusic:queue-next-request'
-const REMOTE_SYNC_INTERVAL_MS = 4000
+const REMOTE_SYNC_INTERVAL_MS = 1500
 
 function Footer(props) {
   const size = useWindowSize()

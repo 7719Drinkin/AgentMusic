@@ -129,6 +129,10 @@ public class DefaultPlaybackApplicationService implements PlaybackApplicationSer
 
     @Override
     public PlaybackSessionDto nextTrack(String userId, String deviceId) {
+        PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
+        if (current != null && current.currentPlaylistId() != null) {
+            return moveWithinPlaylist(userId, 1, deviceId);
+        }
         try {
             PlaybackSessionDto session = bridgePlaybackControlService.nextTrack(userId, deviceId);
             if (session != null) {
@@ -141,6 +145,10 @@ public class DefaultPlaybackApplicationService implements PlaybackApplicationSer
 
     @Override
     public PlaybackSessionDto previousTrack(String userId, String deviceId) {
+        PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
+        if (current != null && current.currentPlaylistId() != null) {
+            return moveWithinPlaylist(userId, -1, deviceId);
+        }
         try {
             PlaybackSessionDto session = bridgePlaybackControlService.previousTrack(userId, deviceId);
             if (session != null) {
@@ -263,16 +271,13 @@ public class DefaultPlaybackApplicationService implements PlaybackApplicationSer
         int nextIndex = resolveWrappedIndex(currentIndex + step, playlist.tracks().size());
         PlaylistTrackDto nextTrack = playlist.tracks().get(nextIndex);
 
-        return playbackSessionService.saveSession(
+        return playTrack(
                 userId,
-                current.sessionId(),
                 nextTrack.track().trackId(),
                 playlist.id(),
                 nextIndex,
-                0,
-                current.isPlaying(),
-                current.playbackMode(),
-                deviceId == null ? current.deviceId() : deviceId
+                deviceId == null ? current.deviceId() : deviceId,
+                current.playbackMode()
         );
     }
 

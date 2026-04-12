@@ -11,10 +11,14 @@ import com.agentmusic.agentmusic_backend.service.PlaybackSessionService;
 import com.agentmusic.agentmusic_backend.service.SpotifyBridgeAuthService;
 import java.util.List;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DefaultBridgePlaybackControlService implements BridgePlaybackControlService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultBridgePlaybackControlService.class);
 
     private final SpotifyPlaybackClient spotifyPlaybackClient;
     private final SpotifyBridgeAuthService spotifyBridgeAuthService;
@@ -49,10 +53,10 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
 
                     ensureTargetDevice(accessToken, resolvedDeviceId);
                     if (shouldResume) {
-                        spotifyPlaybackClient.resumePlayback(accessToken, resolvedDeviceId);
+                        spotifyPlaybackClient.transferPlayback(accessToken, resolvedDeviceId, true);
                     } else {
-                        spotifyPlaybackClient.changePlaybackMode(accessToken, resolvedPlaybackMode, resolvedDeviceId);
                         spotifyPlaybackClient.playTrack(accessToken, trackId, resolvedDeviceId);
+                        applyPlaybackModeBestEffort(accessToken, resolvedPlaybackMode, resolvedDeviceId);
                     }
                     return playbackSessionService.saveSession(
                             userId,
@@ -278,6 +282,20 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
             return;
         }
         spotifyPlaybackClient.transferPlayback(accessToken, deviceId, false);
+    }
+
+    private void applyPlaybackModeBestEffort(String accessToken, PlaybackMode playbackMode, String deviceId) {
+        if (playbackMode == null || playbackMode == PlaybackMode.SEQUENTIAL) {
+            return;
+        }
+        try {
+            spotifyPlaybackClient.changePlaybackMode(accessToken, playbackMode, deviceId);
+        } catch (RuntimeException exception) {
+            LOGGER.warn("Ignoring playback mode change failure during playTrack deviceId={} playbackMode={}",
+                    deviceId,
+                    playbackMode,
+                    exception);
+        }
     }
 
     private String resolveConfiguredDeviceId(String deviceId) {

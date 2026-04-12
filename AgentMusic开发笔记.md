@@ -402,3 +402,23 @@
 - 已新增 `POST /api/playback/{userId}/transfer`，用于显式切换目标设备。
 - `playTrack` 当前会先执行“设备发现 -> 目标设备确定 -> 必要时 transfer playback”，再向 Spotify 发起播放请求。
 - 当前实测结果：bridge 授权已成功，但设备列表返回空数组，说明同一 bridge 账号下暂时没有可被 Spotify Web API 控制的活跃设备。
+
+## 2026-04-12 补充：真实播放控制稳定化（进行中）
+
+- 已修正 `SpotifyWebApiPlaybackClient` 中播放控制请求的 URI 构造，避免请求误发到 `localhost:80`。
+- 已将 `playTrack` 的设备激活逻辑调整为：
+  1. 先发现设备
+  2. 必要时 `transfer playback`
+  3. 再执行真实播放
+- 已将“同曲目暂停后恢复播放”的策略改为优先使用 `transferPlayback(deviceId, true)`，用于适配 Edge Web Player 的恢复行为。
+- 已将 `playTrack` 中的播放模式切换改为非阻塞：
+  - 先保证真实播放成功
+  - `shuffle/repeat` 失败时只记录日志，不再让整条播放链回退到本地 session
+- 已将底部播放器远程同步轮询从 `4000ms` 收紧到 `1500ms`，减少真实 Spotify 状态回显延迟。
+- 已开始将 `next / previous` 收敛到“本地歌单上下文决策 + 真实 Spotify playTrack 到目标曲目”的模型。
+
+### 当前剩余问题
+
+- 运行中的 8080 后端实例如果未重启，前端仍可能命中旧逻辑。
+- `pause / play / sync` 需要在最新实例上继续验证真实设备行为。
+- `seek / mode` 仍需在真实设备下继续验证。
