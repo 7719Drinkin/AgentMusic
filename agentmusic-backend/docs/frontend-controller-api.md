@@ -83,6 +83,10 @@ Response shape:
 
 - returns `PlaylistDto[]`
 
+### `GET /api/playlists/{playlistId}/detail`
+
+- returns `PlaylistDto`
+
 ### `POST /api/playlists/{userId}`
 
 Request body:

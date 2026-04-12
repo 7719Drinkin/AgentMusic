@@ -4,6 +4,7 @@ import com.agentmusic.agentmusic_backend.dto.CreatePlaylistRequest;
 import com.agentmusic.agentmusic_backend.dto.PlaylistDto;
 import com.agentmusic.agentmusic_backend.service.application.PlaylistApplicationService;
 import java.util.List;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,6 +31,13 @@ public class PlaylistController {
         return playlistApplicationService.getRecentPlaylists(userId, limit);
     }
 
+    @GetMapping("/{playlistId}/detail")
+    public ResponseEntity<PlaylistDto> getPlaylistDetail(@PathVariable String playlistId) {
+        return playlistApplicationService.getPlaylistDetail(playlistId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @PostMapping("/{userId}")
     public PlaylistDto createPlaylist(
             @PathVariable String userId,
@@ -38,4 +46,3 @@ public class PlaylistController {
         return playlistApplicationService.createPlaylist(userId, request);
     }
 }
-

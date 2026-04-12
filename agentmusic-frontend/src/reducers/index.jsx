@@ -7,6 +7,9 @@ const INITIAL_STATE = {
     trackName: "",
     trackImg: "",
     trackArtist: "",
+    trackArtistId: null,
+    albumName: "",
+    albumId: null,
     durationMs: 0
   },
   isPlaying: false,
@@ -40,6 +43,9 @@ export const reducer = (state = INITIAL_STATE, action) => {
           trackName: action.payload.trackName ?? "",
           trackImg: action.payload.trackImg ?? "",
           trackArtist: action.payload.trackArtist ?? "",
+          trackArtistId: action.payload.trackArtistId ?? null,
+          albumName: action.payload.albumName ?? "",
+          albumId: action.payload.albumId ?? null,
           durationMs: action.payload.durationMs ?? 0
         }
       };

@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { connect } from 'react-redux'
 import { useHistory } from 'react-router-dom'
+import { fetchArtist } from '../../api/music'
+import { fetchPlaylistDetail } from '../../api/playlists'
 import * as Icons from '../icons'
 import CurrentPlayingMenu from './current-playing-menu'
 import CurrentPlayingQueueDrawer from './current-playing-queue-drawer'
@@ -8,9 +10,8 @@ import {
   QUEUE_NEXT_REQUEST_EVENT,
   buildArtistSearchLocation,
   buildCredits,
-  resolveCurrentPlaylistTitle,
-  resolveNextQueueItem,
-  resolveQueueItems,
+  mapQueueItems,
+  resolveCurrentTrackFromPlaylist,
 } from './current-playing-helpers'
 import styles from './current-playing-panel.module.css'
 
@@ -18,30 +19,102 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
   const history = useHistory()
   const [menuOpen, setMenuOpen] = useState(false)
   const [creditsExpanded, setCreditsExpanded] = useState(false)
+  const [playlistDetail, setPlaylistDetail] = useState(null)
+  const [artistDirectory, setArtistDirectory] = useState({})
 
-  const playlistTitle = useMemo(
-    () => resolveCurrentPlaylistTitle(trackData, currentPlaylistId, currentTrackIndex),
-    [trackData, currentPlaylistId, currentTrackIndex],
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadPanelData() {
+      if (!currentPlaylistId) {
+        if (!cancelled) {
+          setPlaylistDetail(null)
+          setArtistDirectory({})
+        }
+        return
+      }
+
+      try {
+        const detail = await fetchPlaylistDetail(currentPlaylistId)
+        if (cancelled) {
+          return
+        }
+        setPlaylistDetail(detail)
+
+        const artistIds = [...new Set(
+          (detail?.tracks ?? [])
+            .map((item) => item?.track?.artistId)
+            .filter(Boolean),
+        )]
+
+        if (artistIds.length === 0) {
+          setArtistDirectory({})
+          return
+        }
+
+        const artistEntries = await Promise.all(
+          artistIds.map(async (artistId) => {
+            try {
+              const artist = await fetchArtist(artistId)
+              return [artistId, artist]
+            } catch {
+              return [artistId, null]
+            }
+          }),
+        )
+
+        if (!cancelled) {
+          setArtistDirectory(Object.fromEntries(artistEntries))
+        }
+      } catch {
+        if (!cancelled) {
+          setPlaylistDetail(null)
+          setArtistDirectory({})
+        }
+      }
+    }
+
+    loadPanelData()
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentPlaylistId])
+
+  const currentTrack = useMemo(
+    () => resolveCurrentTrackFromPlaylist(playlistDetail, currentTrackIndex, trackData),
+    [playlistDetail, currentTrackIndex, trackData],
   )
-  const nextQueueItem = useMemo(
-    () => resolveNextQueueItem(trackData, currentPlaylistId, currentTrackIndex),
-    [trackData, currentPlaylistId, currentTrackIndex],
-  )
+
+  const playlistTitle = playlistDetail?.name || '当前播放'
+  const currentArtist = currentTrack?.artistId ? artistDirectory[currentTrack.artistId] : null
+  const displayArtistName = currentArtist?.name || trackData.trackArtist || '等待推荐'
+  const coverSrc = currentTrack?.albumImageUrl || trackData.trackImg || '/image/Playlist/liked-songs.PNG'
+  const artistSummary = currentArtist?.bio
+    || (currentArtist?.followers
+      ? `${displayArtistName} 在 Spotify 上拥有约 ${formatFollowers(currentArtist.followers)} 位关注者。`
+      : (displayArtistName
+        ? `${displayArtistName} 是当前播放曲目的主要艺人。接入更多艺人资料后，这里将显示完整简介与代表作品。`
+        : '接入真实艺人资料后，这里将显示头像、简介与代表作品。'))
+
   const queueItems = useMemo(
-    () => resolveQueueItems(trackData, currentPlaylistId, currentTrackIndex),
-    [trackData, currentPlaylistId, currentTrackIndex],
+    () => mapQueueItems(playlistDetail, currentTrackIndex).map((item) => ({
+      ...item,
+      songArtist: artistDirectory[item.songArtistId]?.name || displayArtistName,
+    })),
+    [playlistDetail, currentTrackIndex, artistDirectory, displayArtistName],
   )
-  const credits = useMemo(() => buildCredits(trackData.trackArtist), [trackData.trackArtist])
-  const coverSrc = trackData.trackImg || '/image/Playlist/liked-songs.PNG'
+  const nextQueueItem = queueItems.find((item) => !item.isCurrent) || null
+  const credits = useMemo(() => buildCredits(currentTrack, displayArtistName), [currentTrack, displayArtistName])
 
   const handleArtistNavigation = () => {
-    if (!trackData.trackArtist) {
+    if (!displayArtistName) {
       return
     }
 
     history.push(
-      buildArtistSearchLocation(trackData.trackArtist, {
-        artistImage: coverSrc,
+      buildArtistSearchLocation(displayArtistName, {
+        artistImage: currentArtist?.imageUrl || coverSrc,
         from: 'current-playing-panel',
       }),
     )
@@ -70,29 +143,30 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
             <button
               className={styles.headerAction}
               type="button"
-              aria-label={`更多有关 ${trackData.trackName || '当前歌曲'} 的选项`}
+              aria-label={`更多有关 ${currentTrack?.title || '当前歌曲'} 的选项`}
               onClick={() => setMenuOpen((current) => !current)}
             >
               <Icons.More />
             </button>
             {menuOpen ? (
               <CurrentPlayingMenu
-                trackName={trackData.trackName}
+                trackName={currentTrack?.title || trackData.trackName}
                 onClose={() => setMenuOpen(false)}
                 onGoArtist={handleArtistNavigation}
               />
             ) : null}
           </div>
         </header>
+
         <div className={styles.content}>
           <div className={styles.coverSection}>
-            <img className={styles.coverArt} src={coverSrc} alt={trackData.trackName || '当前曲目封面'} />
+            <img className={styles.coverArt} src={coverSrc} alt={currentTrack?.title || '当前曲目封面'} />
           </div>
 
           <section className={styles.trackMeta}>
-            <h3 className={styles.trackName}>{trackData.trackName || '暂无播放'}</h3>
+            <h3 className={styles.trackName}>{currentTrack?.title || trackData.trackName || '暂无播放'}</h3>
             <button className={styles.artistLink} type="button" onClick={handleArtistNavigation}>
-              {trackData.trackArtist || '等待推荐'}
+              {displayArtistName}
             </button>
           </section>
 
@@ -102,14 +176,10 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
               <span>转至艺人</span>
             </div>
             <div className={styles.artistCardBody}>
-              <img className={styles.artistAvatar} src={coverSrc} alt={trackData.trackArtist || '艺人头像'} />
+              <img className={styles.artistAvatar} src={currentArtist?.imageUrl || coverSrc} alt={displayArtistName || '艺人头像'} />
               <div className={styles.artistSummary}>
-                <strong>{trackData.trackArtist || '待接入艺人信息'}</strong>
-                <p>
-                  {trackData.trackArtist
-                    ? `${trackData.trackArtist} 是当前播放曲目的主要艺人。接入真实艺人资料后，这里将展示艺人简介与代表作品。`
-                    : '接入真实艺人资料后，这里将展示头像、简介与代表作品。'}
-                </p>
+                <strong>{displayArtistName || '待接入艺人信息'}</strong>
+                <p>{artistSummary}</p>
               </div>
             </div>
           </button>
@@ -171,3 +241,7 @@ const mapStateToProps = (state) => {
 }
 
 export default connect(mapStateToProps)(CurrentPlayingPanel)
+
+function formatFollowers(count) {
+  return new Intl.NumberFormat('zh-CN').format(count)
+}

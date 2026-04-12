@@ -126,3 +126,24 @@ from semantic_kernel.planners import FunctionCallingStepwisePlanner, FunctionCal
 planner_options = FunctionCallingStepwisePlannerOptions(max_tokens=4000, max_iterations=10)  # 可调参数：令牌限、迭代限
 planner = FunctionCallingStepwisePlanner(service_id="gpt-4", options=planner_options)  # 指定LLM服务
 ```
+## 2026-04-12 优先级补充说明
+
+在不推翻原有功能目标的前提下，当前实现顺序调整为：
+
+### 当前 priority 1
+
+1. 真实数据回填
+2. 真实 Spotify 播放控制
+3. 左侧推荐歌单进入真实歌单页并完成正式 UI
+
+### 当前 priority 2
+
+1. MySQL / Redis 持久化
+2. 设备列表与设备切换
+
+### 当前 priority 3
+
+1. 歌词
+2. 流式输出
+3. 语音识别
+4. 真实 LLM 对话

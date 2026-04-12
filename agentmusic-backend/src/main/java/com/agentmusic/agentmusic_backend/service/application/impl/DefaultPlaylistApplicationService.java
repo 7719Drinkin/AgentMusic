@@ -5,6 +5,7 @@ import com.agentmusic.agentmusic_backend.dto.PlaylistDto;
 import com.agentmusic.agentmusic_backend.service.PlaylistService;
 import com.agentmusic.agentmusic_backend.service.application.PlaylistApplicationService;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -25,5 +26,9 @@ public class DefaultPlaylistApplicationService implements PlaylistApplicationSer
     public PlaylistDto createPlaylist(String userId, CreatePlaylistRequest request) {
         return playlistService.createRecommendedPlaylist(userId, request.name(), request.tracks());
     }
-}
 
+    @Override
+    public Optional<PlaylistDto> getPlaylistDetail(String playlistId) {
+        return playlistService.getPlaylistById(playlistId);
+    }
+}

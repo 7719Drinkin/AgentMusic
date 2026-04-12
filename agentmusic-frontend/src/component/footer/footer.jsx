@@ -72,6 +72,9 @@ function Footer(props) {
           trackName: track.title,
           trackImg: track.albumImageUrl || props.trackData.trackImg,
           trackArtist: artistName,
+          trackArtistId: track.artistId,
+          albumName: track.albumName || '',
+          albumId: track.albumId || null,
           durationMs: track.durationMs,
         }
       }

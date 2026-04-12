@@ -1,26 +1,5 @@
 export const QUEUE_NEXT_REQUEST_EVENT = 'agentmusic:queue-next-request'
 
-export function resolveCurrentPlaylistTitle() {
-  return '当前播放'
-}
-
-export function resolveNextQueueItem() {
-  return null
-}
-
-export function resolveQueueItems() {
-  return []
-}
-
-export function buildCredits(trackArtist) {
-  return [
-    { label: 'Main Artist', value: trackArtist || '待接入' },
-    { label: 'Lyricist', value: '待接入真实歌词作者' },
-    { label: 'Composer', value: '待接入真实作曲信息' },
-    { label: 'Producer', value: '待接入真实制作人' },
-  ]
-}
-
 export function buildArtistSearchLocation(artistName, state = {}) {
   return {
     pathname: '/search',
@@ -29,5 +8,61 @@ export function buildArtistSearchLocation(artistName, state = {}) {
       artistName,
       ...state,
     },
+  }
+}
+
+export function buildCredits(track, artistName) {
+  return [
+    { label: 'Main Artist', value: artistName || '暂未提供' },
+    { label: 'Lyricist', value: 'Spotify Web API 暂未提供' },
+    { label: 'Composer', value: 'Spotify Web API 暂未提供' },
+    { label: 'Album', value: track?.albumName || '暂未提供' },
+  ]
+}
+
+export function mapQueueItems(playlistDetail, currentTrackIndex) {
+  if (!playlistDetail?.tracks?.length) {
+    return []
+  }
+
+  return playlistDetail.tracks
+    .filter((item) => item?.track)
+    .slice(Math.max(currentTrackIndex ?? 0, 0))
+    .map((item, index) => ({
+      trackId: item.track.trackId,
+      songName: item.track.title,
+      songArtistId: item.track.artistId,
+      songArtist: null,
+      songimg: item.track.albumImageUrl || '/image/Playlist/liked-songs.PNG',
+      isCurrent: index === 0,
+    }))
+}
+
+export function resolveCurrentTrackFromPlaylist(playlistDetail, currentTrackIndex, fallbackTrackData) {
+  const playlistTrack = playlistDetail?.tracks?.[currentTrackIndex ?? -1]?.track
+  if (playlistTrack) {
+    return {
+      trackId: playlistTrack.trackId,
+      title: playlistTrack.title,
+      artistId: playlistTrack.artistId,
+      albumName: playlistTrack.albumName,
+      albumId: playlistTrack.albumId,
+      albumImageUrl: playlistTrack.albumImageUrl,
+      durationMs: playlistTrack.durationMs,
+    }
+  }
+
+  if (!fallbackTrackData?.trackId) {
+    return null
+  }
+
+  return {
+    trackId: fallbackTrackData.trackId,
+    title: fallbackTrackData.trackName,
+    artistId: fallbackTrackData.trackArtistId,
+    albumName: fallbackTrackData.albumName,
+    albumId: fallbackTrackData.albumId,
+    albumImageUrl: fallbackTrackData.trackImg,
+    durationMs: fallbackTrackData.durationMs,
   }
 }

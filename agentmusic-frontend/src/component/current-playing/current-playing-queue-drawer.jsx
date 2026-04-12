@@ -16,17 +16,17 @@ function CurrentPlayingQueueDrawer({ isOpen, queueItems, playlistTitle, onClose 
       <div className={styles.drawerBody}>
         {queueItems.length > 0 ? (
           queueItems.map((item, index) => (
-            <div className={styles.queueItem} key={`${item.songName}-${index}`}>
+            <div className={styles.queueItem} key={`${item.trackId}-${index}`}>
               <img src={item.songimg} alt={item.songName} />
               <div className={styles.queueMeta}>
                 <strong>{item.songName}</strong>
                 <span>{item.songArtist}</span>
               </div>
-              <span className={styles.queueOrder}>{index === 0 ? '当前' : `#${index + 1}`}</span>
+              <span className={styles.queueOrder}>{item.isCurrent ? '当前' : `#${index + 1}`}</span>
             </div>
           ))
         ) : (
-          <div className={styles.emptyState}>当前没有可展示的播放队列。</div>
+          <div className={styles.emptyState}>当前没有可显示的播放队列。</div>
         )}
       </div>
     </section>
