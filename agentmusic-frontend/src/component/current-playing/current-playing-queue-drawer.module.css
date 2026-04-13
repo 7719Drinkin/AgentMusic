@@ -28,7 +28,7 @@
 }
 .drawerHeader p{
     margin: 0 0 4px;
-    color: rgba(255,255,255,0.6);
+    color: #fff;
     font-size: 11px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -36,6 +36,7 @@
 .drawerHeader h3{
     margin: 0;
     font-size: 15px;
+    color: #fff;
 }
 .drawerHeader button{
     border: 0;
@@ -80,6 +81,9 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+}
+.queueMeta strong{
+    color: #fff;
 }
 .queueMeta span,
 .queueOrder{

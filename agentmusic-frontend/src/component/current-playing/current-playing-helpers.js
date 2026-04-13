@@ -27,14 +27,13 @@ export function mapQueueItems(playlistDetail, currentTrackIndex) {
 
   return playlistDetail.tracks
     .filter((item) => item?.track)
-    .slice(Math.max(currentTrackIndex ?? 0, 0))
     .map((item, index) => ({
       trackId: item.track.trackId,
       songName: item.track.title,
       songArtistId: item.track.artistId,
       songArtist: null,
       songimg: item.track.albumImageUrl || '/image/Playlist/liked-songs.PNG',
-      isCurrent: index === 0,
+      isCurrent: index === Math.max(currentTrackIndex ?? 0, 0),
     }))
 }
 
