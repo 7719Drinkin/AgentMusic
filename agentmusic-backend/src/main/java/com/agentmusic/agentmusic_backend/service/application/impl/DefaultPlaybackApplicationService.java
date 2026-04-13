@@ -13,14 +13,10 @@ import com.agentmusic.agentmusic_backend.service.PlaylistService;
 import com.agentmusic.agentmusic_backend.service.application.PlaybackApplicationService;
 import java.util.List;
 import java.util.Optional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DefaultPlaybackApplicationService implements PlaybackApplicationService {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultPlaybackApplicationService.class);
 
     private final PlaybackSessionService playbackSessionService;
     private final BridgePlaybackControlService bridgePlaybackControlService;
@@ -65,66 +61,36 @@ public class DefaultPlaybackApplicationService implements PlaybackApplicationSer
             String deviceId,
             PlaybackMode playbackMode
     ) {
-        PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
         PlaybackMode resolvedPlaybackMode = playbackMode == null ? PlaybackMode.SEQUENTIAL : playbackMode;
-        try {
-            PlaybackSessionDto session = bridgePlaybackControlService.playTrack(userId, trackId, resolvedPlaybackMode, deviceId);
-            return playbackSessionService.saveSession(
-                    userId,
-                    session.sessionId(),
-                    trackId,
-                    playlistId,
-                    trackIndex,
-                    session.currentPositionMs(),
-                    true,
-                    session.playbackMode(),
-                    session.deviceId()
-            );
-        } catch (RuntimeException exception) {
-            LOGGER.warn("Falling back to local playback session for playTrack userId={} trackId={}", userId, trackId, exception);
-            return playbackSessionService.saveSession(
-                    userId,
-                    current == null ? null : current.sessionId(),
-                    trackId,
-                    playlistId,
-                    trackIndex,
-                    0,
-                    true,
-                    resolvedPlaybackMode,
-                    deviceId == null ? (current == null ? null : current.deviceId()) : deviceId
-            );
-        }
+        PlaybackSessionDto session = bridgePlaybackControlService.playTrack(userId, trackId, resolvedPlaybackMode, deviceId);
+        return playbackSessionService.saveSession(
+                userId,
+                session.sessionId(),
+                trackId,
+                playlistId,
+                trackIndex,
+                session.currentPositionMs(),
+                true,
+                session.playbackMode(),
+                session.deviceId()
+        );
     }
 
     @Override
     public PlaybackSessionDto pause(String userId, String deviceId) {
         PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
-        try {
-            PlaybackSessionDto session = bridgePlaybackControlService.pause(userId, deviceId);
-            return playbackSessionService.saveSession(
-                    userId,
-                    session.sessionId(),
-                    current == null ? session.currentTrackId() : current.currentTrackId(),
-                    current == null ? session.currentPlaylistId() : current.currentPlaylistId(),
-                    current == null ? session.currentTrackIndex() : current.currentTrackIndex(),
-                    current == null ? session.currentPositionMs() : current.currentPositionMs(),
-                    false,
-                    current == null ? session.playbackMode() : current.playbackMode(),
-                    session.deviceId()
-            );
-        } catch (RuntimeException ignored) {
-            return playbackSessionService.saveSession(
-                    userId,
-                    current == null ? null : current.sessionId(),
-                    current == null ? null : current.currentTrackId(),
-                    current == null ? null : current.currentPlaylistId(),
-                    current == null ? null : current.currentTrackIndex(),
-                    current == null ? 0 : current.currentPositionMs(),
-                    false,
-                    current == null ? PlaybackMode.SEQUENTIAL : current.playbackMode(),
-                    deviceId == null ? (current == null ? null : current.deviceId()) : deviceId
-            );
-        }
+        PlaybackSessionDto session = bridgePlaybackControlService.pause(userId, deviceId);
+        return playbackSessionService.saveSession(
+                userId,
+                session.sessionId(),
+                current == null ? session.currentTrackId() : current.currentTrackId(),
+                current == null ? session.currentPlaylistId() : current.currentPlaylistId(),
+                current == null ? session.currentTrackIndex() : current.currentTrackIndex(),
+                current == null ? session.currentPositionMs() : current.currentPositionMs(),
+                false,
+                current == null ? session.playbackMode() : current.playbackMode(),
+                session.deviceId()
+        );
     }
 
     @Override
@@ -163,64 +129,36 @@ public class DefaultPlaybackApplicationService implements PlaybackApplicationSer
     public PlaybackSessionDto seek(String userId, Integer positionMs, String deviceId) {
         int resolvedPositionMs = positionMs == null ? 0 : positionMs;
         PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
-        try {
-            PlaybackSessionDto session = bridgePlaybackControlService.seek(userId, resolvedPositionMs, deviceId);
-            return playbackSessionService.saveSession(
-                    userId,
-                    session.sessionId(),
-                    current == null ? session.currentTrackId() : current.currentTrackId(),
-                    current == null ? session.currentPlaylistId() : current.currentPlaylistId(),
-                    current == null ? session.currentTrackIndex() : current.currentTrackIndex(),
-                    resolvedPositionMs,
-                    current != null && current.isPlaying(),
-                    current == null ? session.playbackMode() : current.playbackMode(),
-                    session.deviceId()
-            );
-        } catch (RuntimeException ignored) {
-            return playbackSessionService.saveSession(
-                    userId,
-                    current == null ? null : current.sessionId(),
-                    current == null ? null : current.currentTrackId(),
-                    current == null ? null : current.currentPlaylistId(),
-                    current == null ? null : current.currentTrackIndex(),
-                    resolvedPositionMs,
-                    current != null && current.isPlaying(),
-                    current == null ? PlaybackMode.SEQUENTIAL : current.playbackMode(),
-                    deviceId == null ? (current == null ? null : current.deviceId()) : deviceId
-            );
-        }
+        PlaybackSessionDto session = bridgePlaybackControlService.seek(userId, resolvedPositionMs, deviceId);
+        return playbackSessionService.saveSession(
+                userId,
+                session.sessionId(),
+                current == null ? session.currentTrackId() : current.currentTrackId(),
+                current == null ? session.currentPlaylistId() : current.currentPlaylistId(),
+                current == null ? session.currentTrackIndex() : current.currentTrackIndex(),
+                resolvedPositionMs,
+                current != null && current.isPlaying(),
+                current == null ? session.playbackMode() : current.playbackMode(),
+                session.deviceId()
+        );
     }
 
     @Override
     public PlaybackSessionDto changePlaybackMode(String userId, PlaybackMode playbackMode, String deviceId) {
         PlaybackMode resolvedPlaybackMode = playbackMode == null ? PlaybackMode.SEQUENTIAL : playbackMode;
         PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
-        try {
-            PlaybackSessionDto session = bridgePlaybackControlService.changePlaybackMode(userId, resolvedPlaybackMode, deviceId);
-            return playbackSessionService.saveSession(
-                    userId,
-                    session.sessionId(),
-                    current == null ? session.currentTrackId() : current.currentTrackId(),
-                    current == null ? session.currentPlaylistId() : current.currentPlaylistId(),
-                    current == null ? session.currentTrackIndex() : current.currentTrackIndex(),
-                    current == null ? session.currentPositionMs() : current.currentPositionMs(),
-                    current != null && current.isPlaying(),
-                    resolvedPlaybackMode,
-                    session.deviceId()
-            );
-        } catch (RuntimeException ignored) {
-            return playbackSessionService.saveSession(
-                    userId,
-                    current == null ? null : current.sessionId(),
-                    current == null ? null : current.currentTrackId(),
-                    current == null ? null : current.currentPlaylistId(),
-                    current == null ? null : current.currentTrackIndex(),
-                    current == null ? 0 : current.currentPositionMs(),
-                    current != null && current.isPlaying(),
-                    resolvedPlaybackMode,
-                    deviceId == null ? (current == null ? null : current.deviceId()) : deviceId
-            );
-        }
+        PlaybackSessionDto session = bridgePlaybackControlService.changePlaybackMode(userId, resolvedPlaybackMode, deviceId);
+        return playbackSessionService.saveSession(
+                userId,
+                session.sessionId(),
+                current == null ? session.currentTrackId() : current.currentTrackId(),
+                current == null ? session.currentPlaylistId() : current.currentPlaylistId(),
+                current == null ? session.currentTrackIndex() : current.currentTrackIndex(),
+                current == null ? session.currentPositionMs() : current.currentPositionMs(),
+                current != null && current.isPlaying(),
+                resolvedPlaybackMode,
+                session.deviceId()
+        );
     }
 
     @Override

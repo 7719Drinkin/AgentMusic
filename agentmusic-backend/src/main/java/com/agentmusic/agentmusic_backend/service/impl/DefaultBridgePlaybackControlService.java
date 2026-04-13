@@ -6,6 +6,7 @@ import com.agentmusic.agentmusic_backend.client.SpotifyPlaybackState;
 import com.agentmusic.agentmusic_backend.config.SpotifyBridgeProperties;
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
 import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
+import com.agentmusic.agentmusic_backend.exception.SpotifyPlaybackUnavailableException;
 import com.agentmusic.agentmusic_backend.service.BridgePlaybackControlService;
 import com.agentmusic.agentmusic_backend.service.PlaybackSessionService;
 import com.agentmusic.agentmusic_backend.service.SpotifyBridgeAuthService;
@@ -245,7 +246,9 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
                 .filter(device -> !device.restricted())
                 .toList();
         if (devices.isEmpty()) {
-            return resolveConfiguredDeviceId(requestedDeviceId);
+            throw new SpotifyPlaybackUnavailableException(
+                    "Spotify 未检测到可用设备。请保持同一 bridge 账号的 Spotify 客户端或 Web Player 在线。"
+            );
         }
 
         String currentSessionDeviceId = playbackSessionService.getActiveSession(userId)
@@ -258,7 +261,9 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
                 .or(() -> findMatchingDeviceId(devices, spotifyBridgeProperties.defaultDeviceId()))
                 .or(() -> devices.stream().filter(SpotifyBridgeDevice::active).map(SpotifyBridgeDevice::id).findFirst())
                 .or(() -> devices.stream().map(SpotifyBridgeDevice::id).findFirst())
-                .orElse(resolveConfiguredDeviceId(requestedDeviceId));
+                .orElseThrow(() -> new SpotifyPlaybackUnavailableException(
+                        "Spotify 未找到可控制的目标设备。"
+                ));
     }
 
     private Optional<String> findMatchingDeviceId(List<SpotifyBridgeDevice> devices, String candidateDeviceId) {

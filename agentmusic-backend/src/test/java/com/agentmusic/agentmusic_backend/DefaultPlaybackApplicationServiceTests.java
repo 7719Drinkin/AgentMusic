@@ -1,8 +1,12 @@
 package com.agentmusic.agentmusic_backend;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
@@ -90,56 +94,30 @@ class DefaultPlaybackApplicationServiceTests {
     }
 
     @Test
-    void playTrackFallbackShouldReuseExistingSessionContext() {
-        PlaybackSessionDto current = new PlaybackSessionDto(
-                "session-2",
-                "track-1",
-                "playlist-1",
-                1,
-                15000,
-                false,
-                PlaybackMode.SEQUENTIAL,
-                "device-1",
-                LocalDateTime.now()
-        );
-        PlaybackSessionDto fallback = new PlaybackSessionDto(
-                "session-2",
-                "track-2",
-                "playlist-9",
-                3,
-                0,
-                true,
-                PlaybackMode.SHUFFLE,
-                "device-1",
-                LocalDateTime.now()
-        );
-
+    void playTrackShouldPropagateBridgeFailure() {
         when(bridgePlaybackControlService.playTrack("demo-user", "track-2", PlaybackMode.SHUFFLE, null))
                 .thenThrow(new RuntimeException("spotify unavailable"));
-        when(playbackSessionService.getActiveSession("demo-user")).thenReturn(Optional.of(current));
-        when(playbackSessionService.saveSession(
-                eq("demo-user"),
-                eq("session-2"),
-                eq("track-2"),
-                eq("playlist-9"),
-                eq(3),
-                eq(0),
-                eq(true),
-                eq(PlaybackMode.SHUFFLE),
-                eq("device-1")
-        )).thenReturn(fallback);
 
-        PlaybackSessionDto result = playbackApplicationService.playTrack(
+        assertThrows(RuntimeException.class, () -> playbackApplicationService.playTrack(
                 "demo-user",
                 "track-2",
                 "playlist-9",
                 3,
                 null,
                 PlaybackMode.SHUFFLE
-        );
+        ));
 
-        assertEquals("session-2", result.sessionId());
-        assertEquals("device-1", result.deviceId());
+        verify(playbackSessionService, never()).saveSession(
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                anyBoolean(),
+                any(),
+                any()
+        );
     }
 
     @Test

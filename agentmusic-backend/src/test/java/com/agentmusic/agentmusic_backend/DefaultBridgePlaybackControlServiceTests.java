@@ -1,6 +1,7 @@
 package com.agentmusic.agentmusic_backend;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -207,6 +208,33 @@ class DefaultBridgePlaybackControlServiceTests {
         verify(spotifyPlaybackClient).transferPlayback("token", "inactive-device", false);
         verify(spotifyPlaybackClient).playTrack("token", "track-1", "inactive-device");
         assertEquals("inactive-device", session.deviceId());
+    }
+
+    @Test
+    void playTrackShouldFailWhenNoControllableDevicesExist() {
+        SpotifyBridgeProperties properties = new SpotifyBridgeProperties(
+                true,
+                "client-id",
+                "client-secret",
+                "http://127.0.0.1:8080/api/auth/spotify/callback",
+                "bridge-user",
+                ""
+        );
+        DefaultBridgePlaybackControlService service = new DefaultBridgePlaybackControlService(
+                spotifyPlaybackClient,
+                spotifyBridgeAuthService,
+                playbackSessionService,
+                properties
+        );
+
+        when(spotifyBridgeAuthService.getValidAccessToken()).thenReturn(Optional.of("token"));
+        when(spotifyPlaybackClient.getAvailableDevices("token")).thenReturn(List.of());
+
+        assertThrows(IllegalStateException.class, () ->
+                service.playTrack("demo-user", "track-1", PlaybackMode.SEQUENTIAL, null)
+        );
+
+        verify(spotifyPlaybackClient, never()).playTrack(anyString(), anyString(), any());
     }
 
     @Test
