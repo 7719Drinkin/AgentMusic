@@ -365,4 +365,65 @@ class DefaultBridgePlaybackControlServiceTests {
         assertEquals(42000, session.currentPositionMs());
         assertEquals("active-device", session.deviceId());
     }
+
+    @Test
+    void syncPlaybackStateShouldPreserveLocalPlaylistPlaybackMode() {
+        SpotifyBridgeProperties properties = new SpotifyBridgeProperties(
+                true,
+                "client-id",
+                "client-secret",
+                "http://127.0.0.1:8080/api/auth/spotify/callback",
+                "bridge-user",
+                ""
+        );
+        DefaultBridgePlaybackControlService service = new DefaultBridgePlaybackControlService(
+                spotifyPlaybackClient,
+                spotifyBridgeAuthService,
+                playbackSessionService,
+                properties
+        );
+        PlaybackSessionDto current = new PlaybackSessionDto(
+                "session-6",
+                "track-6",
+                "playlist-6",
+                0,
+                12000,
+                true,
+                PlaybackMode.SHUFFLE,
+                "active-device",
+                LocalDateTime.now()
+        );
+        PlaybackSessionDto saved = new PlaybackSessionDto(
+                "session-6",
+                "track-6",
+                "playlist-6",
+                0,
+                12500,
+                true,
+                PlaybackMode.SHUFFLE,
+                "active-device",
+                LocalDateTime.now()
+        );
+
+        when(spotifyBridgeAuthService.getValidAccessToken()).thenReturn(Optional.of("token"));
+        when(playbackSessionService.getActiveSession("demo-user")).thenReturn(Optional.of(current));
+        when(spotifyPlaybackClient.getPlaybackState("token")).thenReturn(Optional.of(
+                new SpotifyPlaybackState("track-6", 12500, true, PlaybackMode.SEQUENTIAL, "active-device")
+        ));
+        when(playbackSessionService.saveSession(
+                eq("demo-user"),
+                eq("session-6"),
+                eq("track-6"),
+                eq("playlist-6"),
+                eq(0),
+                eq(12500),
+                eq(true),
+                eq(PlaybackMode.SHUFFLE),
+                eq("active-device")
+        )).thenReturn(saved);
+
+        PlaybackSessionDto result = service.syncPlaybackState("demo-user");
+
+        assertEquals(PlaybackMode.SHUFFLE, result.playbackMode());
+    }
 }

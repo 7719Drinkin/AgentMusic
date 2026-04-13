@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
 import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
@@ -177,5 +178,41 @@ class DefaultPlaybackApplicationServiceTests {
 
         assertEquals("track-2", result.currentTrackId());
         assertEquals(1, result.currentTrackIndex());
+    }
+
+    @Test
+    void nextTrackShouldNotWrapWhenPlaybackModeIsSequential() {
+        PlaybackSessionDto current = new PlaybackSessionDto(
+                "session-4",
+                "track-2",
+                "playlist-1",
+                1,
+                12000,
+                true,
+                PlaybackMode.SEQUENTIAL,
+                "device-1",
+                LocalDateTime.now()
+        );
+        PlaylistDto playlist = new PlaylistDto(
+                "playlist-1",
+                "推荐歌单",
+                1,
+                LocalDateTime.now(),
+                List.of(
+                        new PlaylistTrackDto("pt-1", "playlist-1", 0,
+                                new TrackDto("track-1", "Song A", "artist-1", "album", "album-1", 180000, null, null)),
+                        new PlaylistTrackDto("pt-2", "playlist-1", 1,
+                                new TrackDto("track-2", "Song B", "artist-2", "album", "album-2", 200000, null, null))
+                )
+        );
+
+        when(playbackSessionService.getActiveSession("demo-user")).thenReturn(Optional.of(current));
+        when(playlistService.getPlaylistById("playlist-1")).thenReturn(Optional.of(playlist));
+
+        PlaybackSessionDto result = playbackApplicationService.nextTrack("demo-user", null);
+
+        assertEquals("track-2", result.currentTrackId());
+        assertEquals(1, result.currentTrackIndex());
+        verifyNoInteractions(bridgePlaybackControlService);
     }
 }

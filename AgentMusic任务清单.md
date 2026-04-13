@@ -257,3 +257,27 @@
 - Playwright 页面级自动化验证
   - 当前会话内浏览器自动化入口仍不稳定
   - 本轮以真实 API 验证和后端测试为主
+
+## 2026-04-13 补充：真实播放控制联调结果
+
+### 已完成
+
+- 聊天推荐闭环已恢复：
+  - 前端发送中文推荐请求正常
+  - 后端可返回 `PLAY_RECOMMENDATION`
+  - 左侧推荐歌单可刷新
+  - `session.currentPlaylistId/currentTrackIndex` 可正确写入
+- 真实 Spotify 播放控制当前已验证成立：
+  - `pause / play / sync`
+  - `next / previous`
+  - `seek`
+- `SHUFFLE` 已明确收敛为本地歌单上下文模式，不再依赖 Spotify 远端状态回写
+
+### 当前待完成
+
+- 让运行中的后端实例吃到最新 `SHUFFLE` 本地模式逻辑并完成实测
+- 前端页面层继续验证：
+  - `SHUFFLE` 下的 `next / previous`
+  - `mode` 按钮的循环切换回显
+- 左侧推荐歌单进入真实歌单页
+- MySQL / Redis 持久化排期与落地

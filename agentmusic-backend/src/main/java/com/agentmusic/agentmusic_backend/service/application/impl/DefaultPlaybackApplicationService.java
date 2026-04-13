@@ -13,6 +13,7 @@ import com.agentmusic.agentmusic_backend.service.PlaylistService;
 import com.agentmusic.agentmusic_backend.service.application.PlaybackApplicationService;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -206,7 +207,10 @@ public class DefaultPlaybackApplicationService implements PlaybackApplicationSer
         }
 
         int currentIndex = resolveCurrentTrackIndex(current, playlist.tracks());
-        int nextIndex = resolveWrappedIndex(currentIndex + step, playlist.tracks().size());
+        int nextIndex = resolvePlaylistTargetIndex(currentIndex, playlist.tracks().size(), step, current.playbackMode());
+        if (nextIndex == currentIndex) {
+            return current;
+        }
         PlaylistTrackDto nextTrack = playlist.tracks().get(nextIndex);
 
         return playTrack(
@@ -239,5 +243,29 @@ public class DefaultPlaybackApplicationService implements PlaybackApplicationSer
         }
         int mod = targetIndex % size;
         return mod < 0 ? mod + size : mod;
+    }
+
+    private int resolvePlaylistTargetIndex(int currentIndex, int size, int step, PlaybackMode playbackMode) {
+        if (size <= 1) {
+            return currentIndex;
+        }
+
+        if (playbackMode == PlaybackMode.SHUFFLE) {
+            int candidate = ThreadLocalRandom.current().nextInt(size - 1);
+            return candidate >= currentIndex ? candidate + 1 : candidate;
+        }
+
+        if (playbackMode == PlaybackMode.LIST_LOOP) {
+            return resolveWrappedIndex(currentIndex + step, size);
+        }
+
+        int clampedIndex = currentIndex + step;
+        if (clampedIndex < 0) {
+            return 0;
+        }
+        if (clampedIndex >= size) {
+            return size - 1;
+        }
+        return clampedIndex;
     }
 }

@@ -195,6 +195,11 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
             return current;
         }
         SpotifyPlaybackState state = playbackState.get();
+        PlaybackMode resolvedPlaybackMode = current != null
+                && current.currentPlaylistId() != null
+                && current.playbackMode() != null
+                ? current.playbackMode()
+                : state.playbackMode();
         return playbackSessionService.saveSession(
                 userId,
                 current == null ? null : current.sessionId(),
@@ -203,7 +208,7 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
                 current == null ? null : current.currentTrackIndex(),
                 state.progressMs(),
                 state.isPlaying(),
-                state.playbackMode(),
+                resolvedPlaybackMode,
                 resolveConfiguredDeviceId(state.deviceId())
         );
     }

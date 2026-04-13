@@ -422,3 +422,18 @@
 - 运行中的 8080 后端实例如果未重启，前端仍可能命中旧逻辑。
 - `pause / play / sync` 需要在最新实例上继续验证真实设备行为。
 - `seek / mode` 仍需在真实设备下继续验证。
+
+## 2026-04-13 补充：真实播放控制回归验证
+
+- 已通过直接 API 验证：
+  - `pause -> sync` 可得到 `isPlaying=false`
+  - `play -> sync` 可恢复到 `isPlaying=true`
+  - `next / previous` 已能切换真实曲目与 `currentTrackIndex`
+  - `seek` 在真实 Spotify 设备上已可生效
+- 已通过 Playwright + CDP 验证：
+  - 页面中的中文推荐请求发送正常，不存在前端把中文固定转成 `????` 的问题
+  - 之前出现的 `????` 来自终端/脚本输入链路编码损坏，不属于当前产品运行时问题
+- 新的播放模式策略：
+  - `SHUFFLE` 视为本地歌单上下文模式
+  - `sync` 不再用 Spotify 远端状态覆盖本地 `SHUFFLE`
+  - 后续 `next / previous` 在 `SHUFFLE` 下按本地歌单策略选取目标曲目
