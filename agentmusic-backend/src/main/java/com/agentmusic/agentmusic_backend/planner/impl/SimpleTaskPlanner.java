@@ -50,7 +50,7 @@ public class SimpleTaskPlanner implements TaskPlanner {
         boolean mentionsPlay = containsAny(
                 message,
                 "播放",
-                "播一下",
+                "播一首",
                 "放歌",
                 "继续播放",
                 "开始播放",
@@ -63,12 +63,13 @@ public class SimpleTaskPlanner implements TaskPlanner {
         boolean mentionsPause = containsAny(message, "暂停", "pause", "stop");
         boolean mentionsPlaylist = containsAny(message, "歌单", "playlist", "mix");
         boolean mentionsArtist = containsAny(message, "歌手", "艺人", "artist");
-        boolean mentionsSearch = containsAny(message, "搜索", "查找", "搜一下", "查一下", "search", "find");
+        boolean mentionsSearch = containsAny(message, "搜索", "查找", "搜一个", "查一个", "search", "find");
         boolean mentionsHistory = containsAny(message, "历史歌单", "上次推荐", "上一版歌单", "之前的歌单", "最近推荐");
         boolean recommendOnly = containsAny(
                 message,
                 "先不播放",
                 "不要播放",
+                "不要直接播放",
                 "先别播",
                 "我先看看",
                 "先看",
