@@ -60,9 +60,21 @@
     align-items: center;
     padding: 10px 8px;
     border-radius: 10px;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
 }
 .queueItem:hover{
     background: rgba(255,255,255,0.05);
+}
+.queueItem:disabled{
+    cursor: default;
+}
+.queueItemCurrent{
+    background: rgba(255,255,255,0.04);
 }
 .queueItem img{
     width: 48px;

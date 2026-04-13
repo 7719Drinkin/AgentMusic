@@ -7,6 +7,7 @@ import * as Icons from '../icons'
 import CurrentPlayingMenu from './current-playing-menu'
 import CurrentPlayingQueueDrawer from './current-playing-queue-drawer'
 import {
+  QUEUE_PLAY_REQUEST_EVENT,
   QUEUE_NEXT_REQUEST_EVENT,
   buildArtistSearchLocation,
   buildCredits,
@@ -128,6 +129,22 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
     window.dispatchEvent(new CustomEvent(QUEUE_NEXT_REQUEST_EVENT))
   }
 
+  const handleQueueTrackSelect = (queueItem) => {
+    if (!queueItem || queueItem.isCurrent) {
+      return
+    }
+
+    window.dispatchEvent(
+      new CustomEvent(QUEUE_PLAY_REQUEST_EVENT, {
+        detail: {
+          trackId: queueItem.trackId,
+          trackIndex: queueItem.trackIndex,
+        },
+      }),
+    )
+    onToggleQueue()
+  }
+
   return (
     <div className={styles.panelShell}>
       <aside className={styles.panel}>
@@ -227,6 +244,7 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
         queueItems={queueItems}
         playlistTitle={playlistTitle}
         onClose={onToggleQueue}
+        onSelectQueueItem={handleQueueTrackSelect}
       />
     </div>
   )

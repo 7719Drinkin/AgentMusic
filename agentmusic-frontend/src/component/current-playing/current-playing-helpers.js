@@ -1,4 +1,5 @@
 export const QUEUE_NEXT_REQUEST_EVENT = 'agentmusic:queue-next-request'
+export const QUEUE_PLAY_REQUEST_EVENT = 'agentmusic:queue-play-request'
 
 export function buildArtistSearchLocation(artistName, state = {}) {
   return {
@@ -29,6 +30,7 @@ export function mapQueueItems(playlistDetail, currentTrackIndex) {
     .filter((item) => item?.track)
     .map((item, index) => ({
       trackId: item.track.trackId,
+      trackIndex: index,
       songName: item.track.title,
       songArtistId: item.track.artistId,
       songArtist: null,

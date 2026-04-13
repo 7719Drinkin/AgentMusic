@@ -24,6 +24,7 @@ import styles from './footer.module.css'
 const DEMO_USER_ID = 'demo-user'
 const PLAYBACK_REFRESH_EVENT = 'agentmusic:playback-session-updated'
 const QUEUE_NEXT_REQUEST_EVENT = 'agentmusic:queue-next-request'
+const QUEUE_PLAY_REQUEST_EVENT = 'agentmusic:queue-play-request'
 const REMOTE_SYNC_INTERVAL_MS = 1500
 
 function Footer(props) {
@@ -204,6 +205,27 @@ function Footer(props) {
     }
   }
 
+  const handleQueueTrackPlay = async (trackId, trackIndex) => {
+    if (!props.currentPlaylistId || !trackId || isPlaybackBusy) {
+      return
+    }
+
+    try {
+      setIsPlaybackBusy(true)
+      const session = await playTrack(DEMO_USER_ID, {
+        trackId,
+        playlistId: props.currentPlaylistId,
+        trackIndex,
+        deviceId: props.deviceId,
+        playbackMode: props.playbackMode,
+      })
+      await applyPlaybackSession(session)
+    } catch {
+    } finally {
+      setIsPlaybackBusy(false)
+    }
+  }
+
   useEffect(() => {
     if (!audioRef.current || !shouldUseLocalPreview) {
       return
@@ -245,6 +267,18 @@ function Footer(props) {
       window.removeEventListener(QUEUE_NEXT_REQUEST_EVENT, requestNext)
     }
   }, [handleNext])
+
+  useEffect(() => {
+    const requestQueuePlay = (event) => {
+      const { trackId, trackIndex } = event.detail || {}
+      handleQueueTrackPlay(trackId, trackIndex)
+    }
+
+    window.addEventListener(QUEUE_PLAY_REQUEST_EVENT, requestQueuePlay)
+    return () => {
+      window.removeEventListener(QUEUE_PLAY_REQUEST_EVENT, requestQueuePlay)
+    }
+  }, [handleQueueTrackPlay])
 
   const handleTrackClick = async (position) => {
     if (!canSeek || isPlaybackBusy) {
