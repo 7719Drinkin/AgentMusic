@@ -12,6 +12,7 @@ import {
   buildArtistSearchLocation,
   buildCredits,
   mapQueueItems,
+  resolveNextQueueItem,
   resolveCurrentTrackFromPlaylist,
 } from './current-playing-helpers'
 import styles from './current-playing-panel.module.css'
@@ -105,7 +106,10 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
     })),
     [playlistDetail, currentTrackIndex, artistDirectory, displayArtistName],
   )
-  const nextQueueItem = queueItems.find((item) => !item.isCurrent) || null
+  const nextQueueItem = useMemo(
+    () => resolveNextQueueItem(queueItems, currentTrackIndex),
+    [queueItems, currentTrackIndex],
+  )
   const credits = useMemo(() => buildCredits(currentTrack, displayArtistName), [currentTrack, displayArtistName])
 
   const handleArtistNavigation = () => {

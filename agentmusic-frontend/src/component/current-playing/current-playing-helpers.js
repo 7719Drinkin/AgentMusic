@@ -39,6 +39,21 @@ export function mapQueueItems(playlistDetail, currentTrackIndex) {
     }))
 }
 
+export function resolveNextQueueItem(queueItems, currentTrackIndex) {
+  if (!queueItems?.length) {
+    return null
+  }
+
+  const safeIndex = Math.max(currentTrackIndex ?? 0, 0)
+  const nextIndex = safeIndex + 1
+
+  if (nextIndex >= queueItems.length) {
+    return null
+  }
+
+  return queueItems[nextIndex]
+}
+
 export function resolveCurrentTrackFromPlaylist(playlistDetail, currentTrackIndex, fallbackTrackData) {
   const playlistTrack = playlistDetail?.tracks?.[currentTrackIndex ?? -1]?.track
   if (playlistTrack) {
