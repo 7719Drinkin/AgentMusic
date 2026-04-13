@@ -437,3 +437,20 @@
   - `SHUFFLE` 视为本地歌单上下文模式
   - `sync` 不再用 Spotify 远端状态覆盖本地 `SHUFFLE`
   - 后续 `next / previous` 在 `SHUFFLE` 下按本地歌单策略选取目标曲目
+
+## 2026-04-13 补充：Playwright 页面级复测通过
+
+- 使用 Edge 远程调试模式 + Playwright CDP 进行了页面级复测
+- 当前确认在前端页面层也已经成立：
+  - `pause / play / sync`
+  - `next / previous`
+  - `seek`
+  - `SEQUENTIAL / SHUFFLE / LIST_LOOP` 模式切换
+- 复测时的真实 session 结果表明：
+  - `SHUFFLE` 下会保留本地模式
+  - `next` 会跳到本地歌单随机目标曲目
+  - `previous` 会回到新的本地歌单上下文目标曲目
+- 当前真实播放控制主链可以视为已完成，后续主线应切换到：
+  1. 左侧推荐歌单进入真实歌单页
+  2. 侧栏正式 UI
+  3. MySQL / Redis 持久化

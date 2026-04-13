@@ -281,3 +281,21 @@
   - `mode` 按钮的循环切换回显
 - 左侧推荐歌单进入真实歌单页
 - MySQL / Redis 持久化排期与落地
+
+## 2026-04-13 补充：页面级复测结果
+
+### 已验证通过
+
+- 使用 Playwright + Edge CDP 复测后，以下页面级行为已确认成立：
+  - `pause / play / sync`
+  - `next / previous`
+  - `seek`
+  - `mode` 中的 `SEQUENTIAL -> SHUFFLE -> LIST_LOOP`
+- `SHUFFLE` 现已按本地歌单上下文保留，不再被 Spotify 远端 `shuffle_state` 回写冲掉
+- 在 `SHUFFLE` 下点击 `next / previous`，会切换到本地歌单选出的目标曲目，并保持 `currentPlaylistId/currentTrackIndex`
+
+### 当前剩余任务
+
+- 左侧推荐歌单进入真实歌单页
+- 侧栏推荐歌单 UI 调整为正式样式
+- MySQL / Redis 持久化排期与落地
