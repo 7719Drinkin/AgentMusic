@@ -68,7 +68,7 @@ function Playlist() {
     <div className={styles.Playlist}>
       <TitleS>推荐歌单</TitleS>
 
-      <div>
+      <div className={styles.FixedItems}>
         {PLAYLISTBTN.map((playlist) => (
           <PlaylistButton
             href={playlist.path}
@@ -88,19 +88,34 @@ function Playlist() {
           <TextRegularM>还没有生成过推荐歌单。</TextRegularM>
         ) : null}
         {errorMessage ? <TextRegularM>{errorMessage}</TextRegularM> : null}
-        {playlists.map((playlist) => (
-          <button
-            key={playlist.id}
-            className={`${styles.PlaylistItem} ${activePlaylistId === playlist.id ? styles.ActivePlaylistItem : ''}`}
-            type="button"
-            onClick={() => handlePlaylistSelect(playlist)}
-          >
-            <TextRegularM>{playlist.name}</TextRegularM>
-            <TextRegularM>
-              <small>{playlist.tracks.length} 首</small>
-            </TextRegularM>
-          </button>
-        ))}
+
+        {playlists.map((playlist) => {
+          const cover = playlist.tracks?.[0]?.track?.albumImageUrl || null
+          const trackCount = playlist.tracks?.length ?? 0
+          const isActive = activePlaylistId === playlist.id
+
+          return (
+            <button
+              key={playlist.id}
+              className={`${styles.PlaylistCard} ${isActive ? styles.ActivePlaylistCard : ''}`}
+              type="button"
+              onClick={() => handlePlaylistSelect(playlist)}
+            >
+              {cover ? (
+                <img className={styles.PlaylistCardImage} src={cover} alt={playlist.name} />
+              ) : (
+                <span className={styles.PlaylistCardFallback} aria-hidden="true">
+                  AR
+                </span>
+              )}
+
+              <span className={styles.PlaylistCardContent}>
+                <span className={styles.PlaylistCardTitle}>{playlist.name}</span>
+                <span className={styles.PlaylistCardMeta}>推荐歌单 · {trackCount} 首</span>
+              </span>
+            </button>
+          )
+        })}
       </div>
     </div>
   )

@@ -9,6 +9,10 @@
     line-height: 20px;
     color: var(--text-gray);
 }
+.FixedItems{
+    display: grid;
+    gap: 2px;
+}
 .hr{
     background-color: var(--sidenav-active);
     border: none;
@@ -18,14 +22,15 @@
 
 .PlaylistList{
     display: grid;
-    gap: 4px;
+    gap: 2px;
 }
 
-.PlaylistItem{
+.PlaylistItem,
+.PlaylistCard{
     display: flex;
-    justify-content: space-between;
     align-items: center;
     width: 100%;
+    gap: 12px;
     padding: 8px 10px;
     border: none;
     background: transparent;
@@ -34,10 +39,62 @@
     text-align: left;
 }
 
-.PlaylistItem:hover{
+.PlaylistItem:hover,
+.PlaylistCard:hover{
     background-color: rgba(255,255,255,0.06);
 }
 
-.ActivePlaylistItem{
+.ActivePlaylistItem,
+.ActivePlaylistCard{
     background-color: rgba(255,255,255,0.1);
+}
+
+.PlaylistCardImage,
+.PlaylistCardFallback{
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    flex: 0 0 auto;
+}
+
+.PlaylistCardImage{
+    object-fit: cover;
+    box-shadow: 0 8px 20px rgba(0,0,0,.24);
+}
+
+.PlaylistCardFallback{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #2d46b9 0%, #6d28d9 100%);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .08em;
+}
+
+.PlaylistCardContent{
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 2px;
+}
+
+.PlaylistCardTitle{
+    color: var(--text-white);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.PlaylistCardMeta{
+    color: var(--text-gray);
+    font-size: 12px;
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
