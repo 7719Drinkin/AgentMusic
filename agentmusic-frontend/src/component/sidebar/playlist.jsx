@@ -1,21 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useHistory, useLocation } from 'react-router-dom'
 import styles from './playlist.module.css'
 import TitleS from '../text/title-s'
 import TextRegularM from '../text/text-regular-m'
 import PlaylistButton from './playlist-button'
 import { PLAYLISTBTN } from '../../constants'
 import { fetchRecentPlaylists } from '../../api/playlists'
-import { playTrack } from '../../api/playback'
 
 const DEMO_USER_ID = 'demo-user'
 const PLAYLIST_REFRESH_EVENT = 'agentmusic:playlists-updated'
-const PLAYBACK_REFRESH_EVENT = 'agentmusic:playback-session-updated'
 
 function Playlist() {
+  const history = useHistory()
+  const location = useLocation()
   const [playlists, setPlaylists] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
-  const [activePlaylistId, setActivePlaylistId] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -51,30 +51,17 @@ function Playlist() {
     }
   }, [])
 
-  const handlePlaylistSelect = async (playlist) => {
-    if (!playlist?.tracks?.length) {
+  const activePlaylistId = useMemo(() => {
+    const match = location.pathname.match(/^\/playlist\/(.+)$/)
+    return match ? decodeURIComponent(match[1]) : null
+  }, [location.pathname])
+
+  const handlePlaylistSelect = (playlist) => {
+    if (!playlist?.id) {
       return
     }
 
-    const firstTrack = playlist.tracks[0]?.track
-    if (!firstTrack?.trackId) {
-      return
-    }
-
-    try {
-      setActivePlaylistId(playlist.id)
-      await playTrack(DEMO_USER_ID, {
-        trackId: firstTrack.trackId,
-        playlistId: playlist.id,
-        trackIndex: 0,
-        deviceId: null,
-        playbackMode: 'SEQUENTIAL',
-      })
-      window.dispatchEvent(new CustomEvent(PLAYBACK_REFRESH_EVENT))
-      setErrorMessage('')
-    } catch (error) {
-      setErrorMessage(error.message || '推荐歌单播放失败。')
-    }
+    history.push(`/playlist/${encodeURIComponent(playlist.id)}`)
   }
 
   return (
