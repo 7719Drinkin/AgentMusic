@@ -25,7 +25,7 @@ public class SpotifyWebApiCatalogClient implements SpotifyCatalogClient {
     private final Clock clock;
 
     public SpotifyWebApiCatalogClient(WebClient.Builder webClientBuilder, Clock clock) {
-        this.webClient = webClientBuilder.baseUrl(API_BASE_URL).build();
+        this.webClient = SpotifyWebClientFactory.create(webClientBuilder, API_BASE_URL);
         this.clock = clock;
     }
 

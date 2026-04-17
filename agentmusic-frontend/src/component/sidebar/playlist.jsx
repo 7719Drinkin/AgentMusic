@@ -9,6 +9,19 @@ import { fetchRecentPlaylists } from '../../api/playlists'
 
 const DEMO_USER_ID = 'demo-user'
 const PLAYLIST_REFRESH_EVENT = 'agentmusic:playlists-updated'
+const MAX_PLAYLIST_TITLE_LENGTH = 20
+
+function truncatePlaylistTitle(title) {
+  if (!title) {
+    return ''
+  }
+
+  if (title.length <= MAX_PLAYLIST_TITLE_LENGTH) {
+    return title
+  }
+
+  return `${title.slice(0, MAX_PLAYLIST_TITLE_LENGTH - 1)}…`
+}
 
 function Playlist() {
   const history = useHistory()
@@ -34,7 +47,7 @@ function Playlist() {
           return
         }
 
-        setErrorMessage(error.message || '推荐歌单加载失败。')
+        setErrorMessage(error.message || '\u63a8\u8350\u6b4c\u5355\u52a0\u8f7d\u5931\u8d25\u3002')
       } finally {
         if (!cancelled) {
           setIsLoading(false)
@@ -66,7 +79,7 @@ function Playlist() {
 
   return (
     <div className={styles.Playlist}>
-      <TitleS>推荐歌单</TitleS>
+      <TitleS>{'\u63a8\u8350\u6b4c\u5355'}</TitleS>
 
       <div className={styles.FixedItems}>
         {PLAYLISTBTN.map((playlist) => (
@@ -83,9 +96,9 @@ function Playlist() {
       <hr className={styles.hr} />
 
       <div className={styles.PlaylistList}>
-        {isLoading ? <TextRegularM>正在加载推荐歌单...</TextRegularM> : null}
+        {isLoading ? <TextRegularM>{'\u6b63\u5728\u52a0\u8f7d\u63a8\u8350\u6b4c\u5355...'}</TextRegularM> : null}
         {!isLoading && !errorMessage && playlists.length === 0 ? (
-          <TextRegularM>还没有生成过推荐歌单。</TextRegularM>
+          <TextRegularM>{'\u8fd8\u6ca1\u6709\u751f\u6210\u8fc7\u63a8\u8350\u6b4c\u5355\u3002'}</TextRegularM>
         ) : null}
         {errorMessage ? <TextRegularM>{errorMessage}</TextRegularM> : null}
 
@@ -110,8 +123,12 @@ function Playlist() {
               )}
 
               <span className={styles.PlaylistCardContent}>
-                <span className={styles.PlaylistCardTitle}>{playlist.name}</span>
-                <span className={styles.PlaylistCardMeta}>推荐歌单 · {trackCount} 首</span>
+                <span className={styles.PlaylistCardTitle}>{truncatePlaylistTitle(playlist.name)}</span>
+                <span className={styles.PlaylistCardMeta}>
+                  {'\u63a8\u8350\u6b4c\u5355 \u00b7 '}
+                  {trackCount}
+                  {' \u9996'}
+                </span>
               </span>
             </button>
           )

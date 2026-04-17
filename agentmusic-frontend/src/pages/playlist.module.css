@@ -80,6 +80,15 @@
     padding: 8px 32px 24px;
 }
 
+.PlaybackStatus{
+    padding: 0 32px 20px;
+}
+
+.PlaybackStatus p{
+    margin: 0;
+    color: #ffb3bc;
+}
+
 .PlayButton{
     display: inline-flex;
     align-items: center;
@@ -114,7 +123,7 @@
     border-bottom: 1px solid hsla(0,0%,100%,.1);
     display: grid;
     grid-gap: 16px;
-    grid-template-columns: 24px 1fr 48px;
+    grid-template-columns: 24px minmax(280px, 1.8fr) minmax(160px, 1fr) 120px 48px;
     align-items: center;
 }
 
@@ -131,7 +140,7 @@
 
 .SongBtn{
     display: grid;
-    grid-template-columns: 24px 1fr 48px;
+    grid-template-columns: 24px minmax(280px, 1.8fr) minmax(160px, 1fr) 120px 48px;
     gap: 16px;
     align-items: center;
     width: 100%;
@@ -198,10 +207,18 @@
     color: #b3b3b3;
 }
 
-.SongBtn > p{
+.RowAlbum,
+.RowAddedAt,
+.RowDuration{
     margin: 0;
-    justify-self: end;
     color: #b3b3b3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.RowDuration{
+    justify-self: end;
 }
 
 .EmptyState{
@@ -234,7 +251,14 @@
 
     .ListHead,
     .SongBtn{
-        grid-template-columns: 20px 1fr 44px;
+        grid-template-columns: 20px minmax(0, 1fr) 44px;
         gap: 12px;
+    }
+
+    .ListHead p:nth-child(3),
+    .ListHead p:nth-child(4),
+    .RowAlbum,
+    .RowAddedAt{
+        display: none;
     }
 }

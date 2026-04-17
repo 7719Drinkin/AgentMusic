@@ -141,9 +141,11 @@ class DefaultPlaybackApplicationServiceTests {
                 LocalDateTime.now(),
                 List.of(
                         new PlaylistTrackDto("pt-1", "playlist-1", 0,
-                                new TrackDto("track-1", "Song A", "artist-1", "album", "album-1", 180000, null, null)),
+                                new TrackDto("track-1", "Song A", "artist-1", "album", "album-1", 180000, null, null),
+                                LocalDateTime.now()),
                         new PlaylistTrackDto("pt-2", "playlist-1", 1,
-                                new TrackDto("track-2", "Song B", "artist-2", "album", "album-2", 200000, null, null))
+                                new TrackDto("track-2", "Song B", "artist-2", "album", "album-2", 200000, null, null),
+                                LocalDateTime.now())
                 )
         );
         PlaybackSessionDto bridgeSession = new PlaybackSessionDto(
@@ -200,9 +202,11 @@ class DefaultPlaybackApplicationServiceTests {
                 LocalDateTime.now(),
                 List.of(
                         new PlaylistTrackDto("pt-1", "playlist-1", 0,
-                                new TrackDto("track-1", "Song A", "artist-1", "album", "album-1", 180000, null, null)),
+                                new TrackDto("track-1", "Song A", "artist-1", "album", "album-1", 180000, null, null),
+                                LocalDateTime.now()),
                         new PlaylistTrackDto("pt-2", "playlist-1", 1,
-                                new TrackDto("track-2", "Song B", "artist-2", "album", "album-2", 200000, null, null))
+                                new TrackDto("track-2", "Song B", "artist-2", "album", "album-2", 200000, null, null),
+                                LocalDateTime.now())
                 )
         );
 

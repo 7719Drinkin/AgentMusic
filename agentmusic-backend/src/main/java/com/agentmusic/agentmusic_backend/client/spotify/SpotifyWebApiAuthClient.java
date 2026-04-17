@@ -46,7 +46,7 @@ public class SpotifyWebApiAuthClient implements SpotifyAuthClient {
             SpotifyBridgeProperties spotifyBridgeProperties,
             Clock clock
     ) {
-        this.webClient = webClientBuilder.build();
+        this.webClient = SpotifyWebClientFactory.create(webClientBuilder);
         this.spotifyBridgeProperties = spotifyBridgeProperties;
         this.clock = clock;
     }

@@ -14,6 +14,25 @@ import styles from './playlist.module.css'
 const DEMO_USER_ID = 'demo-user'
 const PLAYBACK_REFRESH_EVENT = 'agentmusic:playback-session-updated'
 
+function formatDateTime(value) {
+  if (!value) {
+    return '--'
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return '--'
+  }
+
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date)
+}
+
 function PlaylistPage(props) {
   const { path } = useParams()
   const playlistId = decodeURIComponent(path)
@@ -22,6 +41,7 @@ function PlaylistPage(props) {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [isPlaybackBusy, setIsPlaybackBusy] = useState(false)
+  const [playbackError, setPlaybackError] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -94,6 +114,8 @@ function PlaylistPage(props) {
         trackId: track.trackId,
         title: track.title,
         artistName: artistDirectory[track.artistId] || '未知艺人',
+        albumName: track.albumName || '未知专辑',
+        addedAtLabel: formatDateTime(item.addedAt),
         durationLabel: convertTime((track.durationMs || 0) / 1000),
         albumImageUrl: track.albumImageUrl || playlistCover,
         isCurrent: activePlaylist && props.currentTrackIndex === index,
@@ -108,6 +130,7 @@ function PlaylistPage(props) {
 
     try {
       setIsPlaybackBusy(true)
+      setPlaybackError('')
       await playTrack(DEMO_USER_ID, {
         trackId,
         playlistId,
@@ -116,7 +139,8 @@ function PlaylistPage(props) {
         playbackMode: props.playbackMode,
       })
       window.dispatchEvent(new CustomEvent(PLAYBACK_REFRESH_EVENT))
-    } catch {
+    } catch (error) {
+      setPlaybackError(error.message || '播放这首歌失败。')
     } finally {
       setIsPlaybackBusy(false)
     }
@@ -165,10 +189,18 @@ function PlaylistPage(props) {
         </button>
       </section>
 
+      {playbackError ? (
+        <section className={styles.PlaybackStatus}>
+          <TextRegularM>{playbackError}</TextRegularM>
+        </section>
+      ) : null}
+
       <section className={styles.PlaylistSongs}>
         <div className={styles.ListHead}>
           <p>#</p>
           <p>标题</p>
+          <p>专辑</p>
+          <p>添加时间</p>
           <Icons.Time />
         </div>
 
@@ -194,7 +226,9 @@ function PlaylistPage(props) {
                 <TextRegularM>{row.artistName}</TextRegularM>
               </span>
             </span>
-            <TextRegularM>{row.durationLabel}</TextRegularM>
+            <TextRegularM className={styles.RowAlbum}>{row.albumName}</TextRegularM>
+            <TextRegularM className={styles.RowAddedAt}>{row.addedAtLabel}</TextRegularM>
+            <TextRegularM className={styles.RowDuration}>{row.durationLabel}</TextRegularM>
           </button>
         ))}
       </section>

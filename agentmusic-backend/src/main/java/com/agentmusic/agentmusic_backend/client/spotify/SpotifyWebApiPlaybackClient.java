@@ -21,7 +21,7 @@ public class SpotifyWebApiPlaybackClient implements SpotifyPlaybackClient {
     private final WebClient webClient;
 
     public SpotifyWebApiPlaybackClient(WebClient.Builder webClientBuilder) {
-        this.webClient = webClientBuilder.baseUrl(API_BASE_URL).build();
+        this.webClient = SpotifyWebClientFactory.create(webClientBuilder, API_BASE_URL);
     }
 
     @Override

@@ -34,6 +34,7 @@ function Footer(props) {
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(1)
   const [isPlaybackBusy, setIsPlaybackBusy] = useState(false)
+  const [playbackError, setPlaybackError] = useState('')
   const audioRef = useRef(null)
   const hasTrackContext = Boolean(props.trackData.trackId || props.trackData.track)
   const hasPlaylistContext = Boolean(props.currentPlaylistId)
@@ -93,7 +94,9 @@ function Footer(props) {
         ? await syncPlaybackSession(DEMO_USER_ID)
         : await fetchPlaybackSession(DEMO_USER_ID)
       await applyPlaybackSession(session)
-    } catch {
+      setPlaybackError('')
+    } catch (error) {
+      setPlaybackError(error.message || '播放状态同步失败。')
     }
   }
 
@@ -184,7 +187,9 @@ function Footer(props) {
       setIsPlaybackBusy(true)
       await nextTrack(DEMO_USER_ID, props.deviceId)
       await refreshPlaybackSession(true)
-    } catch {
+      setPlaybackError('')
+    } catch (error) {
+      setPlaybackError(error.message || '切换到下一首失败。')
     } finally {
       setIsPlaybackBusy(false)
     }
@@ -199,7 +204,9 @@ function Footer(props) {
       setIsPlaybackBusy(true)
       await previousTrack(DEMO_USER_ID, props.deviceId)
       await refreshPlaybackSession(true)
-    } catch {
+      setPlaybackError('')
+    } catch (error) {
+      setPlaybackError(error.message || '切换到上一首失败。')
     } finally {
       setIsPlaybackBusy(false)
     }
@@ -220,7 +227,9 @@ function Footer(props) {
         playbackMode: props.playbackMode,
       })
       await applyPlaybackSession(session)
-    } catch {
+      setPlaybackError('')
+    } catch (error) {
+      setPlaybackError(error.message || '切歌失败。')
     } finally {
       setIsPlaybackBusy(false)
     }
@@ -295,7 +304,9 @@ function Footer(props) {
         setIsPlaybackBusy(true)
         const session = await seekPlayback(DEMO_USER_ID, Math.round(position * 1000), props.deviceId)
         await applyPlaybackSession(session)
-      } catch {
+        setPlaybackError('')
+      } catch (error) {
+        setPlaybackError(error.message || '调整播放进度失败。')
       } finally {
         setIsPlaybackBusy(false)
       }
@@ -329,7 +340,9 @@ function Footer(props) {
             playbackMode: props.playbackMode,
           })
       await applyPlaybackSession(session)
-    } catch {
+      setPlaybackError('')
+    } catch (error) {
+      setPlaybackError(error.message || (props.isPlaying ? '暂停失败。' : '播放失败。'))
     } finally {
       setIsPlaybackBusy(false)
     }
@@ -369,7 +382,9 @@ function Footer(props) {
       setIsPlaybackBusy(true)
       const session = await changePlaybackMode(DEMO_USER_ID, nextMode, props.deviceId)
       await applyPlaybackSession(session)
-    } catch {
+      setPlaybackError('')
+    } catch (error) {
+      setPlaybackError(error.message || '切换播放模式失败。')
     } finally {
       setIsPlaybackBusy(false)
     }
@@ -377,6 +392,7 @@ function Footer(props) {
 
   return (
     <footer ref={footerRef} className={styles.footer}>
+      {playbackError ? <div className={styles.PlaybackError}>{playbackError}</div> : null}
       <div className={styles.nowplayingbar}>
         <FooterLeft onOpenNowPlayingPanel={props.onOpenNowPlayingPanel} />
         <div className={styles.footerMid}>

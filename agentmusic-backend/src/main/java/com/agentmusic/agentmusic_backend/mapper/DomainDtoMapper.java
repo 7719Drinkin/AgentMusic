@@ -84,7 +84,8 @@ public final class DomainDtoMapper {
                         playlistTrack.id(),
                         playlistTrack.playlistId(),
                         playlistTrack.position(),
-                        toDto(findTrack(tracks, playlistTrack.trackId()))
+                        toDto(findTrack(tracks, playlistTrack.trackId())),
+                        playlistTrack.addedAt()
                 ))
                 .toList();
         return new PlaylistDto(

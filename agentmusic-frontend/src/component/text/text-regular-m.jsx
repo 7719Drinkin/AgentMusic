@@ -1,8 +1,8 @@
 import styles from './text-regular-m.module.css'
 
-function TextRegularM({children}){
+function TextRegularM({children, className = ''}){
     return (
-        <p className={styles.text}>
+        <p className={`${styles.text} ${className}`.trim()}>
             {children}
         </p>
     );
