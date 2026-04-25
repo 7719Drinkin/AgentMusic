@@ -1,7 +1,7 @@
 package com.agentmusic.agentmusic_backend.service.application;
 
-import com.agentmusic.agentmusic_backend.dto.CreatePlaylistRequest;
-import com.agentmusic.agentmusic_backend.dto.PlaylistDto;
+import com.agentmusic.agentmusic_backend.web.dto.CreatePlaylistRequest;
+import com.agentmusic.agentmusic_backend.web.dto.PlaylistDto;
 import java.util.List;
 import java.util.Optional;
 

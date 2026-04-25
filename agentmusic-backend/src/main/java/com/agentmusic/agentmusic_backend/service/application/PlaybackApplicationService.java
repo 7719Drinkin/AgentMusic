@@ -1,9 +1,9 @@
 package com.agentmusic.agentmusic_backend.service.application;
 
-import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
-import com.agentmusic.agentmusic_backend.dto.SpotifyPlaybackDeviceDto;
-import com.agentmusic.agentmusic_backend.dto.TransferPlaybackRequest;
-import com.agentmusic.agentmusic_backend.dto.UpdatePlaybackSessionRequest;
+import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
+import com.agentmusic.agentmusic_backend.web.dto.SpotifyPlaybackDeviceDto;
+import com.agentmusic.agentmusic_backend.web.dto.TransferPlaybackRequest;
+import com.agentmusic.agentmusic_backend.web.dto.UpdatePlaybackSessionRequest;
 import java.util.List;
 import java.util.Optional;
 

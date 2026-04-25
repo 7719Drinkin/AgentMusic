@@ -1,10 +1,10 @@
 package com.agentmusic.agentmusic_backend.planner.impl;
 
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
-import com.agentmusic.agentmusic_backend.dto.CreatePlaylistRequest;
-import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
-import com.agentmusic.agentmusic_backend.dto.PlaylistDto;
-import com.agentmusic.agentmusic_backend.dto.TrackDto;
+import com.agentmusic.agentmusic_backend.web.dto.CreatePlaylistRequest;
+import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
+import com.agentmusic.agentmusic_backend.web.dto.PlaylistDto;
+import com.agentmusic.agentmusic_backend.web.dto.TrackDto;
 import com.agentmusic.agentmusic_backend.planner.AgentPlan;
 import com.agentmusic.agentmusic_backend.planner.PlannerExecutionResult;
 import com.agentmusic.agentmusic_backend.planner.PlanningContext;

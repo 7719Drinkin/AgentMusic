@@ -1,8 +1,8 @@
 package com.agentmusic.agentmusic_backend.service.application.impl;
 
-import com.agentmusic.agentmusic_backend.dto.ArtistDto;
-import com.agentmusic.agentmusic_backend.dto.TrackDto;
-import com.agentmusic.agentmusic_backend.mapper.DomainDtoMapper;
+import com.agentmusic.agentmusic_backend.web.dto.ArtistDto;
+import com.agentmusic.agentmusic_backend.web.dto.TrackDto;
+import com.agentmusic.agentmusic_backend.web.mapper.DomainDtoMapper;
 import com.agentmusic.agentmusic_backend.service.MusicMetadataService;
 import com.agentmusic.agentmusic_backend.service.application.MusicQueryApplicationService;
 import java.util.List;

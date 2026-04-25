@@ -1,7 +1,7 @@
 package com.agentmusic.agentmusic_backend.service;
 
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
-import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
+import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
 import java.util.Optional;
 
 public interface PlaybackSessionService {

@@ -1,12 +1,12 @@
 package com.agentmusic.agentmusic_backend.service.impl;
 
-import com.agentmusic.agentmusic_backend.client.SpotifyBridgeDevice;
-import com.agentmusic.agentmusic_backend.client.SpotifyPlaybackClient;
-import com.agentmusic.agentmusic_backend.client.SpotifyPlaybackState;
+import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyBridgeDevice;
+import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyPlaybackClient;
+import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyPlaybackState;
 import com.agentmusic.agentmusic_backend.config.SpotifyBridgeProperties;
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
-import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
-import com.agentmusic.agentmusic_backend.exception.SpotifyPlaybackUnavailableException;
+import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
+import com.agentmusic.agentmusic_backend.web.exception.SpotifyPlaybackUnavailableException;
 import com.agentmusic.agentmusic_backend.service.BridgePlaybackControlService;
 import com.agentmusic.agentmusic_backend.service.PlaybackSessionService;
 import com.agentmusic.agentmusic_backend.service.SpotifyBridgeAuthService;

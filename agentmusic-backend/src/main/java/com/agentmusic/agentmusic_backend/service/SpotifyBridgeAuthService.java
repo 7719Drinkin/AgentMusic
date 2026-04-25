@@ -1,6 +1,6 @@
 package com.agentmusic.agentmusic_backend.service;
 
-import com.agentmusic.agentmusic_backend.dto.SpotifyBridgeAuthStatusDto;
+import com.agentmusic.agentmusic_backend.web.dto.SpotifyBridgeAuthStatusDto;
 import java.net.URI;
 import java.util.Optional;
 

@@ -1,7 +1,7 @@
 package com.agentmusic.agentmusic_backend.service;
 
 import com.agentmusic.agentmusic_backend.domain.ChatRole;
-import com.agentmusic.agentmusic_backend.dto.ChatMessageDto;
+import com.agentmusic.agentmusic_backend.web.dto.ChatMessageDto;
 import java.util.List;
 import java.util.Map;
 

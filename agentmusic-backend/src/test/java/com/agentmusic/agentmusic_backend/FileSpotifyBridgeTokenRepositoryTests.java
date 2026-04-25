@@ -3,8 +3,8 @@ package com.agentmusic.agentmusic_backend;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.agentmusic.agentmusic_backend.client.SpotifyToken;
-import com.agentmusic.agentmusic_backend.repository.file.FileSpotifyBridgeTokenRepository;
+import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyToken;
+import com.agentmusic.agentmusic_backend.persistence.repository.file.FileSpotifyBridgeTokenRepository;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

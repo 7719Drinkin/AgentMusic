@@ -1,8 +1,8 @@
 package com.agentmusic.agentmusic_backend.service;
 
-import com.agentmusic.agentmusic_backend.client.SpotifyBridgeDevice;
+import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyBridgeDevice;
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
-import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
+import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
 import java.util.List;
 
 public interface BridgePlaybackControlService {

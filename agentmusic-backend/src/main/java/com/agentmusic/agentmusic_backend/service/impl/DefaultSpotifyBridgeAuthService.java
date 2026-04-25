@@ -1,10 +1,10 @@
 package com.agentmusic.agentmusic_backend.service.impl;
 
-import com.agentmusic.agentmusic_backend.client.SpotifyAuthClient;
-import com.agentmusic.agentmusic_backend.client.SpotifyToken;
+import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyAuthClient;
+import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyToken;
 import com.agentmusic.agentmusic_backend.config.SpotifyBridgeProperties;
-import com.agentmusic.agentmusic_backend.dto.SpotifyBridgeAuthStatusDto;
-import com.agentmusic.agentmusic_backend.repository.SpotifyBridgeTokenRepository;
+import com.agentmusic.agentmusic_backend.web.dto.SpotifyBridgeAuthStatusDto;
+import com.agentmusic.agentmusic_backend.persistence.repository.SpotifyBridgeTokenRepository;
 import com.agentmusic.agentmusic_backend.service.SpotifyBridgeAuthService;
 import java.net.URI;
 import java.time.Clock;

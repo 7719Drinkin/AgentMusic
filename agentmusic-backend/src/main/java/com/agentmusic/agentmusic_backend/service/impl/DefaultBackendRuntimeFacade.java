@@ -1,9 +1,9 @@
 package com.agentmusic.agentmusic_backend.service.impl;
 
-import com.agentmusic.agentmusic_backend.cache.RedisKeys;
-import com.agentmusic.agentmusic_backend.dto.ChatMessageDto;
-import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
-import com.agentmusic.agentmusic_backend.dto.PlaylistDto;
+import com.agentmusic.agentmusic_backend.persistence.redis.RedisKeys;
+import com.agentmusic.agentmusic_backend.web.dto.ChatMessageDto;
+import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
+import com.agentmusic.agentmusic_backend.web.dto.PlaylistDto;
 import com.agentmusic.agentmusic_backend.service.BackendRuntimeFacade;
 import com.agentmusic.agentmusic_backend.service.ChatMemoryService;
 import com.agentmusic.agentmusic_backend.service.PlaybackSessionService;

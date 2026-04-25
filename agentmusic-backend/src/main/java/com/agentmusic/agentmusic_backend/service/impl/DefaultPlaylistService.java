@@ -1,14 +1,14 @@
 package com.agentmusic.agentmusic_backend.service.impl;
 
-import com.agentmusic.agentmusic_backend.cache.RedisKeys;
+import com.agentmusic.agentmusic_backend.persistence.redis.RedisKeys;
 import com.agentmusic.agentmusic_backend.domain.Playlist;
 import com.agentmusic.agentmusic_backend.domain.PlaylistTrack;
 import com.agentmusic.agentmusic_backend.domain.Track;
-import com.agentmusic.agentmusic_backend.dto.PlaylistDto;
-import com.agentmusic.agentmusic_backend.dto.TrackDto;
-import com.agentmusic.agentmusic_backend.mapper.DomainDtoMapper;
-import com.agentmusic.agentmusic_backend.repository.PlaylistRepository;
-import com.agentmusic.agentmusic_backend.repository.PlaylistTrackRepository;
+import com.agentmusic.agentmusic_backend.web.dto.PlaylistDto;
+import com.agentmusic.agentmusic_backend.web.dto.TrackDto;
+import com.agentmusic.agentmusic_backend.web.mapper.DomainDtoMapper;
+import com.agentmusic.agentmusic_backend.persistence.repository.PlaylistRepository;
+import com.agentmusic.agentmusic_backend.persistence.repository.PlaylistTrackRepository;
 import com.agentmusic.agentmusic_backend.service.MusicMetadataService;
 import com.agentmusic.agentmusic_backend.service.PlaylistService;
 import java.time.Clock;

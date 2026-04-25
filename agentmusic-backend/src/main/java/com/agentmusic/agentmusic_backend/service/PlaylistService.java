@@ -1,7 +1,7 @@
 package com.agentmusic.agentmusic_backend.service;
 
-import com.agentmusic.agentmusic_backend.dto.PlaylistDto;
-import com.agentmusic.agentmusic_backend.dto.TrackDto;
+import com.agentmusic.agentmusic_backend.web.dto.PlaylistDto;
+import com.agentmusic.agentmusic_backend.web.dto.TrackDto;
 import java.util.List;
 import java.util.Optional;
 

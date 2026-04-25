@@ -11,10 +11,10 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
-import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
-import com.agentmusic.agentmusic_backend.dto.PlaylistDto;
-import com.agentmusic.agentmusic_backend.dto.PlaylistTrackDto;
-import com.agentmusic.agentmusic_backend.dto.TrackDto;
+import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
+import com.agentmusic.agentmusic_backend.web.dto.PlaylistDto;
+import com.agentmusic.agentmusic_backend.web.dto.PlaylistTrackDto;
+import com.agentmusic.agentmusic_backend.web.dto.TrackDto;
 import com.agentmusic.agentmusic_backend.service.BridgePlaybackControlService;
 import com.agentmusic.agentmusic_backend.service.PlaybackSessionService;
 import com.agentmusic.agentmusic_backend.service.PlaylistService;

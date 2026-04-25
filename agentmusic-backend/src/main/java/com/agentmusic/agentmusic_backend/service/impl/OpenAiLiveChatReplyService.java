@@ -2,7 +2,7 @@ package com.agentmusic.agentmusic_backend.service.impl;
 
 import com.agentmusic.agentmusic_backend.config.AgentChatProperties;
 import com.agentmusic.agentmusic_backend.config.OpenAiProperties;
-import com.agentmusic.agentmusic_backend.dto.AgentRuntimeStatusDto;
+import com.agentmusic.agentmusic_backend.web.dto.AgentRuntimeStatusDto;
 import com.agentmusic.agentmusic_backend.service.LiveChatReplyService;
 import java.time.Duration;
 import java.util.ArrayList;

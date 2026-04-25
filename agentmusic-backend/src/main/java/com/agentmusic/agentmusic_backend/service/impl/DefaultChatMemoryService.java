@@ -1,11 +1,11 @@
 package com.agentmusic.agentmusic_backend.service.impl;
 
-import com.agentmusic.agentmusic_backend.cache.RedisKeys;
+import com.agentmusic.agentmusic_backend.persistence.redis.RedisKeys;
 import com.agentmusic.agentmusic_backend.domain.ChatMessage;
 import com.agentmusic.agentmusic_backend.domain.ChatRole;
-import com.agentmusic.agentmusic_backend.dto.ChatMessageDto;
-import com.agentmusic.agentmusic_backend.mapper.DomainDtoMapper;
-import com.agentmusic.agentmusic_backend.repository.ChatMessageRepository;
+import com.agentmusic.agentmusic_backend.web.dto.ChatMessageDto;
+import com.agentmusic.agentmusic_backend.web.mapper.DomainDtoMapper;
+import com.agentmusic.agentmusic_backend.persistence.repository.ChatMessageRepository;
 import com.agentmusic.agentmusic_backend.service.ChatMemoryService;
 import java.time.Clock;
 import java.time.LocalDateTime;

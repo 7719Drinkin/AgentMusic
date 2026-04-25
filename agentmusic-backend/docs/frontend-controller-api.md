@@ -1,4 +1,4 @@
-# Frontend Controller API
+﻿# Frontend Controller API
 
 This document is the current frontend integration contract for backend controllers in `agentmusic-backend`.
 

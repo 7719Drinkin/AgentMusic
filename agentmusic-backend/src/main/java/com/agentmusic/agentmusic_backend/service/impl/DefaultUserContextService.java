@@ -1,8 +1,8 @@
 package com.agentmusic.agentmusic_backend.service.impl;
 
 import com.agentmusic.agentmusic_backend.domain.User;
-import com.agentmusic.agentmusic_backend.exception.NotFoundException;
-import com.agentmusic.agentmusic_backend.repository.UserRepository;
+import com.agentmusic.agentmusic_backend.web.exception.NotFoundException;
+import com.agentmusic.agentmusic_backend.persistence.repository.UserRepository;
 import com.agentmusic.agentmusic_backend.service.UserContextService;
 import org.springframework.stereotype.Service;
 

@@ -1,6 +1,6 @@
 package com.agentmusic.agentmusic_backend;
 
-import com.agentmusic.agentmusic_backend.client.spotify.SpotifyWebApiAuthClient;
+import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyWebApiAuthClient;
 import com.agentmusic.agentmusic_backend.config.SpotifyBridgeProperties;
 import java.net.URI;
 import java.time.Clock;

@@ -1,12 +1,12 @@
 package com.agentmusic.agentmusic_backend.service.application.impl;
 
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
-import com.agentmusic.agentmusic_backend.dto.PlaylistDto;
-import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
-import com.agentmusic.agentmusic_backend.dto.PlaylistTrackDto;
-import com.agentmusic.agentmusic_backend.dto.SpotifyPlaybackDeviceDto;
-import com.agentmusic.agentmusic_backend.dto.TransferPlaybackRequest;
-import com.agentmusic.agentmusic_backend.dto.UpdatePlaybackSessionRequest;
+import com.agentmusic.agentmusic_backend.web.dto.PlaylistDto;
+import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
+import com.agentmusic.agentmusic_backend.web.dto.PlaylistTrackDto;
+import com.agentmusic.agentmusic_backend.web.dto.SpotifyPlaybackDeviceDto;
+import com.agentmusic.agentmusic_backend.web.dto.TransferPlaybackRequest;
+import com.agentmusic.agentmusic_backend.web.dto.UpdatePlaybackSessionRequest;
 import com.agentmusic.agentmusic_backend.service.BridgePlaybackControlService;
 import com.agentmusic.agentmusic_backend.service.PlaybackSessionService;
 import com.agentmusic.agentmusic_backend.service.PlaylistService;

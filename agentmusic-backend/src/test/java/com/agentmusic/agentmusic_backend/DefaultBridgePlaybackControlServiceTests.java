@@ -12,12 +12,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.doThrow;
 
-import com.agentmusic.agentmusic_backend.client.SpotifyBridgeDevice;
-import com.agentmusic.agentmusic_backend.client.SpotifyPlaybackClient;
-import com.agentmusic.agentmusic_backend.client.SpotifyPlaybackState;
+import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyBridgeDevice;
+import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyPlaybackClient;
+import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyPlaybackState;
 import com.agentmusic.agentmusic_backend.config.SpotifyBridgeProperties;
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
-import com.agentmusic.agentmusic_backend.dto.PlaybackSessionDto;
+import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
 import com.agentmusic.agentmusic_backend.service.PlaybackSessionService;
 import com.agentmusic.agentmusic_backend.service.SpotifyBridgeAuthService;
 import com.agentmusic.agentmusic_backend.service.impl.DefaultBridgePlaybackControlService;

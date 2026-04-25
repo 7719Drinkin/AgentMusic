@@ -2,7 +2,7 @@ package com.agentmusic.agentmusic_backend;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.agentmusic.agentmusic_backend.dto.AgentChatRequest;
+import com.agentmusic.agentmusic_backend.web.dto.AgentChatRequest;
 import com.agentmusic.agentmusic_backend.planner.AgentIntent;
 import com.agentmusic.agentmusic_backend.planner.PlanningContext;
 import com.agentmusic.agentmusic_backend.planner.impl.SimpleTaskPlanner;
