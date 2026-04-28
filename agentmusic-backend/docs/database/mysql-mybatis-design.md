@@ -112,7 +112,7 @@ Operations to add first:
 Operations to add first:
 
 - find active session by `user_id`
-- upsert session by `user_id`
+- upsert session snapshot by `id`
 
 ## Redis integration boundary
 
@@ -142,9 +142,81 @@ This keeps playback UI responsive while preserving recovery after restart.
 - initial MyBatis mapper/model placeholders added
 - application properties now expose MySQL and Redis configuration
 
+## Done in phase 1 implementation
+
+- `PlaylistMybatisMapper` now owns playlist read/write SQL
+- `PlaylistTrackMybatisMapper` now owns ordered track lookup, batch insert, and delete-by-playlist SQL
+- `MybatisPlaylistRepository` added
+- `MybatisPlaylistTrackRepository` added
+- in-memory playlist repositories are now conditional and remain the default fallback
+- switch property added:
+  - `agentmusic.persistence.mode=mybatis`
+
+## Done in phase 2 implementation
+
+- `TrackMybatisMapper` added
+- `ArtistMybatisMapper` added
+- `TrackRecord` and `ArtistRecord` added
+- `MybatisTrackRepository` added
+- `MybatisArtistRepository` added
+- in-memory track and artist repositories are now conditional and remain the default fallback
+
+## Done in phase 3 implementation
+
+- `PlaybackSessionMybatisMapper` now owns active-session lookup and session upsert SQL
+- `RedisMybatisSessionRepository` added as the `SessionRepository` implementation for `agentmusic.persistence.mode=mybatis`
+- read path:
+  - Redis first
+  - fallback to MySQL
+  - rehydrate Redis on fallback hit
+- write path:
+  - MySQL first
+  - Redis hot cache second
+- `sessions` table now requires:
+  - `current_playlist_id`
+  - `current_track_index`
+- migration added:
+  - `src/main/resources/db/mysql/migrations/20260425_add_session_context_columns.sql`
+
+## Done in phase 4 implementation
+
+- `ChatMessageMybatisMapper` added
+- `ChatMessageRecord` added
+- `MybatisChatMessageRepository` added
+- in-memory chat repository is now conditional and remains the default fallback
+- current read/write behavior:
+  - write new chat messages directly to MySQL
+  - load recent messages ordered by `created_at DESC`
+  - trim older messages by user after append
+
+## E2E validation status
+
+Current browser-level validation is available through:
+
+- `agentmusic-frontend/scripts/e2e-persistence.js`
+
+Validated path:
+
+1. send a recommendation request from the chat page
+2. verify a new recommendation playlist is returned by the backend
+3. verify the left sidebar refreshes
+4. open the newest playlist page
+5. click a track from the playlist page
+6. verify playback session reflects the opened playlist and selected track
+7. verify MySQL row growth in:
+   - `playlists`
+   - `playlist_tracks`
+   - `tracks`
+   - `artists`
+   - `chat_messages`
+   - `sessions`
+
+Operational prerequisite:
+
+- the bridge account must have an active Spotify device, otherwise playback APIs correctly return `409`
+
 ## Remaining implementation work
 
-- add mapper XML or annotations for real queries
-- add MyBatis-backed repository implementations
-- migrate service wiring from memory implementations to MyBatis implementations
-- add Redis-backed session cache path
+- complete MyBatis implementation for:
+  - `UserRepository`
+- add a more explicit migration execution/check flow for local startup

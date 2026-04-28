@@ -7,9 +7,11 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 
 @Repository
+@ConditionalOnProperty(name = "agentmusic.persistence.mode", havingValue = "memory", matchIfMissing = true)
 public class InMemorySessionRepository implements SessionRepository {
 
     private final Map<String, PlaybackSession> sessions = new ConcurrentHashMap<>();
@@ -28,4 +30,3 @@ public class InMemorySessionRepository implements SessionRepository {
                 .max(Comparator.comparing(PlaybackSession::lastUpdated));
     }
 }
-

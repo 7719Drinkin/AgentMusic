@@ -1,7 +1,7 @@
 ﻿# AgentMusic 开发笔记
 
-版本：M2.4
-更新日期：2026-04-25
+版本：M2.5
+更新日期：2026-04-28
 
 ## 1. 当前基线
 
@@ -127,12 +127,18 @@
 
 ### 4.1 当前状态
 
-当前系统仍主要运行在以下过渡态：
+当前系统处于“默认内存、可切换真实持久化”的过渡态：
 
-- 歌单、曲目、艺人、聊天历史、播放会话：以内存仓储为主。
-- Spotify bridge token：文件持久化。
-- Redis：目前只保留 key 规划和配置入口。
-- MyBatis：本轮已引入依赖与基础入口，但尚未替换业务仓储实现。
+- 默认运行模式仍为内存仓储，便于本地快速启动。
+- 当配置 `agentmusic.persistence.mode=mybatis` 时：
+  - `PlaylistRepository`
+  - `PlaylistTrackRepository`
+  - `TrackRepository`
+  - `ArtistRepository`
+  - `SessionRepository`
+  - `ChatMessageRepository`
+  会切换到 MyBatis / Redis 路径。
+- Spotify bridge token 仍为文件持久化。
 
 ### 4.2 本轮新增的持久化入口
 
@@ -147,7 +153,30 @@
 - `RedisPersistenceConfig`。
 - `application.properties` 中的 MySQL / Redis / MyBatis 配置入口。
 
-### 4.3 后续实现原则
+### 4.3 已完成的第一阶段实现
+
+当前已落地的 MyBatis / Redis 仓储实现：
+
+- `PlaylistRepository`
+- `PlaylistTrackRepository`
+- `TrackRepository`
+- `ArtistRepository`
+- `SessionRepository`（Redis + MyBatis 混合实现）
+- `ChatMessageRepository`
+
+切换方式：
+
+- 默认仍为内存实现。
+- 当配置 `agentmusic.persistence.mode=mybatis` 时：
+  - `MybatisPlaylistRepository`
+  - `MybatisPlaylistTrackRepository`
+  - `MybatisTrackRepository`
+  - `MybatisArtistRepository`
+  - `RedisMybatisSessionRepository`
+  - `MybatisChatMessageRepository`
+  会替换当前内存仓储实现。
+
+### 4.4 后续实现原则
 
 后续持久化替换按下面顺序推进：
 
@@ -155,6 +184,66 @@
 2. 逐个替换内存实现，而不是一次性推翻。
 3. MyBatis 负责 MySQL 持久化实现。
 4. Redis 负责热状态、缓存和会话加速。
+
+### 4.5 当前 SessionRepository 形态
+
+当前 `SessionRepository` 已切到混合实现：
+
+1. 写入时：
+   - 先落 MySQL `sessions`
+   - 再写 Redis 热缓存
+2. 读取时：
+   - 先查 Redis
+   - Redis 未命中再回源 MySQL
+   - 回源后再回填 Redis
+
+当前为支撑该路径，已对 `sessions` 表新增：
+
+- `current_playlist_id`
+- `current_track_index`
+
+如果本地 MySQL 是旧表结构，需要先执行 migration：
+
+- `agentmusic-backend/src/main/resources/db/mysql/migrations/20260425_add_session_context_columns.sql`
+
+### 4.6 当前 ChatMessageRepository 形态
+
+当前聊天历史已切到 MyBatis：
+
+1. 新消息直接写入 MySQL `chat_messages`
+2. 最近消息按 `created_at DESC` 读取
+3. 超出保留上限时，按用户维度裁剪旧消息
+
+这意味着聊天页历史现在也进入了持久化路径，不再只依赖内存仓储。
+
+### 4.7 当前端到端验证结论
+
+当前已经具备可重复运行的真实 E2E 路径：
+
+1. 聊天页发送推荐请求。
+2. 后端生成推荐歌单并开始真实播放。
+3. 左侧栏刷新并显示最新推荐歌单。
+4. 点击最新歌单进入真实歌单页。
+5. 页内点歌触发真实播放接口。
+6. MySQL 中可观测到：
+   - `playlists`
+   - `playlist_tracks`
+   - `tracks`
+   - `artists`
+   - `chat_messages`
+   - `sessions`
+   持久化数据增长。
+
+当前 E2E 入口脚本为：
+
+- `agentmusic-frontend/scripts/e2e-persistence.js`
+
+该脚本的稳定运行前提是：
+
+- 前端运行于 `localhost:5173`
+- 后端运行于 `localhost:8080`
+- bridge 账号下存在活跃 Spotify 设备
+- 优先通过 Edge CDP `http://127.0.0.1:9222` 接入浏览器
 
 ## 5. 重大限制
 
@@ -178,10 +267,10 @@
 
 ### Priority 1
 
-1. 文档编码统一与文档体系补齐。
-2. 完成这轮包重构后的全量验证。
-3. 开始 MySQL / Redis 持久化替换。
-4. 前端增加设备异常、授权异常、网络异常的完整用户提示。
+1. 完成 `UserRepository` 的 MyBatis 实现。
+2. 为 MySQL migration 增加更稳定的执行与校验流程。
+3. 前端增加设备异常、授权异常、网络异常的完整用户提示。
+4. 补全持久化模式下的重启恢复验证与回归测试。
 
 ### Priority 2
 
@@ -206,3 +295,4 @@
 - Spotify 集成层已清楚。
 - 持久化层入口已单独划出。
 - 现有仓储抽象仍可作为替换边界。
+- `Playlist / PlaylistTrack / Track / Artist / Session` 已有可切换的持久化实现。

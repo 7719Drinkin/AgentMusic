@@ -7,9 +7,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 
 @Repository
+@ConditionalOnProperty(name = "agentmusic.persistence.mode", havingValue = "memory", matchIfMissing = true)
 public class InMemoryChatMessageRepository implements ChatMessageRepository {
 
     private final Map<String, CopyOnWriteArrayList<ChatMessage>> messagesByUser = new ConcurrentHashMap<>();
@@ -44,4 +46,3 @@ public class InMemoryChatMessageRepository implements ChatMessageRepository {
         messagesByUser.put(userId, new CopyOnWriteArrayList<>(latest));
     }
 }
-

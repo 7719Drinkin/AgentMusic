@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     id CHAR(36) PRIMARY KEY COMMENT 'Session UUID',
     user_id CHAR(36) NOT NULL,
     current_track_id VARCHAR(50) NULL,
+    current_playlist_id CHAR(36) NULL,
+    current_track_index INT NULL,
     current_position_ms INT NULL,
     is_playing BOOLEAN NOT NULL DEFAULT FALSE,
     playback_mode VARCHAR(20) NOT NULL DEFAULT 'SEQUENTIAL',

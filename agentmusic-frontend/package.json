@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "e2e:persistence": "node scripts/e2e-persistence.js",
     "inspect:ui": "node scripts/inspect-ui.js",
     "inspect:current-playing": "node scripts/inspect-current-playing.js"
   },

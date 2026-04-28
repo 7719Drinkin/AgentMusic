@@ -7,9 +7,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 
 @Repository
+@ConditionalOnProperty(name = "agentmusic.persistence.mode", havingValue = "memory", matchIfMissing = true)
 public class InMemoryPlaylistRepository implements PlaylistRepository {
 
     private final Map<String, Playlist> playlists = new ConcurrentHashMap<>();
@@ -55,4 +57,3 @@ public class InMemoryPlaylistRepository implements PlaylistRepository {
         toDelete.forEach(playlist -> playlists.remove(playlist.id()));
     }
 }
-

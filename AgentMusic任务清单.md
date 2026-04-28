@@ -1,7 +1,7 @@
 ﻿# AgentMusic 任务清单
 
-版本：T2.0
-更新日期：2026-04-25
+版本：T2.1
+更新日期：2026-04-28
 
 本文档用于跟踪当前版本的任务优先级、已完成工作和下一步实施顺序。
 
@@ -17,6 +17,7 @@
   - `integration.spotify`
   - `persistence`
 - 引入 MyBatis / MySQL / Redis 的基础依赖与配置入口。
+- E2E 持久化验证脚本已建立并稳定可复跑。
 
 #### 推荐闭环
 
@@ -24,6 +25,7 @@
 - 中文推荐请求可进入推荐分支。
 - 推荐歌单可生成并写入播放会话。
 - 左侧栏可展示推荐歌单。
+- 推荐歌单已通过 E2E 验证写入 MySQL 并可从页面重新打开。
 
 #### 歌单页
 
@@ -54,6 +56,23 @@
   - `SEQUENTIAL / SHUFFLE / LIST_LOOP`
 - Spotify DNS resolver 问题已修复。
 
+#### 持久化
+
+- 已完成：
+  - `PlaylistRepository`
+  - `PlaylistTrackRepository`
+  - `TrackRepository`
+  - `ArtistRepository`
+  - `SessionRepository`
+  - `ChatMessageRepository`
+  的 MyBatis / Redis 持久化实现
+- 已完成端到端验证：
+  - 聊天推荐
+  - 左侧歌单刷新
+  - 真实歌单页打开
+  - 页内点歌
+  - MySQL 落库
+
 ### Priority 2
 
 - Playwright + Edge CDP 页面级回归通路已建立。
@@ -66,18 +85,20 @@
 
 - 统一根目录核心文档编码为 UTF-8。
 - 同步文档中的最新结构、持久化方向和重大限制。
-- 完成这轮后端包重构后的全量验证。
+- 保持 E2E 脚本、运行日志和临时文件的工作区整洁。
 
 #### B. 持久化落地
 
 - 使用 MyBatis 实现 MySQL 持久化层。
-- 逐步替换当前内存仓储：
+- 已完成：
   - `PlaylistRepository`
   - `PlaylistTrackRepository`
   - `TrackRepository`
   - `ArtistRepository`
-  - `ChatMessageRepository`
   - `SessionRepository`
+  - `ChatMessageRepository`
+- 待完成：
+  - `UserRepository`
 - Redis 用于：
   - 播放会话热状态
   - 元数据缓存
@@ -105,10 +126,10 @@
 
 ## 3. 当前建议执行顺序
 
-1. 把文档、依赖、包结构这轮工作收口并验证。
-2. 以 MyBatis 为核心开始 MySQL 持久化落地。
-3. 用 Redis 替换或补强播放会话与缓存。
-4. 在持久化稳定后，再做设备列表 / 设备切换 UI。
+1. 完成 `UserRepository` 的 MyBatis 实现。
+2. 增加 migration 执行校验和持久化模式启动检查。
+3. 在持久化稳定后，补设备列表 / 设备切换 UI。
+4. 再继续播放器和歌单页的细节增强。
 
 ## 4. 重大缺陷记录
 
