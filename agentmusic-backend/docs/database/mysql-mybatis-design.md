@@ -189,6 +189,37 @@ This keeps playback UI responsive while preserving recovery after restart.
   - load recent messages ordered by `created_at DESC`
   - trim older messages by user after append
 
+## Done in phase 5 implementation
+
+- `UserMybatisMapper` added
+- `UserRecord` added
+- `MybatisUserRepository` added
+- in-memory user repository is now conditional and remains the default fallback
+- user preferences are persisted as JSON in the `users.preferences` column
+
+## Startup bootstrap
+
+When `agentmusic.persistence.mode=mybatis` is enabled:
+
+1. `db/mysql/schema.sql` is executed at startup
+2. `schema_migrations` is created if missing
+3. `db/mysql/migrations/*.sql` is scanned and applied in filename order
+4. required tables and columns are validated before the app continues
+
+Current required validation includes:
+
+- `users`
+- `playlists`
+- `playlist_tracks`
+- `tracks`
+- `artists`
+- `chat_messages`
+- `sessions`
+- `schema_migrations`
+- `sessions.current_playlist_id`
+- `sessions.current_track_index`
+- `users.preferences`
+
 ## E2E validation status
 
 Current browser-level validation is available through:
@@ -217,6 +248,5 @@ Operational prerequisite:
 
 ## Remaining implementation work
 
-- complete MyBatis implementation for:
-  - `UserRepository`
-- add a more explicit migration execution/check flow for local startup
+- add more explicit user-facing diagnostics when startup migration fails
+- add restart-recovery regression coverage in mybatis mode

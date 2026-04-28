@@ -5,9 +5,11 @@ import com.agentmusic.agentmusic_backend.persistence.repository.UserRepository;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 
 @Repository
+@ConditionalOnProperty(name = "agentmusic.persistence.mode", havingValue = "memory", matchIfMissing = true)
 public class InMemoryUserRepository implements UserRepository {
 
     private final Map<String, User> users = new ConcurrentHashMap<>();
@@ -23,4 +25,3 @@ public class InMemoryUserRepository implements UserRepository {
         return Optional.ofNullable(users.get(userId));
     }
 }
-

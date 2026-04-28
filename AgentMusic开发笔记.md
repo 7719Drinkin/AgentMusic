@@ -1,6 +1,6 @@
 ﻿# AgentMusic 开发笔记
 
-版本：M2.5
+版本：M2.6
 更新日期：2026-04-28
 
 ## 1. 当前基线
@@ -163,6 +163,7 @@
 - `ArtistRepository`
 - `SessionRepository`（Redis + MyBatis 混合实现）
 - `ChatMessageRepository`
+- `UserRepository`
 
 切换方式：
 
@@ -174,6 +175,7 @@
   - `MybatisArtistRepository`
   - `RedisMybatisSessionRepository`
   - `MybatisChatMessageRepository`
+  - `MybatisUserRepository`
   会替换当前内存仓储实现。
 
 ### 4.4 后续实现原则
@@ -245,6 +247,38 @@
 - bridge 账号下存在活跃 Spotify 设备
 - 优先通过 Edge CDP `http://127.0.0.1:9222` 接入浏览器
 
+### 4.8 当前启动自检与 schema bootstrap
+
+当前在 `agentmusic.persistence.mode=mybatis` 下，后端启动时会执行：
+
+1. 使用 `db/mysql/schema.sql` 确保基础表存在。
+2. 创建 `schema_migrations` 表。
+3. 扫描并应用 `db/mysql/migrations/*.sql` 中尚未执行的 migration。
+4. 校验关键表与关键列是否存在。
+
+当前已覆盖的关键校验包括：
+
+- `users`
+- `playlists`
+- `playlist_tracks`
+- `tracks`
+- `artists`
+- `chat_messages`
+- `sessions`
+- `schema_migrations`
+
+以及：
+
+- `sessions.current_playlist_id`
+- `sessions.current_track_index`
+- `users.preferences`
+
+同时，MySQL 连接串已加入：
+
+- `createDatabaseIfNotExist=true`
+
+用于减少本地首次启动时因为数据库尚未创建而直接失败的情况。
+
 ## 5. 重大限制
 
 ### 5.1 Bridge 模式的多用户冲突
@@ -267,10 +301,10 @@
 
 ### Priority 1
 
-1. 完成 `UserRepository` 的 MyBatis 实现。
-2. 为 MySQL migration 增加更稳定的执行与校验流程。
-3. 前端增加设备异常、授权异常、网络异常的完整用户提示。
-4. 补全持久化模式下的重启恢复验证与回归测试。
+1. 为 migration 执行结果增加更明确的日志与失败提示。
+2. 前端增加设备异常、授权异常、网络异常的完整用户提示。
+3. 补全持久化模式下的重启恢复验证与回归测试。
+4. 开始设备列表 UI / 设备切换 UI。
 
 ### Priority 2
 

@@ -1,6 +1,6 @@
 ﻿# AgentMusic 任务清单
 
-版本：T2.1
+版本：T2.2
 更新日期：2026-04-28
 
 本文档用于跟踪当前版本的任务优先级、已完成工作和下一步实施顺序。
@@ -65,6 +65,7 @@
   - `ArtistRepository`
   - `SessionRepository`
   - `ChatMessageRepository`
+  - `UserRepository`
   的 MyBatis / Redis 持久化实现
 - 已完成端到端验证：
   - 聊天推荐
@@ -97,8 +98,12 @@
   - `ArtistRepository`
   - `SessionRepository`
   - `ChatMessageRepository`
-- 待完成：
   - `UserRepository`
+- 已完成：
+  - `schema.sql` 启动执行
+  - `schema_migrations` 建表
+  - `db/mysql/migrations/*.sql` 启动扫描与执行
+  - 关键表 / 列启动校验
 - Redis 用于：
   - 播放会话热状态
   - 元数据缓存
@@ -126,8 +131,8 @@
 
 ## 3. 当前建议执行顺序
 
-1. 完成 `UserRepository` 的 MyBatis 实现。
-2. 增加 migration 执行校验和持久化模式启动检查。
+1. 增加 migration 执行失败时更明确的启动错误说明。
+2. 补持久化模式下的重启恢复回归测试。
 3. 在持久化稳定后，补设备列表 / 设备切换 UI。
 4. 再继续播放器和歌单页的细节增强。
 
