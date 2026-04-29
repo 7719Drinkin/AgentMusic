@@ -1,12 +1,8 @@
-import React, { useRef, useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { connect } from 'react-redux'
 import { syncPlaybackSession as syncPlaybackSessionAction } from '../../actions'
-import useWindowSize from '../../hooks/useWindowSize'
-import FooterLeft from './footer-left'
-import MusicControlBox from './player/music-control-box'
-import MusicProgressBar from './player/music-progress-bar'
-import FooterRight from './footer-right'
-import Audio from './audio'
+import { getErrorMessage } from '../../api/http'
+import { fetchArtist, fetchTrack } from '../../api/music'
 import {
   changePlaybackMode,
   fetchPlaybackDevices,
@@ -19,8 +15,13 @@ import {
   syncPlaybackSession,
   transferPlayback,
 } from '../../api/playback'
-import { fetchArtist, fetchTrack } from '../../api/music'
 import CONST from '../../constants/index'
+import useWindowSize from '../../hooks/useWindowSize'
+import Audio from './audio'
+import FooterLeft from './footer-left'
+import FooterRight from './footer-right'
+import MusicControlBox from './player/music-control-box'
+import MusicProgressBar from './player/music-progress-bar'
 import styles from './footer.module.css'
 
 const DEMO_USER_ID = 'demo-user'
@@ -29,9 +30,18 @@ const QUEUE_NEXT_REQUEST_EVENT = 'agentmusic:queue-next-request'
 const QUEUE_PLAY_REQUEST_EVENT = 'agentmusic:queue-play-request'
 const REMOTE_SYNC_INTERVAL_MS = 1500
 
+function resolvePlaybackError(error, fallbackMessage) {
+  return getErrorMessage(error, fallbackMessage)
+}
+
+function resolveDeviceError(error, fallbackMessage) {
+  return getErrorMessage(error, fallbackMessage)
+}
+
 function Footer(props) {
   const size = useWindowSize()
   const footerRef = useRef(null)
+  const audioRef = useRef(null)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(1)
@@ -42,11 +52,12 @@ function Footer(props) {
   const [isDeviceBusy, setIsDeviceBusy] = useState(false)
   const [devicePanelMessage, setDevicePanelMessage] = useState('')
   const [devicePanelTone, setDevicePanelTone] = useState('info')
-  const audioRef = useRef(null)
+
   const hasTrackContext = Boolean(props.trackData.trackId || props.trackData.track)
   const hasPlaylistContext = Boolean(props.currentPlaylistId)
   const canSkipTrack = hasTrackContext && hasPlaylistContext
-  const canSeek = hasTrackContext && (duration || (props.trackData.durationMs || 0) / 1000) > 0
+  const remoteDurationSeconds = (props.trackData.durationMs || 0) / 1000
+  const canSeek = hasTrackContext && (duration > 0 || remoteDurationSeconds > 0)
   const shouldUseLocalPreview = Boolean(props.trackData.track) && !props.trackData.trackId
 
   const applyPlaybackSession = async (session) => {
@@ -66,7 +77,7 @@ function Footer(props) {
     if (session.currentTrackId) {
       const track = await fetchTrack(session.currentTrackId)
       if (track) {
-        let artistName = track.artistId || 'Spotify 曲目'
+        let artistName = track.artistId || 'Spotify track'
 
         if (track.artistId) {
           try {
@@ -103,7 +114,7 @@ function Footer(props) {
       await applyPlaybackSession(session)
       setPlaybackError('')
     } catch (error) {
-      setPlaybackError(error.message || '播放状态同步失败。')
+      setPlaybackError(resolvePlaybackError(error, 'Failed to sync playback state.'))
     }
   }
 
@@ -111,6 +122,7 @@ function Footer(props) {
     if (!silent) {
       setIsDevicesLoading(true)
     }
+
     try {
       const deviceList = await fetchPlaybackDevices(DEMO_USER_ID)
       setDevices(Array.isArray(deviceList) ? deviceList : [])
@@ -118,9 +130,10 @@ function Footer(props) {
       setDevicePanelTone('info')
       setPlaybackError('')
     } catch (error) {
-      setDevicePanelMessage(error.message || 'Failed to load playback devices.')
+      const message = resolveDeviceError(error, 'Failed to load playback devices.')
+      setDevicePanelMessage(message)
       setDevicePanelTone('error')
-      setPlaybackError(error.message || 'Failed to load playback devices.')
+      setPlaybackError(message)
     } finally {
       if (!silent) {
         setIsDevicesLoading(false)
@@ -158,7 +171,7 @@ function Footer(props) {
   useEffect(() => {
     let cancelled = false
 
-    const loadPlaybackSession = async () => {
+    const loadPlaybackState = async () => {
       if (cancelled) {
         return
       }
@@ -166,12 +179,12 @@ function Footer(props) {
       await refreshDevices({ silent: true })
     }
 
-    loadPlaybackSession()
-    window.addEventListener(PLAYBACK_REFRESH_EVENT, loadPlaybackSession)
+    loadPlaybackState()
+    window.addEventListener(PLAYBACK_REFRESH_EVENT, loadPlaybackState)
 
     return () => {
       cancelled = true
-      window.removeEventListener(PLAYBACK_REFRESH_EVENT, loadPlaybackSession)
+      window.removeEventListener(PLAYBACK_REFRESH_EVENT, loadPlaybackState)
     }
   }, [])
 
@@ -188,7 +201,7 @@ function Footer(props) {
     } else {
       audioRef.current.pause()
     }
-  }, [shouldUseLocalPreview, props.isPlaying, props.trackData.track])
+  }, [props.isPlaying, props.trackData.track, shouldUseLocalPreview])
 
   useEffect(() => {
     if (!audioRef.current || !shouldUseLocalPreview) {
@@ -205,7 +218,7 @@ function Footer(props) {
     if (audioRef.current && shouldUseLocalPreview) {
       audioRef.current.volume = volume
     }
-  }, [volume, shouldUseLocalPreview])
+  }, [shouldUseLocalPreview, volume])
 
   const handleNext = async () => {
     if (!canSkipTrack || isPlaybackBusy) {
@@ -218,7 +231,7 @@ function Footer(props) {
       await refreshPlaybackSession(true)
       setPlaybackError('')
     } catch (error) {
-      setPlaybackError(error.message || '切换到下一首失败。')
+      setPlaybackError(resolvePlaybackError(error, 'Failed to skip to the next track.'))
     } finally {
       setIsPlaybackBusy(false)
     }
@@ -235,7 +248,7 @@ function Footer(props) {
       await refreshPlaybackSession(true)
       setPlaybackError('')
     } catch (error) {
-      setPlaybackError(error.message || '切换到上一首失败。')
+      setPlaybackError(resolvePlaybackError(error, 'Failed to return to the previous track.'))
     } finally {
       setIsPlaybackBusy(false)
     }
@@ -258,7 +271,7 @@ function Footer(props) {
       await applyPlaybackSession(session)
       setPlaybackError('')
     } catch (error) {
-      setPlaybackError(error.message || '切歌失败。')
+      setPlaybackError(resolvePlaybackError(error, 'Failed to switch to the selected track.'))
     } finally {
       setIsPlaybackBusy(false)
     }
@@ -279,7 +292,7 @@ function Footer(props) {
     return () => {
       audioRef.current?.removeEventListener('ended', handleEnded)
     }
-  }, [canSkipTrack, handleNext, shouldUseLocalPreview])
+  }, [canSkipTrack, shouldUseLocalPreview, handleNext])
 
   useEffect(() => {
     if (!props.isPlaying || !props.trackData.trackId || isPlaybackBusy) {
@@ -293,7 +306,7 @@ function Footer(props) {
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [props.isPlaying, props.trackData.trackId, isPlaybackBusy])
+  }, [isPlaybackBusy, props.isPlaying, props.trackData.trackId])
 
   useEffect(() => {
     const requestNext = () => {
@@ -328,17 +341,19 @@ function Footer(props) {
     }
     setCurrentTime(position)
 
-    if (props.trackData.trackId) {
-      try {
-        setIsPlaybackBusy(true)
-        const session = await seekPlayback(DEMO_USER_ID, Math.round(position * 1000), props.deviceId)
-        await applyPlaybackSession(session)
-        setPlaybackError('')
-      } catch (error) {
-        setPlaybackError(error.message || '调整播放进度失败。')
-      } finally {
-        setIsPlaybackBusy(false)
-      }
+    if (!props.trackData.trackId) {
+      return
+    }
+
+    try {
+      setIsPlaybackBusy(true)
+      const session = await seekPlayback(DEMO_USER_ID, Math.round(position * 1000), props.deviceId)
+      await applyPlaybackSession(session)
+      setPlaybackError('')
+    } catch (error) {
+      setPlaybackError(resolvePlaybackError(error, 'Failed to update playback position.'))
+    } finally {
+      setIsPlaybackBusy(false)
     }
   }
 
@@ -362,9 +377,10 @@ function Footer(props) {
       setPlaybackError('')
       return true
     } catch (error) {
-      setDevicePanelMessage(error.message || 'Failed to switch playback device.')
+      const message = resolveDeviceError(error, 'Failed to switch playback device.')
+      setDevicePanelMessage(message)
       setDevicePanelTone('error')
-      setPlaybackError(error.message || 'Failed to switch playback device.')
+      setPlaybackError(message)
       return false
     } finally {
       setIsDeviceBusy(false)
@@ -400,7 +416,12 @@ function Footer(props) {
       await applyPlaybackSession(session)
       setPlaybackError('')
     } catch (error) {
-      setPlaybackError(error.message || (props.isPlaying ? '暂停失败。' : '播放失败。'))
+      setPlaybackError(
+        resolvePlaybackError(
+          error,
+          props.isPlaying ? 'Failed to pause playback.' : 'Failed to start playback.',
+        ),
+      )
     } finally {
       setIsPlaybackBusy(false)
     }
@@ -442,7 +463,7 @@ function Footer(props) {
       await applyPlaybackSession(session)
       setPlaybackError('')
     } catch (error) {
-      setPlaybackError(error.message || '切换播放模式失败。')
+      setPlaybackError(resolvePlaybackError(error, 'Failed to change playback mode.'))
     } finally {
       setIsPlaybackBusy(false)
     }
@@ -469,7 +490,7 @@ function Footer(props) {
           />
           <MusicProgressBar
             currentTime={currentTime}
-            duration={duration || (props.trackData.durationMs || 0) / 1000}
+            duration={duration || remoteDurationSeconds}
             handleTrackClick={handleTrackClick}
             disabled={!canSeek || isPlaybackBusy}
           />

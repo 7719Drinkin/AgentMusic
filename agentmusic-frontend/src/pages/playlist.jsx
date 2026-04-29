@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { connect } from 'react-redux'
 import { useParams } from 'react-router'
+import { getErrorMessage } from '../api/http'
 import { fetchArtist } from '../api/music'
+import { fetchPlaybackDevices, playTrack } from '../api/playback'
 import { fetchPlaylistDetail } from '../api/playlists'
-import { playTrack } from '../api/playback'
-import Topnav from '../component/topnav/topnav'
+import * as Icons from '../component/icons'
 import TextRegularM from '../component/text/text-regular-m'
 import TitleL from '../component/text/title-l'
+import Topnav from '../component/topnav/topnav'
 import convertTime from '../functions/convertTime'
-import * as Icons from '../component/icons'
 import styles from './playlist.module.css'
 
 const DEMO_USER_ID = 'demo-user'
@@ -86,7 +87,7 @@ function PlaylistPage(props) {
         if (!cancelled) {
           setPlaylist(null)
           setArtistDirectory({})
-          setErrorMessage(error.message || '歌单详情加载失败。')
+          setErrorMessage(getErrorMessage(error, '歌单详情加载失败。'))
         }
       } finally {
         if (!cancelled) {
@@ -121,7 +122,16 @@ function PlaylistPage(props) {
         isCurrent: activePlaylist && props.currentTrackIndex === index,
       }
     })
-  }, [playlistTracks, artistDirectory, playlistCover, activePlaylist, props.currentTrackIndex])
+  }, [activePlaylist, artistDirectory, playlistCover, playlistTracks, props.currentTrackIndex])
+
+  const loadAvailableDevices = async () => {
+    try {
+      const devices = await fetchPlaybackDevices(DEMO_USER_ID)
+      return Array.isArray(devices) ? devices : []
+    } catch {
+      return []
+    }
+  }
 
   const handlePlayTrack = async (trackId, trackIndex) => {
     if (!trackId || isPlaybackBusy) {
@@ -131,6 +141,13 @@ function PlaylistPage(props) {
     try {
       setIsPlaybackBusy(true)
       setPlaybackError('')
+
+      const devices = await loadAvailableDevices()
+      if (devices.length === 0) {
+        setPlaybackError('No active Spotify device is available. Keep the same bridge account Web Player or desktop client online.')
+        return
+      }
+
       await playTrack(DEMO_USER_ID, {
         trackId,
         playlistId,
@@ -140,7 +157,7 @@ function PlaylistPage(props) {
       })
       window.dispatchEvent(new CustomEvent(PLAYBACK_REFRESH_EVENT))
     } catch (error) {
-      setPlaybackError(error.message || '播放这首歌失败。')
+      setPlaybackError(getErrorMessage(error, '播放这首歌失败。'))
     } finally {
       setIsPlaybackBusy(false)
     }
