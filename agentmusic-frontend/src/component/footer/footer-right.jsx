@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as Icons from '../icons'
-import RangeSlider from './range-slider'
 import IconButton from '../buttons/icon-button'
+import RangeSlider from './range-slider'
 import styles from './footer-right.module.css'
 
 function FooterRight({
@@ -71,8 +71,8 @@ function FooterRight({
       <IconButton
         className={styles.footerIcon}
         icon={<Icons.Lyrics />}
-        tooltip="歌词（稍后实现）"
-        ariaLabel="歌词（稍后实现）"
+        tooltip="Lyrics (later)"
+        ariaLabel="Lyrics (later)"
         toggleOnClick={false}
         disabled
       />
@@ -80,8 +80,8 @@ function FooterRight({
         className={styles.footerIcon}
         icon={<Icons.Queue />}
         active={isNowPlayingOpen && isQueueOpen}
-        tooltip="打开队列"
-        ariaLabel="打开队列"
+        tooltip="Open queue"
+        ariaLabel="Open queue"
         onClick={onToggleQueueDrawer}
         toggleOnClick={false}
         disabled={!hasTrackContext}
@@ -89,8 +89,8 @@ function FooterRight({
       <IconButton
         className={styles.footerIcon}
         icon={<Icons.MiniPlayer />}
-        tooltip="迷你播放器（Priority 2）"
-        ariaLabel="迷你播放器（Priority 2）"
+        tooltip="Mini player (Priority 2)"
+        ariaLabel="Mini player (Priority 2)"
         toggleOnClick={false}
         disabled
       />
@@ -193,8 +193,8 @@ function FooterRight({
         className={styles.footerIcon}
         icon={<Icons.Corner />}
         active={isNowPlayingOpen && !isQueueOpen}
-        tooltip="打开当前播放栏"
-        ariaLabel="打开当前播放栏"
+        tooltip="Open now playing panel"
+        ariaLabel="Open now playing panel"
         onClick={onOpenNowPlayingPanel}
         toggleOnClick={false}
         disabled={!hasTrackContext}
@@ -222,8 +222,8 @@ function SoundLevel({ volume, setVolume }) {
         className={styles.footerIcon}
         icon={<Icons.Sound />}
         activeicon={<Icons.SoundClose />}
-        tooltip={volume === 0 ? '恢复音量' : '静音'}
-        ariaLabel={volume === 0 ? '恢复音量' : '静音'}
+        tooltip={volume === 0 ? 'Restore volume' : 'Mute'}
+        ariaLabel={volume === 0 ? 'Restore volume' : 'Mute'}
         onClick={soundBtn}
         toggleOnClick={false}
         active={volume === 0}

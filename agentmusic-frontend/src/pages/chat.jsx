@@ -1,12 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { fetchAgentHistory, sendAgentChatMessage } from '../api/agent'
+import { getErrorMessage } from '../api/http'
 import { Sound } from '../component/icons'
 import Topnav from '../component/topnav/topnav'
-import { fetchAgentHistory, sendAgentChatMessage } from '../api/agent'
-import styles from './chat.module.css'
 import { CHAT_SUGGESTIONS, EMPTY_STATE_PROMPTS } from '../data/agent-ui'
+import styles from './chat.module.css'
 
 const DEMO_USER_ID = 'demo-user'
+
+function resolveChatError(error, fallbackMessage) {
+  return getErrorMessage(error, fallbackMessage)
+}
 
 function ChatPage() {
   const [input, setInput] = useState('')
@@ -27,7 +32,7 @@ function ChatPage() {
 
     textarea.style.height = '0px'
     textarea.style.height = `${Math.min(textarea.scrollHeight, 220)}px`
-  }, [input, hasMessages])
+  }, [hasMessages, input])
 
   useEffect(() => {
     if (!hasMessages || !streamRef.current) {
@@ -35,7 +40,7 @@ function ChatPage() {
     }
 
     streamRef.current.scrollTop = streamRef.current.scrollHeight
-  }, [messages, hasMessages])
+  }, [hasMessages, messages])
 
   useEffect(() => {
     let cancelled = false
@@ -54,7 +59,7 @@ function ChatPage() {
           return
         }
 
-        setErrorMessage(error.message || '聊天历史加载失败。')
+        setErrorMessage(resolveChatError(error, '加载聊天历史失败。'))
       } finally {
         if (!cancelled) {
           setIsLoadingHistory(false)
@@ -95,22 +100,25 @@ function ChatPage() {
 
       const reply = normalizeMessage(response.reply)
       setMessages((current) => [...current, reply])
+
       if (Array.isArray(response.recommendedPlaylists) && response.recommendedPlaylists.length > 0) {
         window.dispatchEvent(new CustomEvent('agentmusic:playlists-updated'))
       }
+
       if (response.session) {
         window.dispatchEvent(new CustomEvent('agentmusic:playback-session-updated'))
       }
     } catch (error) {
+      const message = resolveChatError(error, '发送消息失败。')
       setMessages((current) => [
         ...current,
         {
           id: `local-agent-error-${Date.now()}`,
           role: 'AGENT',
-          message: `请求 Agent 失败：${error.message || '未知错误'}`,
+          message: `Agent 请求失败：${message}`,
         },
       ])
-      setErrorMessage(error.message || '消息发送失败。')
+      setErrorMessage(message)
     } finally {
       setIsSending(false)
     }
@@ -259,7 +267,7 @@ function Composer({
           disabled={disabled}
         />
         <div className={styles.InputActions}>
-          <TooltipIconButton tooltip="点击进行语音输入或长按 Ctrl+M" disabled={disabled}>
+          <TooltipIconButton tooltip="点击进行语音输入，或长按 Ctrl+M" disabled={disabled}>
             <Sound />
           </TooltipIconButton>
           <TooltipIconButton
@@ -268,7 +276,7 @@ function Composer({
             disabled={disabled}
             onClick={() => onSubmit(input)}
           >
-            <span className={styles.SendArrow}>↑</span>
+            <span className={styles.SendArrow}>→</span>
           </TooltipIconButton>
         </div>
       </div>

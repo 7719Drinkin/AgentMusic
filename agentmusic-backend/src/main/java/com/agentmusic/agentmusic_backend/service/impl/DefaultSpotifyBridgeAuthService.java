@@ -4,6 +4,7 @@ import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyAuthClient;
 import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyToken;
 import com.agentmusic.agentmusic_backend.config.SpotifyBridgeProperties;
 import com.agentmusic.agentmusic_backend.web.dto.SpotifyBridgeAuthStatusDto;
+import com.agentmusic.agentmusic_backend.web.exception.SpotifyBridgeAuthorizationException;
 import com.agentmusic.agentmusic_backend.persistence.repository.SpotifyBridgeTokenRepository;
 import com.agentmusic.agentmusic_backend.service.SpotifyBridgeAuthService;
 import java.net.URI;
@@ -15,6 +16,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 @Service
 public class DefaultSpotifyBridgeAuthService implements SpotifyBridgeAuthService {
@@ -86,7 +88,19 @@ public class DefaultSpotifyBridgeAuthService implements SpotifyBridgeAuthService
         if (currentToken.expiresAt().isAfter(threshold)) {
             return currentToken;
         }
-        SpotifyToken refreshed = spotifyAuthClient.refreshAccessToken(currentToken.refreshToken());
+        SpotifyToken refreshed;
+        try {
+            refreshed = spotifyAuthClient.refreshAccessToken(currentToken.refreshToken());
+        } catch (WebClientResponseException exception) {
+            if (exception.getStatusCode().value() == 400
+                    || exception.getStatusCode().value() == 401
+                    || exception.getStatusCode().value() == 403) {
+                throw new SpotifyBridgeAuthorizationException(
+                        "Spotify bridge authorization expired or is invalid. Reconnect the bridge account."
+                );
+            }
+            throw exception;
+        }
         SpotifyToken normalized = refreshed.refreshToken() == null || refreshed.refreshToken().isBlank()
                 ? new SpotifyToken(
                         refreshed.accessToken(),
@@ -114,14 +128,13 @@ public class DefaultSpotifyBridgeAuthService implements SpotifyBridgeAuthService
     private void validateState(String state) {
         Instant expiresAt = validStates.remove(state);
         if (state == null || expiresAt == null || expiresAt.isBefore(Instant.now(clock))) {
-            throw new IllegalArgumentException("Invalid or expired Spotify bridge authorization state.");
+            throw new SpotifyBridgeAuthorizationException("Spotify bridge authorization state is invalid or expired.");
         }
     }
 
     private void ensureBridgeEnabled() {
         if (!spotifyBridgeProperties.enabled()) {
-            throw new IllegalStateException("Spotify bridge mode is disabled.");
+            throw new SpotifyBridgeAuthorizationException("Spotify bridge mode is disabled.");
         }
     }
 }
-

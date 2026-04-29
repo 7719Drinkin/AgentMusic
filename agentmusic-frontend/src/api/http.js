@@ -11,6 +11,7 @@ const ERROR_CODE = {
   SERVER_FAILURE: 'server-failure',
   REQUEST_FAILURE: 'request-failure',
 }
+const KNOWN_ERROR_CODES = new Set(Object.values(ERROR_CODE))
 
 export async function httpRequest(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -41,12 +42,20 @@ export function getErrorMessage(error, fallbackMessage = 'Request failed.') {
   return fallbackMessage
 }
 
+export function getErrorCode(error) {
+  if (error && typeof error.code === 'string' && error.code.trim()) {
+    return error.code
+  }
+  return ERROR_CODE.REQUEST_FAILURE
+}
+
 async function readErrorPayload(response) {
   try {
     const contentType = response.headers.get('content-type') ?? ''
     if (contentType.includes('application/json')) {
       const body = await response.json()
       return {
+        errorCode: typeof body?.code === 'string' ? body.code : '',
         detailMessage: typeof body?.message === 'string' ? body.message : '',
         rawBody: body,
       }
@@ -54,11 +63,13 @@ async function readErrorPayload(response) {
 
     const text = await response.text()
     return {
+      errorCode: '',
       detailMessage: typeof text === 'string' ? text : '',
       rawBody: text,
     }
   } catch {
     return {
+      errorCode: '',
       detailMessage: '',
       rawBody: null,
     }
@@ -66,8 +77,9 @@ async function readErrorPayload(response) {
 }
 
 function createRequestError(path, status, payload) {
+  const backendCode = normalizeBackendErrorCode(payload?.errorCode)
   const detailMessage = payload?.detailMessage?.trim() ?? ''
-  const code = classifyErrorCode(path, status, detailMessage)
+  const code = backendCode || classifyErrorCode(path, status, detailMessage)
   const message = toUserMessage(path, status, code, detailMessage)
   const error = new Error(message)
   error.name = 'HttpRequestError'
@@ -77,6 +89,13 @@ function createRequestError(path, status, payload) {
   error.detailMessage = detailMessage
   error.rawBody = payload?.rawBody ?? null
   return error
+}
+
+function normalizeBackendErrorCode(errorCode) {
+  if (typeof errorCode !== 'string') {
+    return ''
+  }
+  return KNOWN_ERROR_CODES.has(errorCode) ? errorCode : ''
 }
 
 function classifyErrorCode(path, status, detailMessage) {

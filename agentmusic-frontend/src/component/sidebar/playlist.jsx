@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useHistory, useLocation } from 'react-router-dom'
-import styles from './playlist.module.css'
-import TitleS from '../text/title-s'
-import TextRegularM from '../text/text-regular-m'
-import PlaylistButton from './playlist-button'
-import { PLAYLISTBTN } from '../../constants'
+import { getErrorMessage } from '../../api/http'
 import { fetchRecentPlaylists } from '../../api/playlists'
+import { PLAYLISTBTN } from '../../constants'
+import TextRegularM from '../text/text-regular-m'
+import TitleS from '../text/title-s'
+import PlaylistButton from './playlist-button'
+import styles from './playlist.module.css'
 
 const DEMO_USER_ID = 'demo-user'
 const PLAYLIST_REFRESH_EVENT = 'agentmusic:playlists-updated'
@@ -47,7 +48,7 @@ function Playlist() {
           return
         }
 
-        setErrorMessage(error.message || '\u63a8\u8350\u6b4c\u5355\u52a0\u8f7d\u5931\u8d25\u3002')
+        setErrorMessage(getErrorMessage(error, '推荐歌单加载失败。'))
       } finally {
         if (!cancelled) {
           setIsLoading(false)
@@ -79,7 +80,7 @@ function Playlist() {
 
   return (
     <div className={styles.Playlist}>
-      <TitleS>{'\u63a8\u8350\u6b4c\u5355'}</TitleS>
+      <TitleS>推荐歌单</TitleS>
 
       <div className={styles.FixedItems}>
         {PLAYLISTBTN.map((playlist) => (
@@ -95,10 +96,10 @@ function Playlist() {
 
       <hr className={styles.hr} />
 
-      <div className={styles.PlaylistList}>
-        {isLoading ? <TextRegularM>{'\u6b63\u5728\u52a0\u8f7d\u63a8\u8350\u6b4c\u5355...'}</TextRegularM> : null}
+      <div className={styles.PlaylistList} data-testid="sidebar-playlist-list">
+        {isLoading ? <TextRegularM>正在加载推荐歌单...</TextRegularM> : null}
         {!isLoading && !errorMessage && playlists.length === 0 ? (
-          <TextRegularM>{'\u8fd8\u6ca1\u6709\u751f\u6210\u8fc7\u63a8\u8350\u6b4c\u5355\u3002'}</TextRegularM>
+          <TextRegularM>还没有生成过推荐歌单。</TextRegularM>
         ) : null}
         {errorMessage ? <TextRegularM>{errorMessage}</TextRegularM> : null}
 
@@ -113,6 +114,7 @@ function Playlist() {
               className={`${styles.PlaylistCard} ${isActive ? styles.ActivePlaylistCard : ''}`}
               type="button"
               onClick={() => handlePlaylistSelect(playlist)}
+              data-testid="sidebar-playlist-card"
             >
               {cover ? (
                 <img className={styles.PlaylistCardImage} src={cover} alt={playlist.name} />
@@ -124,11 +126,7 @@ function Playlist() {
 
               <span className={styles.PlaylistCardContent}>
                 <span className={styles.PlaylistCardTitle}>{truncatePlaylistTitle(playlist.name)}</span>
-                <span className={styles.PlaylistCardMeta}>
-                  {'\u63a8\u8350\u6b4c\u5355 \u00b7 '}
-                  {trackCount}
-                  {' \u9996'}
-                </span>
+                <span className={styles.PlaylistCardMeta}>推荐歌单 · {trackCount} 首</span>
               </span>
             </button>
           )

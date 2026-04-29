@@ -40,7 +40,7 @@ async function openBrowser() {
 }
 
 async function waitForPlaylistCards(page) {
-  const playlistCards = page.locator('button').filter({ hasText: PLAYLIST_META_TEXT })
+  const playlistCards = page.getByTestId('sidebar-playlist-card')
   await playlistCards.first().waitFor({ timeout: 15000 })
   return playlistCards
 }
@@ -79,6 +79,60 @@ async function run() {
 
     const playlistCards = await waitForPlaylistCards(page)
     const playlistCardCount = await playlistCards.count()
+    const sidebarMetrics = await page.evaluate(() => {
+      const scrollContainer = document.querySelector('[data-testid="sidebar-playlist-scroll"]')
+      const playlistList = document.querySelector('[data-testid="sidebar-playlist-list"]')
+
+      if (!(scrollContainer instanceof HTMLElement) || !(playlistList instanceof HTMLElement)) {
+        return null
+      }
+
+      const containerStyle = window.getComputedStyle(scrollContainer)
+      const listRect = playlistList.getBoundingClientRect()
+      const containerRect = scrollContainer.getBoundingClientRect()
+
+      return {
+        overflowY: containerStyle.overflowY,
+        clientHeight: scrollContainer.clientHeight,
+        scrollHeight: scrollContainer.scrollHeight,
+        listBottom: listRect.bottom,
+        containerBottom: containerRect.bottom,
+      }
+    })
+
+    if (!sidebarMetrics) {
+      throw new Error('Sidebar playlist scroll container not found')
+    }
+
+    await page.evaluate(() => {
+      const scrollContainer = document.querySelector('[data-testid="sidebar-playlist-scroll"]')
+      if (scrollContainer instanceof HTMLElement) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight
+      }
+    })
+
+    const lastSidebarCardVisibleAfterScroll = await page.evaluate(() => {
+      const scrollContainer = document.querySelector('[data-testid="sidebar-playlist-scroll"]')
+      const cards = document.querySelectorAll('[data-testid="sidebar-playlist-card"]')
+      const lastCard = cards[cards.length - 1]
+
+      if (!(scrollContainer instanceof HTMLElement) || !(lastCard instanceof HTMLElement)) {
+        return false
+      }
+
+      const scrollRect = scrollContainer.getBoundingClientRect()
+      const cardRect = lastCard.getBoundingClientRect()
+      return cardRect.bottom <= scrollRect.bottom && cardRect.top >= scrollRect.top
+    })
+
+    if (sidebarMetrics.overflowY === 'visible') {
+      throw new Error(`Expected sidebar scroll container to be scrollable, got overflowY=${sidebarMetrics.overflowY}`)
+    }
+
+    if (!lastSidebarCardVisibleAfterScroll) {
+      throw new Error('Last sidebar playlist card is still not visible after scrolling to the bottom')
+    }
+
     await playlistCards.first().click()
 
     await page.waitForURL(/\/playlist\//, { timeout: 15000 })
@@ -199,6 +253,10 @@ async function run() {
         ? chatPayload.recommendedPlaylists.length
         : 0,
       playlistCardCount,
+      sidebarOverflowY: sidebarMetrics.overflowY,
+      sidebarClientHeight: sidebarMetrics.clientHeight,
+      sidebarScrollHeight: sidebarMetrics.scrollHeight,
+      lastSidebarCardVisibleAfterScroll,
       currentUrl: page.url(),
       navigatedPlaylistId,
       openedLatestPlaylist: expectedPlaylistId === navigatedPlaylistId,

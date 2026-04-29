@@ -1,15 +1,16 @@
 package com.agentmusic.agentmusic_backend.service.impl;
 
+import com.agentmusic.agentmusic_backend.config.SpotifyBridgeProperties;
+import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
 import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyBridgeDevice;
 import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyPlaybackClient;
 import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyPlaybackState;
-import com.agentmusic.agentmusic_backend.config.SpotifyBridgeProperties;
-import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
-import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
-import com.agentmusic.agentmusic_backend.web.exception.SpotifyPlaybackUnavailableException;
 import com.agentmusic.agentmusic_backend.service.BridgePlaybackControlService;
 import com.agentmusic.agentmusic_backend.service.PlaybackSessionService;
 import com.agentmusic.agentmusic_backend.service.SpotifyBridgeAuthService;
+import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
+import com.agentmusic.agentmusic_backend.web.exception.ApiErrorCodes;
+import com.agentmusic.agentmusic_backend.web.exception.SpotifyPlaybackUnavailableException;
 import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -246,13 +247,22 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
     }
 
     private String resolveTargetDeviceId(String accessToken, String userId, String requestedDeviceId) {
-        List<SpotifyBridgeDevice> devices = spotifyPlaybackClient.getAvailableDevices(accessToken).stream()
+        List<SpotifyBridgeDevice> availableDevices = spotifyPlaybackClient.getAvailableDevices(accessToken).stream()
                 .filter(device -> device.id() != null && !device.id().isBlank())
+                .toList();
+        if (availableDevices.isEmpty()) {
+            throw new SpotifyPlaybackUnavailableException(
+                    "Spotify did not report any available devices. Keep the same bridge account Web Player or desktop client online."
+            );
+        }
+
+        List<SpotifyBridgeDevice> devices = availableDevices.stream()
                 .filter(device -> !device.restricted())
                 .toList();
         if (devices.isEmpty()) {
             throw new SpotifyPlaybackUnavailableException(
-                    "Spotify 未检测到可用设备。请保持同一 bridge 账号的 Spotify 客户端或 Web Player 在线。"
+                    ApiErrorCodes.DEVICE_RESTRICTED,
+                    "Spotify detected devices, but all of them are restricted. Switch to an active Web Player or desktop client."
             );
         }
 
@@ -267,7 +277,7 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
                 .or(() -> devices.stream().filter(SpotifyBridgeDevice::active).map(SpotifyBridgeDevice::id).findFirst())
                 .or(() -> devices.stream().map(SpotifyBridgeDevice::id).findFirst())
                 .orElseThrow(() -> new SpotifyPlaybackUnavailableException(
-                        "Spotify 未找到可控制的目标设备。"
+                        "Spotify could not resolve a controllable target device."
                 ));
     }
 
@@ -301,10 +311,12 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
         try {
             spotifyPlaybackClient.changePlaybackMode(accessToken, playbackMode, deviceId);
         } catch (RuntimeException exception) {
-            LOGGER.warn("Ignoring playback mode change failure during playTrack deviceId={} playbackMode={}",
+            LOGGER.warn(
+                    "Ignoring playback mode change failure during playTrack deviceId={} playbackMode={}",
                     deviceId,
                     playbackMode,
-                    exception);
+                    exception
+            );
         }
     }
 
