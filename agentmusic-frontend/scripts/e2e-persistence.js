@@ -28,13 +28,14 @@ async function openBrowser() {
     if (!context) {
       throw new Error('No browser context available from CDP session')
     }
-    const page = context.pages()[0] ?? await context.newPage()
-    return { browser, context, page, ownsBrowser: false, ownsContext: false }
+    const page = await context.newPage()
+    await page.setViewportSize({ width: 1440, height: 960 })
+    return { browser, context, page, ownsBrowser: false, ownsContext: false, ownsPage: true }
   } catch {
     const browser = await chromium.launch({ headless: true })
     const context = await browser.newContext({ viewport: { width: 1440, height: 960 } })
     const page = await context.newPage()
-    return { browser, context, page, ownsBrowser: true, ownsContext: true }
+    return { browser, context, page, ownsBrowser: true, ownsContext: true, ownsPage: false }
   }
 }
 
@@ -45,7 +46,7 @@ async function waitForPlaylistCards(page) {
 }
 
 async function run() {
-  const { browser, context, page, ownsBrowser, ownsContext } = await openBrowser()
+  const { browser, context, page, ownsBrowser, ownsContext, ownsPage } = await openBrowser()
 
   try {
     await page.goto(FRONTEND_URL, { waitUntil: 'domcontentloaded' })
@@ -91,6 +92,73 @@ async function run() {
     )
 
     const playlistTitle = (await page.locator('h1').first().textContent())?.trim() || ''
+    const deviceToggle = page.getByTestId('playback-device-toggle')
+    let devicePanelCount = 0
+    let currentDeviceName = ''
+    let deviceSummaryText = ''
+    let deviceSwitchAttempted = false
+    let deviceSwitchSkippedReason = ''
+    let switchedDeviceName = ''
+    let transferResponseStatus = null
+    let switchedSessionDeviceId = null
+    if (await page.getByTestId('playback-device-summary').count()) {
+      deviceSummaryText = ((await page.getByTestId('playback-device-summary').textContent()) || '').trim()
+    }
+    if (await deviceToggle.count()) {
+      await deviceToggle.click()
+      await page.getByTestId('playback-device-panel').waitFor({ timeout: 10000 })
+      await page.waitForFunction(
+        () => {
+          const panel = document.querySelector('[data-testid="playback-device-panel"]')
+          if (!panel) {
+            return false
+          }
+          if (panel.querySelector('[data-testid="playback-device-loading"]')) {
+            return false
+          }
+          return panel.querySelectorAll('[data-testid="playback-device-item"]').length > 0
+            || Boolean(panel.querySelector('[data-testid="playback-device-empty"]'))
+        },
+        { timeout: 10000 },
+      )
+      const deviceItems = page.getByTestId('playback-device-item')
+      devicePanelCount = await deviceItems.count()
+      const currentDevice = page.locator('[data-testid="playback-device-item"][data-current="true"]').first()
+      if (await currentDevice.count()) {
+        currentDeviceName = ((await currentDevice.getByTestId('playback-device-name').textContent()) || '').trim()
+      }
+
+      const switchCandidate = page.locator('[data-testid="playback-device-item"][data-current="false"][data-restricted="false"]').first()
+      if (await switchCandidate.count()) {
+        deviceSwitchAttempted = true
+        switchedDeviceName = ((await switchCandidate.getByTestId('playback-device-name').textContent()) || '').trim()
+        const targetDeviceId = await switchCandidate.getAttribute('data-device-id')
+        const transferResponsePromise = page.waitForResponse(
+          (response) =>
+            response.url().includes('/api/playback/demo-user/transfer')
+            && response.request().method() === 'POST',
+          { timeout: 20000 },
+        )
+        await switchCandidate.click()
+        const transferResponse = await transferResponsePromise
+        transferResponseStatus = transferResponse.status()
+        await page.waitForFunction(
+          () => !document.querySelector('[data-testid="playback-device-panel"]'),
+          { timeout: 10000 },
+        )
+        const switchedSessionResponse = await page.request.get(`${BACKEND_URL}/api/playback/demo-user/session`)
+        const switchedSessionPayload = await switchedSessionResponse.json()
+        switchedSessionDeviceId = switchedSessionPayload.deviceId ?? null
+        if (targetDeviceId && switchedSessionDeviceId !== targetDeviceId) {
+          throw new Error(`Expected switched device ${targetDeviceId}, received ${switchedSessionDeviceId}`)
+        }
+      } else {
+        deviceSwitchSkippedReason = devicePanelCount > 0
+          ? 'no-secondary-device'
+          : 'no-device-items'
+      }
+    }
+
     const songRows = page.locator('button').filter({
       has: page.locator('img'),
       has: page.locator('strong'),
@@ -135,6 +203,14 @@ async function run() {
       navigatedPlaylistId,
       openedLatestPlaylist: expectedPlaylistId === navigatedPlaylistId,
       playlistTitle,
+      devicePanelCount,
+      currentDeviceName,
+      deviceSummaryText,
+      deviceSwitchAttempted,
+      deviceSwitchSkippedReason,
+      switchedDeviceName,
+      transferResponseStatus,
+      switchedSessionDeviceId,
       songRowCount,
       firstSongTitle,
       playResponseStatus,
@@ -145,6 +221,9 @@ async function run() {
       sessionTrackIndex: sessionPayload.currentTrackIndex ?? null,
     }, null, 2))
   } finally {
+    if (ownsPage) {
+      await page.close()
+    }
     if (ownsContext) {
       await context.close()
     }

@@ -9,6 +9,7 @@ import FooterRight from './footer-right'
 import Audio from './audio'
 import {
   changePlaybackMode,
+  fetchPlaybackDevices,
   fetchPlaybackSession,
   nextTrack,
   pausePlayback,
@@ -16,6 +17,7 @@ import {
   previousTrack,
   seekPlayback,
   syncPlaybackSession,
+  transferPlayback,
 } from '../../api/playback'
 import { fetchArtist, fetchTrack } from '../../api/music'
 import CONST from '../../constants/index'
@@ -35,6 +37,11 @@ function Footer(props) {
   const [volume, setVolume] = useState(1)
   const [isPlaybackBusy, setIsPlaybackBusy] = useState(false)
   const [playbackError, setPlaybackError] = useState('')
+  const [devices, setDevices] = useState([])
+  const [isDevicesLoading, setIsDevicesLoading] = useState(false)
+  const [isDeviceBusy, setIsDeviceBusy] = useState(false)
+  const [devicePanelMessage, setDevicePanelMessage] = useState('')
+  const [devicePanelTone, setDevicePanelTone] = useState('info')
   const audioRef = useRef(null)
   const hasTrackContext = Boolean(props.trackData.trackId || props.trackData.track)
   const hasPlaylistContext = Boolean(props.currentPlaylistId)
@@ -100,6 +107,27 @@ function Footer(props) {
     }
   }
 
+  const refreshDevices = async ({ silent = false } = {}) => {
+    if (!silent) {
+      setIsDevicesLoading(true)
+    }
+    try {
+      const deviceList = await fetchPlaybackDevices(DEMO_USER_ID)
+      setDevices(Array.isArray(deviceList) ? deviceList : [])
+      setDevicePanelMessage('')
+      setDevicePanelTone('info')
+      setPlaybackError('')
+    } catch (error) {
+      setDevicePanelMessage(error.message || 'Failed to load playback devices.')
+      setDevicePanelTone('error')
+      setPlaybackError(error.message || 'Failed to load playback devices.')
+    } finally {
+      if (!silent) {
+        setIsDevicesLoading(false)
+      }
+    }
+  }
+
   useEffect(() => {
     if (!footerRef.current) {
       return undefined
@@ -135,6 +163,7 @@ function Footer(props) {
         return
       }
       await refreshPlaybackSession(false)
+      await refreshDevices({ silent: true })
     }
 
     loadPlaybackSession()
@@ -313,6 +342,35 @@ function Footer(props) {
     }
   }
 
+  const handleTransferDevice = async (deviceId) => {
+    if (!deviceId || isDeviceBusy) {
+      return false
+    }
+
+    try {
+      setIsDeviceBusy(true)
+      const session = await transferPlayback(DEMO_USER_ID, deviceId, props.isPlaying)
+      await applyPlaybackSession(session)
+      await refreshDevices({ silent: true })
+      const nextDevice = devices.find((item) => item.id === deviceId)
+      setDevicePanelMessage(
+        nextDevice?.name
+          ? `Switched playback to ${nextDevice.name}.`
+          : 'Playback device updated.',
+      )
+      setDevicePanelTone('success')
+      setPlaybackError('')
+      return true
+    } catch (error) {
+      setDevicePanelMessage(error.message || 'Failed to switch playback device.')
+      setDevicePanelTone('error')
+      setPlaybackError(error.message || 'Failed to switch playback device.')
+      return false
+    } finally {
+      setIsDeviceBusy(false)
+    }
+  }
+
   const handleTogglePlay = async () => {
     if (!hasTrackContext || isPlaybackBusy) {
       return
@@ -432,6 +490,14 @@ function Footer(props) {
             isNowPlayingOpen={props.isNowPlayingOpen}
             isQueueOpen={props.isQueueOpen}
             hasTrackContext={hasTrackContext}
+            devices={devices}
+            currentDeviceId={props.deviceId}
+            isDevicesLoading={isDevicesLoading}
+            isDeviceBusy={isDeviceBusy}
+            devicePanelMessage={devicePanelMessage}
+            devicePanelTone={devicePanelTone}
+            onRefreshDevices={() => refreshDevices({ silent: false })}
+            onTransferDevice={handleTransferDevice}
           />
         ) : null}
       </div>

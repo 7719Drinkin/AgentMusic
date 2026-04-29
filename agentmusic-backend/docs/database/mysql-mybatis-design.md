@@ -124,7 +124,7 @@ Suggested pattern:
 2. fallback to MySQL
 3. write-through or write-behind to MySQL
 
-This keeps playback UI responsive while preserving recovery after restart.
+This keeps playback UI responsive while preserving durable session state through the normal read/write path.
 
 ## SQL / mapping style guidance
 
@@ -249,4 +249,9 @@ Operational prerequisite:
 ## Remaining implementation work
 
 - add more explicit user-facing diagnostics when startup migration fails
-- add restart-recovery regression coverage in mybatis mode
+- continue device list / device switch UI integration on top of the stabilized persistence path
+
+## Current development note
+
+- backend restart is currently handled by Spring Boot auto-restart during local development, and E2E continues after `localhost:8080` becomes responsive again
+- restart-recovery verification is not part of the routine development acceptance loop at this stage

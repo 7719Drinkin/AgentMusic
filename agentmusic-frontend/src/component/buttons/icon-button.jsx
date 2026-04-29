@@ -12,6 +12,7 @@ function IconButton({
   toggleOnClick = true,
   ariaLabel,
   type = 'button',
+  ...rest
 }) {
   const [internalActive, setInternalActive] = useState(false)
   const isActive = typeof active === 'boolean' ? active : internalActive
@@ -35,6 +36,7 @@ function IconButton({
       disabled={disabled}
       aria-label={ariaLabel || tooltip}
       type={type}
+      {...rest}
     >
       {isActive && activeicon ? activeicon : icon}
       {tooltip ? <span className={styles.tooltip}>{tooltip}</span> : null}
