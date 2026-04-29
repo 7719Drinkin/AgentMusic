@@ -4,6 +4,7 @@ import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyAuthClient;
 import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyToken;
 import com.agentmusic.agentmusic_backend.config.SpotifyBridgeProperties;
 import com.agentmusic.agentmusic_backend.web.dto.SpotifyBridgeAuthStatusDto;
+import com.agentmusic.agentmusic_backend.web.exception.ApiErrorCodes;
 import com.agentmusic.agentmusic_backend.web.exception.SpotifyBridgeAuthorizationException;
 import com.agentmusic.agentmusic_backend.persistence.repository.SpotifyBridgeTokenRepository;
 import com.agentmusic.agentmusic_backend.service.SpotifyBridgeAuthService;
@@ -128,13 +129,19 @@ public class DefaultSpotifyBridgeAuthService implements SpotifyBridgeAuthService
     private void validateState(String state) {
         Instant expiresAt = validStates.remove(state);
         if (state == null || expiresAt == null || expiresAt.isBefore(Instant.now(clock))) {
-            throw new SpotifyBridgeAuthorizationException("Spotify bridge authorization state is invalid or expired.");
+            throw new SpotifyBridgeAuthorizationException(
+                    ApiErrorCodes.AUTHORIZATION_STATE,
+                    "Spotify bridge authorization state is invalid or expired."
+            );
         }
     }
 
     private void ensureBridgeEnabled() {
         if (!spotifyBridgeProperties.enabled()) {
-            throw new SpotifyBridgeAuthorizationException("Spotify bridge mode is disabled.");
+            throw new SpotifyBridgeAuthorizationException(
+                    ApiErrorCodes.BRIDGE_DISABLED,
+                    "Spotify bridge mode is disabled."
+            );
         }
     }
 }

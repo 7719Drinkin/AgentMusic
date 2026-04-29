@@ -74,7 +74,8 @@
     cursor: default;
 }
 .queueItemCurrent{
-    background: rgba(255,255,255,0.04);
+    background: rgba(29,185,84,0.12);
+    border: 1px solid rgba(29,185,84,0.18);
 }
 .queueItem img{
     width: 48px;
@@ -97,10 +98,16 @@
 .queueMeta strong{
     color: #fff;
 }
+.queueItemCurrent .queueMeta strong{
+    color: #d7ffe6;
+}
 .queueMeta span,
 .queueOrder{
     color: rgba(255,255,255,0.62);
     font-size: 12px;
+}
+.queueItemCurrent .queueOrder{
+    color: #8df5b6;
 }
 .emptyState{
     padding: 18px 10px;

@@ -4,7 +4,7 @@
     background: transparent;
     position: relative;
     margin-bottom: 95px;
-    padding-bottom: 24px;
+    padding-bottom: 32px;
     color: var(--text-white);
 }
 
@@ -14,7 +14,7 @@
     left: 0;
     right: 0;
     z-index: -1;
-    background: linear-gradient(transparent, rgba(0,0,0,.5));
+    background: linear-gradient(transparent, rgba(0,0,0,.52));
     transition: background 1s ease;
     background-color: var(--hover-home-bg);
 }
@@ -24,18 +24,15 @@
     left: 0;
     right: 0;
     top: 340px;
-    height: 240px;
+    height: 260px;
     z-index: -2;
-    background-image: linear-gradient(rgba(0,0,0,.6), var(--main-background));
+    background-image: linear-gradient(rgba(0,0,0,.66), var(--main-background));
     background-color: var(--hover-home-bg);
 }
 
 .Bg{
     position: fixed;
-    top: 0;
-    right: 0;
-    left: 0;
-    bottom: 0;
+    inset: 0;
     z-index: -3;
     background-color: var(--main-background);
 }
@@ -43,7 +40,7 @@
 .Hero{
     display: flex;
     align-items: flex-end;
-    gap: 24px;
+    gap: 28px;
     padding: 32px;
 }
 
@@ -51,14 +48,15 @@
     width: 220px;
     height: 220px;
     object-fit: cover;
-    border-radius: 16px;
-    box-shadow: 0 20px 40px rgba(0,0,0,.35);
+    border-radius: 18px;
+    box-shadow: 0 24px 44px rgba(0,0,0,.38);
 }
 
 .HeroMeta{
     display: flex;
     flex-direction: column;
     gap: 12px;
+    min-width: 0;
 }
 
 .PlaylistType{
@@ -74,10 +72,46 @@
     color: rgba(255,255,255,.75);
 }
 
+.PlaylistMetaRow{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.MetaChip{
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.08);
+    color: rgba(255,255,255,.82);
+    font-size: 12px;
+    line-height: 1.3;
+}
+
 .PlaylistActions{
     display: flex;
     align-items: center;
+    gap: 16px;
     padding: 8px 32px 24px;
+}
+
+.PlayActionText{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.PlayActionText strong{
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.3;
+}
+
+.PlayActionText span{
+    color: rgba(255,255,255,.62);
+    font-size: 12px;
+    line-height: 1.45;
 }
 
 .PlaybackStatus{
@@ -99,6 +133,7 @@
     border-radius: 50%;
     background: #1db954;
     cursor: pointer;
+    box-shadow: 0 12px 24px rgba(29,185,84,.28);
 }
 
 .PlayButton svg{
@@ -110,6 +145,7 @@
 .PlayButton:disabled{
     opacity: .5;
     cursor: not-allowed;
+    box-shadow: none;
 }
 
 .PlaylistSongs{
@@ -145,16 +181,19 @@
     align-items: center;
     width: 100%;
     padding: 10px 16px;
-    background: none;
+    background: linear-gradient(180deg, rgba(255,255,255,.03) 0%, rgba(255,255,255,.01) 100%);
     border: 1px solid transparent;
-    border-radius: 8px;
+    border-radius: 10px;
     color: inherit;
     cursor: pointer;
     text-align: left;
+    transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
 }
 
 .SongBtn:hover{
-    background: rgba(255,255,255,.06);
+    background: rgba(255,255,255,.08);
+    border-color: rgba(255,255,255,.08);
+    transform: translateY(-1px);
 }
 
 .SongBtn:disabled{
@@ -163,7 +202,8 @@
 }
 
 .ActiveSongBtn{
-    background: rgba(255,255,255,.08);
+    background: rgba(29,185,84,.12);
+    border-color: rgba(29,185,84,.22);
 }
 
 .RowIndex{
@@ -183,13 +223,21 @@
     height: 40px;
     object-fit: cover;
     border-radius: 6px;
+    box-shadow: 0 8px 18px rgba(0,0,0,.24);
 }
 
 .RowTrackMeta{
     display: flex;
     flex-direction: column;
     min-width: 0;
-    gap: 2px;
+    gap: 3px;
+}
+
+.RowTitleLine{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
 }
 
 .RowTrackMeta strong{
@@ -197,6 +245,21 @@
     overflow: hidden;
     text-overflow: ellipsis;
     color: #fff;
+}
+
+.RowStatePill{
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(29,185,84,.18);
+    color: #b7ffd1;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: .03em;
 }
 
 .RowTrackMeta p{
@@ -225,20 +288,25 @@
     padding: 24px 16px;
 }
 
+@media screen and (max-width: 920px) {
+    .Hero{
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .Cover{
+        width: 180px;
+        height: 180px;
+    }
+}
+
 @media screen and (max-width: 768px) {
     .PlaylistPage{
         margin-bottom: 180px;
     }
 
     .Hero{
-        flex-direction: column;
-        align-items: flex-start;
         padding: 24px 16px;
-    }
-
-    .Cover{
-        width: 180px;
-        height: 180px;
     }
 
     .PlaylistActions{

@@ -14,10 +14,10 @@ export function buildArtistSearchLocation(artistName, state = {}) {
 
 export function buildCredits(track, artistName) {
   return [
-    { label: 'Main Artist', value: artistName || '暂未提供' },
-    { label: 'Lyricist', value: 'Spotify Web API 暂未提供' },
-    { label: 'Composer', value: 'Spotify Web API 暂未提供' },
-    { label: 'Album', value: track?.albumName || '暂未提供' },
+    { label: 'Main Artist', value: artistName || 'Not available yet' },
+    { label: 'Lyricist', value: 'Not available from Spotify Web API yet' },
+    { label: 'Composer', value: 'Not available from Spotify Web API yet' },
+    { label: 'Album', value: track?.albumName || 'Not available yet' },
   ]
 }
 

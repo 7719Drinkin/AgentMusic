@@ -2,7 +2,10 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080
 
 const ERROR_CODE = {
   AUTHORIZATION: 'spotify-authorization',
+  AUTHORIZATION_STATE: 'spotify-authorization-state',
+  BRIDGE_DISABLED: 'spotify-bridge-disabled',
   DEVICE_UNAVAILABLE: 'spotify-device-unavailable',
+  DEVICE_OFFLINE: 'spotify-device-offline',
   DEVICE_RESTRICTED: 'spotify-device-restricted',
   NETWORK: 'spotify-network',
   PLAYBACK_CONFLICT: 'spotify-playback-conflict',
@@ -104,11 +107,27 @@ function classifyErrorCode(path, status, detailMessage) {
 
   if (
     detail.includes('invalid or expired spotify bridge authorization state') ||
+    detail.includes('authorization state is invalid or expired')
+  ) {
+    return ERROR_CODE.AUTHORIZATION_STATE
+  }
+
+  if (detail.includes('spotify bridge mode is disabled')) {
+    return ERROR_CODE.BRIDGE_DISABLED
+  }
+
+  if (
     detail.includes('authorization expired') ||
-    detail.includes('authorization is invalid') ||
-    detail.includes('spotify bridge mode is disabled')
+    detail.includes('authorization is invalid')
   ) {
     return ERROR_CODE.AUTHORIZATION
+  }
+
+  if (
+    detail.includes('offline') ||
+    detail.includes('no longer available')
+  ) {
+    return ERROR_CODE.DEVICE_OFFLINE
   }
 
   if (
@@ -157,9 +176,14 @@ function classifyErrorCode(path, status, detailMessage) {
 function toUserMessage(path, status, code, detailMessage) {
   switch (code) {
     case ERROR_CODE.AUTHORIZATION:
+    case ERROR_CODE.AUTHORIZATION_STATE:
       return 'Spotify bridge authorization expired or is invalid. Reconnect the bridge account and try again.'
+    case ERROR_CODE.BRIDGE_DISABLED:
+      return 'Spotify bridge mode is disabled on the backend. Enable the bridge configuration and try again.'
     case ERROR_CODE.DEVICE_UNAVAILABLE:
       return 'No active Spotify device is available. Keep the same bridge account Web Player or desktop client online.'
+    case ERROR_CODE.DEVICE_OFFLINE:
+      return 'Selected Spotify device is offline or unavailable. Refresh the device list and try again.'
     case ERROR_CODE.DEVICE_RESTRICTED:
       return 'Detected Spotify devices are restricted. Switch to an active Web Player or desktop client and try again.'
     case ERROR_CODE.NETWORK:

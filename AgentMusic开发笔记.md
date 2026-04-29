@@ -1,6 +1,6 @@
 ﻿# AgentMusic 开发笔记
 
-版本：M2.7
+版本：M2.8
 更新日期：2026-04-29
 
 ## 1. 当前基线
@@ -103,21 +103,29 @@
 - 后端 API 错误响应已开始返回结构化错误码：
   - `spotify-authorization`
   - `spotify-device-unavailable`
+  - `spotify-device-offline`
   - `spotify-device-restricted`
   - `invalid-request`
   - `not-found`
   - `request-failure`
 - 前端 `http.js` 现在优先消费后端错误码，再回退到状态码与消息文本兜底。
+- 设备显式切换现在对“所选设备已离线”返回独立错误码，不再模糊落成通用播放冲突。
 - 同一套错误归一逻辑已扩展到：
   - 聊天历史加载。
   - Agent 消息发送。
   - 左侧推荐歌单加载。
 - 聊天页与左侧推荐歌单页的损坏文案已清理，避免在联调和 E2E 中混入乱码。
 - 左侧推荐歌单区已拆成固定头部 + 可滚动列表区，歌单数量超出可视高度后可滚动查看。
+- 底部设备摘要在 session 仍持有 `deviceId` 但设备列表为空时，不再错误显示 `No active device`，而是明确显示 session 设备不可用 / 离线。
 - 队列抽屉已支持：
   - 展示完整歌单上下文。
   - 点击非当前曲目切歌。
   - “队列中的下一首歌”随当前曲目同步。
+- 歌单页视觉已继续收口：
+  - 推荐歌单 meta chip。
+  - 主播放动作说明。
+  - 当前曲目 pill。
+  - 更清晰的行 hover / active 状态。
 
 ### 3.4 真实 Spotify 播放控制
 
@@ -302,6 +310,30 @@
 
 用于减少本地首次启动时因为数据库尚未创建而直接失败的情况。
 
+### 4.10 启动诊断增强
+
+当前 MyBatis bootstrap 的启动失败信息已补充为分阶段诊断：
+
+- `base schema application`
+- `migration table initialization`
+- `migration application`
+- `schema validation`
+
+当任一阶段失败时，异常信息会包含：
+
+- 失败阶段名
+- 当前数据库目标描述
+- 直接的排查建议
+- 原始失败原因
+
+当前目标不是把所有数据库错误都包装成新类型，而是确保在本地开发和联调阶段，看到日志后能直接判断问题更接近：
+
+- MySQL 连接 / 权限
+- `schema.sql`
+- migration 文件
+- `schema_migrations`
+- 缺表 / 缺列
+
 ### 4.9 当前开发约束
 
 当前本地开发流程下，后端代码更新后由 Spring Boot 自动重启。
@@ -341,9 +373,20 @@
 
 ### Priority 1
 
-1. 为 migration 执行结果增加更明确的日志与失败提示。
-2. 完善设备切换后的回显、刷新与边界状态。
-3. 继续减少前端按消息文本分类的兜底分支，逐步补齐后端结构化错误码覆盖面。
+1. 完善设备切换后的回显、刷新与边界状态。
+2. 继续减少前端按消息文本分类的兜底分支，逐步补齐后端结构化错误码覆盖面。
+3. 继续补 schema / migration 失败场景下更细的分类，例如缺表、缺列、migration SQL 失败的独立提示。
+
+本轮新增补充：
+
+- `WebClientResponseException` 的播放 `403/404` 不再统一落到授权失败。
+- 当前已明确区分：
+  - `spotify-device-restricted`
+  - `spotify-device-unavailable`
+  - `spotify-device-offline`
+  - `spotify-bridge-disabled`
+  - `spotify-authorization-state`
+- 设备面板摘要与设备项状态文案继续收口，当前设备仍显示 `Ready`，非当前可切换设备显示 `Available`。
 
 ### Priority 2
 

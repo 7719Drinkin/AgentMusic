@@ -5,11 +5,11 @@ function CurrentPlayingQueueDrawer({ isOpen, queueItems, playlistTitle, onClose,
     <section className={`${styles.drawer} ${isOpen ? styles.drawerOpen : ''}`} aria-hidden={!isOpen}>
       <div className={styles.drawerHeader}>
         <div>
-          <p>播放队列</p>
+          <p>Playback queue</p>
           <h3>{playlistTitle}</h3>
         </div>
-        <button type="button" onClick={onClose} aria-label="关闭队列">
-          收起
+        <button type="button" onClick={onClose} aria-label="Close queue">
+          Collapse
         </button>
       </div>
 
@@ -18,7 +18,7 @@ function CurrentPlayingQueueDrawer({ isOpen, queueItems, playlistTitle, onClose,
           queueItems.map((item, index) => (
             <button
               type="button"
-              className={`${styles.queueItem} ${item.isCurrent ? styles.queueItemCurrent : ''}`}
+              className={`${styles.queueItem} ${item.isCurrent ? styles.queueItemCurrent : ''}`.trim()}
               key={`${item.trackId}-${index}`}
               onClick={() => onSelectQueueItem?.(item)}
               disabled={item.isCurrent}
@@ -28,11 +28,11 @@ function CurrentPlayingQueueDrawer({ isOpen, queueItems, playlistTitle, onClose,
                 <strong>{item.songName}</strong>
                 <span>{item.songArtist}</span>
               </div>
-              <span className={styles.queueOrder}>{item.isCurrent ? '当前' : `#${index + 1}`}</span>
+              <span className={styles.queueOrder}>{item.isCurrent ? 'Current' : `#${index + 1}`}</span>
             </button>
           ))
         ) : (
-          <div className={styles.emptyState}>当前没有可显示的播放队列。</div>
+          <div className={styles.emptyState}>No queue items are available for this playlist yet.</div>
         )}
       </div>
     </section>

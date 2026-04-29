@@ -18,6 +18,7 @@ import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyPlaybackStat
 import com.agentmusic.agentmusic_backend.config.SpotifyBridgeProperties;
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
 import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
+import com.agentmusic.agentmusic_backend.web.exception.SpotifyPlaybackUnavailableException;
 import com.agentmusic.agentmusic_backend.service.PlaybackSessionService;
 import com.agentmusic.agentmusic_backend.service.SpotifyBridgeAuthService;
 import com.agentmusic.agentmusic_backend.service.impl.DefaultBridgePlaybackControlService;
@@ -297,6 +298,48 @@ class DefaultBridgePlaybackControlServiceTests {
 
         verify(spotifyPlaybackClient).transferPlayback("token", "explicit-device", false);
         assertEquals("explicit-device", session.deviceId());
+    }
+
+    @Test
+    void transferPlaybackShouldFailWhenSelectedDeviceIsOffline() {
+        SpotifyBridgeProperties properties = new SpotifyBridgeProperties(
+                true,
+                "client-id",
+                "client-secret",
+                "http://127.0.0.1:8080/api/auth/spotify/callback",
+                "bridge-user",
+                "default-device"
+        );
+        DefaultBridgePlaybackControlService service = new DefaultBridgePlaybackControlService(
+                spotifyPlaybackClient,
+                spotifyBridgeAuthService,
+                playbackSessionService,
+                properties
+        );
+        PlaybackSessionDto current = new PlaybackSessionDto(
+                "session-7",
+                "track-2",
+                "playlist-1",
+                1,
+                5000,
+                true,
+                PlaybackMode.SEQUENTIAL,
+                "default-device",
+                LocalDateTime.now()
+        );
+
+        when(spotifyBridgeAuthService.getValidAccessToken()).thenReturn(Optional.of("token"));
+        when(playbackSessionService.getActiveSession("demo-user")).thenReturn(Optional.of(current));
+        when(spotifyPlaybackClient.getAvailableDevices("token")).thenReturn(List.of(
+                new SpotifyBridgeDevice("default-device", "Default", true, false, "Computer", 50)
+        ));
+
+        assertThrows(
+                SpotifyPlaybackUnavailableException.class,
+                () -> service.transferPlayback("demo-user", "missing-device", false)
+        );
+
+        verify(spotifyPlaybackClient, never()).transferPlayback(anyString(), anyString(), anyBoolean());
     }
 
     @Test

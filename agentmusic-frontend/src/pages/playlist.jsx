@@ -124,13 +124,12 @@ function PlaylistPage(props) {
     })
   }, [activePlaylist, artistDirectory, playlistCover, playlistTracks, props.currentTrackIndex])
 
+  const createdAtLabel = playlist?.createdAt ? formatDateTime(playlist.createdAt) : '--'
+  const playlistMetaText = `${playlistRows.length} 首 · 版本 ${playlist?.version ?? '-'} · 创建于 ${createdAtLabel}`
+
   const loadAvailableDevices = async () => {
-    try {
-      const devices = await fetchPlaybackDevices(DEMO_USER_ID)
-      return Array.isArray(devices) ? devices : []
-    } catch {
-      return []
-    }
+    const devices = await fetchPlaybackDevices(DEMO_USER_ID)
+    return Array.isArray(devices) ? devices : []
   }
 
   const handlePlayTrack = async (trackId, trackIndex) => {
@@ -186,10 +185,15 @@ function PlaylistPage(props) {
         <div className={styles.HeroMeta}>
           <span className={styles.PlaylistType}>推荐歌单</span>
           <TitleL>{playlist?.name || '歌单详情'}</TitleL>
+          <div className={styles.PlaylistMetaRow}>
+            <span className={styles.MetaChip}>{playlistRows.length} 首</span>
+            <span className={styles.MetaChip}>版本 {playlist?.version ?? '-'}</span>
+            <span className={styles.MetaChip}>创建于 {createdAtLabel}</span>
+          </div>
           <TextRegularM>
             {isLoading
               ? '正在加载歌单详情...'
-              : errorMessage || `${playlistRows.length} 首 · 版本 ${playlist?.version ?? '-'} · ${playlist?.createdAt ?? ''}`}
+              : errorMessage || `${playlistMetaText} · 根据当前对话上下文生成。`}
           </TextRegularM>
         </div>
       </section>
@@ -204,6 +208,10 @@ function PlaylistPage(props) {
         >
           <Icons.Play />
         </button>
+        <div className={styles.PlayActionText}>
+          <strong>{isPlaybackBusy ? '正在切换播放...' : '播放这张歌单'}</strong>
+          <span>从第 1 首开始，沿用当前播放模式与设备上下文。</span>
+        </div>
       </section>
 
       {playbackError ? (
@@ -227,27 +235,38 @@ function PlaylistPage(props) {
           </div>
         ) : null}
 
-        {playlistRows.map((row) => (
-          <button
-            key={row.trackId}
-            className={`${styles.SongBtn} ${row.isCurrent ? styles.ActiveSongBtn : ''}`}
-            type="button"
-            onClick={() => handlePlayTrack(row.trackId, row.index)}
-            disabled={isPlaybackBusy}
-          >
-            <span className={styles.RowIndex}>{row.index + 1}</span>
-            <span className={styles.RowTrack}>
-              <img src={row.albumImageUrl} alt={row.title} />
-              <span className={styles.RowTrackMeta}>
-                <strong>{row.title}</strong>
-                <TextRegularM>{row.artistName}</TextRegularM>
+        {playlistRows.map((row) => {
+          const rowStateLabel = row.isCurrent
+            ? props.isPlaying
+              ? '当前播放'
+              : '当前曲目'
+            : ''
+
+          return (
+            <button
+              key={row.trackId}
+              className={`${styles.SongBtn} ${row.isCurrent ? styles.ActiveSongBtn : ''}`.trim()}
+              type="button"
+              onClick={() => handlePlayTrack(row.trackId, row.index)}
+              disabled={isPlaybackBusy}
+            >
+              <span className={styles.RowIndex}>{row.index + 1}</span>
+              <span className={styles.RowTrack}>
+                <img src={row.albumImageUrl} alt={row.title} />
+                <span className={styles.RowTrackMeta}>
+                  <span className={styles.RowTitleLine}>
+                    <strong>{row.title}</strong>
+                    {rowStateLabel ? <span className={styles.RowStatePill}>{rowStateLabel}</span> : null}
+                  </span>
+                  <TextRegularM>{row.artistName}</TextRegularM>
+                </span>
               </span>
-            </span>
-            <TextRegularM className={styles.RowAlbum}>{row.albumName}</TextRegularM>
-            <TextRegularM className={styles.RowAddedAt}>{row.addedAtLabel}</TextRegularM>
-            <TextRegularM className={styles.RowDuration}>{row.durationLabel}</TextRegularM>
-          </button>
-        ))}
+              <TextRegularM className={styles.RowAlbum}>{row.albumName}</TextRegularM>
+              <TextRegularM className={styles.RowAddedAt}>{row.addedAtLabel}</TextRegularM>
+              <TextRegularM className={styles.RowDuration}>{row.durationLabel}</TextRegularM>
+            </button>
+          )
+        })}
       </section>
     </div>
   )
@@ -259,6 +278,7 @@ const mapStateToProps = (state) => {
     deviceId: state.deviceId,
     currentPlaylistId: state.currentPlaylistId,
     currentTrackIndex: state.currentTrackIndex,
+    isPlaying: state.isPlaying,
   }
 }
 

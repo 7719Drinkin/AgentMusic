@@ -28,6 +28,24 @@ function FooterRight({
   const currentDeviceName = currentDevice?.name || ''
   const hasRestrictedOnly = !isDevicesLoading && devices.length > 0 && devices.every((device) => device.restricted)
   const hasCurrentDeviceMissing = !isDevicesLoading && Boolean(currentDeviceId) && !currentDevice
+  const deviceSummaryText = currentDeviceName
+    || (isDevicesLoading
+      ? 'Refreshing...'
+      : hasCurrentDeviceMissing
+        ? 'Session device unavailable'
+        : currentDeviceId
+          ? 'Session device pending'
+          : 'No active device')
+  const deviceSummaryState = getDeviceSummaryState({
+    isDevicesLoading,
+    devicePanelMessage,
+    devicePanelTone,
+    hasRestrictedOnly,
+    hasCurrentDeviceMissing,
+    hasCurrentDevice: Boolean(currentDevice),
+  })
+  const deviceSummaryStateClassName = getSummaryToneClassName(styles, deviceSummaryState.tone)
+  const panelNoticeClassName = getNoticeToneClassName(styles, devicePanelTone)
 
   useEffect(() => {
     if (!isDevicePanelOpen) {
@@ -106,9 +124,12 @@ function FooterRight({
             <Icons.Devices />
           </span>
           <span className={styles.deviceSummaryTextWrap}>
-            <span className={styles.deviceSummaryLabel}>Device</span>
+            <span className={styles.deviceSummaryLabel}>Playback device</span>
             <span className={styles.deviceSummaryText} data-testid="playback-device-summary">
-              {currentDeviceName || (isDevicesLoading ? 'Refreshing...' : 'No active device')}
+              {deviceSummaryText}
+            </span>
+            <span className={`${styles.deviceSummaryState} ${deviceSummaryStateClassName}`.trim()}>
+              {deviceSummaryState.text}
             </span>
           </span>
         </button>
@@ -119,7 +140,7 @@ function FooterRight({
                 <p className={styles.devicePanelTitle}>Playback devices</p>
                 <p className={styles.devicePanelMeta}>
                   {devices.length} available
-                  {currentDeviceId ? ' · current device ready' : ''}
+                  {currentDeviceId ? ' · current session device tracked' : ''}
                 </p>
               </div>
               <button
@@ -134,20 +155,26 @@ function FooterRight({
             </div>
             {devicePanelMessage ? (
               <p
-                className={`${styles.deviceNotice} ${devicePanelTone === 'error' ? styles.deviceNoticeError : styles.deviceNoticeSuccess}`.trim()}
+                className={`${styles.deviceNotice} ${panelNoticeClassName}`.trim()}
                 data-testid="playback-device-notice"
               >
                 {devicePanelMessage}
               </p>
             ) : null}
             {!devicePanelMessage && hasCurrentDeviceMissing ? (
-              <p className={`${styles.deviceNotice} ${styles.deviceNoticeError}`.trim()} data-testid="playback-device-notice">
+              <p
+                className={`${styles.deviceNotice} ${styles.deviceNoticeWarning}`.trim()}
+                data-testid="playback-device-notice"
+              >
                 Current session device is offline. Choose another available device.
               </p>
             ) : null}
             {!devicePanelMessage && hasRestrictedOnly ? (
-              <p className={`${styles.deviceNotice} ${styles.deviceNoticeError}`.trim()} data-testid="playback-device-notice">
-                Detected devices are restricted. Keep the same bridge account Web Player or client active.
+              <p
+                className={`${styles.deviceNotice} ${styles.deviceNoticeWarning}`.trim()}
+                data-testid="playback-device-notice"
+              >
+                Detected devices are restricted. Keep the same bridge account Web Player or desktop client active.
               </p>
             ) : null}
             <div className={styles.devicePanelBody}>
@@ -163,6 +190,13 @@ function FooterRight({
                 const isActive = device.active || device.id === currentDeviceId
                 const isRestricted = Boolean(device.restricted)
                 const isPending = pendingDeviceId === device.id
+                const statusClassName = isRestricted
+                  ? styles.deviceStatusWarning
+                  : isPending
+                    ? styles.deviceStatusAction
+                    : isActive
+                      ? styles.deviceStatusCurrent
+                      : styles.deviceStatusMuted
                 return (
                   <button
                     key={device.id}
@@ -176,11 +210,14 @@ function FooterRight({
                     data-restricted={isRestricted ? 'true' : 'false'}
                   >
                     <span className={styles.deviceItemMain}>
-                      <span className={styles.deviceName} data-testid="playback-device-name">{device.name}</span>
+                      <span className={styles.deviceTitleRow}>
+                        <span className={styles.deviceName} data-testid="playback-device-name">{device.name}</span>
+                        {isActive ? <span className={styles.deviceChip}>Current</span> : null}
+                      </span>
                       <span className={styles.deviceType}>{device.type}</span>
                     </span>
-                    <span className={styles.deviceStatus}>
-                      {isRestricted ? 'Restricted' : isPending ? 'Switching...' : isActive ? 'Current' : 'Switch'}
+                    <span className={`${styles.deviceStatus} ${statusClassName}`.trim()}>
+                      {isRestricted ? 'Restricted' : isPending ? 'Switching...' : isActive ? 'Ready' : 'Available'}
                     </span>
                   </button>
                 )
@@ -202,6 +239,64 @@ function FooterRight({
       <SoundLevel volume={volume} setVolume={setVolume} />
     </div>
   )
+}
+
+function getDeviceSummaryState({
+  isDevicesLoading,
+  devicePanelMessage,
+  devicePanelTone,
+  hasRestrictedOnly,
+  hasCurrentDeviceMissing,
+  hasCurrentDevice,
+}) {
+  if (isDevicesLoading) {
+    return { text: 'Refreshing device list', tone: 'info' }
+  }
+  if (devicePanelMessage && devicePanelTone === 'success') {
+    return { text: 'Playback device updated', tone: 'success' }
+  }
+  if (devicePanelMessage && devicePanelTone === 'warning') {
+    return { text: 'Device action required', tone: 'warning' }
+  }
+  if (devicePanelMessage && devicePanelTone === 'error') {
+    return { text: 'Playback routing needs attention', tone: 'error' }
+  }
+  if (hasCurrentDeviceMissing) {
+    return { text: 'Last session device is offline', tone: 'warning' }
+  }
+  if (hasRestrictedOnly) {
+    return { text: 'Detected devices are restricted', tone: 'warning' }
+  }
+  if (hasCurrentDevice) {
+    return { text: 'Current device ready', tone: 'success' }
+  }
+  return { text: 'Open Spotify on this bridge account', tone: 'info' }
+}
+
+function getNoticeToneClassName(stylesModule, tone) {
+  switch (tone) {
+    case 'success':
+      return stylesModule.deviceNoticeSuccess
+    case 'warning':
+      return stylesModule.deviceNoticeWarning
+    case 'error':
+      return stylesModule.deviceNoticeError
+    default:
+      return stylesModule.deviceNoticeInfo
+  }
+}
+
+function getSummaryToneClassName(stylesModule, tone) {
+  switch (tone) {
+    case 'success':
+      return stylesModule.deviceSummarySuccess
+    case 'warning':
+      return stylesModule.deviceSummaryWarning
+    case 'error':
+      return stylesModule.deviceSummaryError
+    default:
+      return stylesModule.deviceSummaryInfo
+  }
 }
 
 function SoundLevel({ volume, setVolume }) {

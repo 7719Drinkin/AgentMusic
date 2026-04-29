@@ -88,16 +88,16 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
     [playlistDetail, currentTrackIndex, trackData],
   )
 
-  const playlistTitle = playlistDetail?.name || '当前播放'
+  const playlistTitle = playlistDetail?.name || 'Now playing'
   const currentArtist = currentTrack?.artistId ? artistDirectory[currentTrack.artistId] : null
-  const displayArtistName = currentArtist?.name || trackData.trackArtist || '等待推荐'
+  const displayArtistName = currentArtist?.name || trackData.trackArtist || 'Waiting for recommendation'
   const coverSrc = currentTrack?.albumImageUrl || trackData.trackImg || '/image/Playlist/liked-songs.PNG'
   const artistSummary = currentArtist?.bio
     || (currentArtist?.followers
-      ? `${displayArtistName} 在 Spotify 上拥有约 ${formatFollowers(currentArtist.followers)} 位关注者。`
+      ? `${displayArtistName} has about ${formatFollowers(currentArtist.followers)} followers on Spotify.`
       : (displayArtistName
-        ? `${displayArtistName} 是当前播放曲目的主要艺人。接入更多艺人资料后，这里将显示完整简介与代表作品。`
-        : '接入真实艺人资料后，这里将显示头像、简介与代表作品。'))
+        ? `${displayArtistName} is the primary artist of the current track. More biography and catalog details will appear here after richer metadata is connected.`
+        : 'Artist profile details will appear here after richer metadata is connected.'))
 
   const queueItems = useMemo(
     () => mapQueueItems(playlistDetail, currentTrackIndex).map((item) => ({
@@ -111,6 +111,7 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
     [queueItems, currentTrackIndex],
   )
   const credits = useMemo(() => buildCredits(currentTrack, displayArtistName), [currentTrack, displayArtistName])
+  const currentTrackBadge = currentTrack?.albumName ? `From ${currentTrack.albumName}` : 'Live playback context'
 
   const handleArtistNavigation = () => {
     if (!displayArtistName) {
@@ -153,18 +154,18 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
     <div className={styles.panelShell}>
       <aside className={styles.panel}>
         <header className={styles.header}>
-          <button className={styles.headerAction} type="button" aria-label="隐藏当前播放视图" onClick={onClose}>
+          <button className={styles.headerAction} type="button" aria-label="Hide now playing view" onClick={onClose}>
             <Icons.Prevpage />
           </button>
           <div className={styles.headerTitleWrap}>
-            <p className={styles.headerLabel}>当前播放栏</p>
+            <p className={styles.headerLabel}>Now playing</p>
             <h2 className={styles.headerTitle}>{playlistTitle}</h2>
           </div>
           <div className={styles.headerActionGroup}>
             <button
               className={styles.headerAction}
               type="button"
-              aria-label={`更多有关 ${currentTrack?.title || '当前歌曲'} 的选项`}
+              aria-label={`More actions for ${currentTrack?.title || 'current track'}`}
               onClick={() => setMenuOpen((current) => !current)}
             >
               <Icons.More />
@@ -181,11 +182,12 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
 
         <div className={styles.content}>
           <div className={styles.coverSection}>
-            <img className={styles.coverArt} src={coverSrc} alt={currentTrack?.title || '当前曲目封面'} />
+            <img className={styles.coverArt} src={coverSrc} alt={currentTrack?.title || 'Current track cover'} />
           </div>
 
           <section className={styles.trackMeta}>
-            <h3 className={styles.trackName}>{currentTrack?.title || trackData.trackName || '暂无播放'}</h3>
+            <span className={styles.trackBadge}>{currentTrackBadge}</span>
+            <h3 className={styles.trackName}>{currentTrack?.title || trackData.trackName || 'Nothing playing yet'}</h3>
             <button className={styles.artistLink} type="button" onClick={handleArtistNavigation}>
               {displayArtistName}
             </button>
@@ -193,13 +195,13 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
 
           <button className={styles.artistCard} type="button" onClick={handleArtistNavigation}>
             <div className={styles.artistCardHeader}>
-              <h4>关于艺人</h4>
-              <span>转至艺人</span>
+              <h4>About the artist</h4>
+              <span>Open artist search</span>
             </div>
             <div className={styles.artistCardBody}>
-              <img className={styles.artistAvatar} src={currentArtist?.imageUrl || coverSrc} alt={displayArtistName || '艺人头像'} />
+              <img className={styles.artistAvatar} src={currentArtist?.imageUrl || coverSrc} alt={displayArtistName || 'Artist avatar'} />
               <div className={styles.artistSummary}>
-                <strong>{displayArtistName || '待接入艺人信息'}</strong>
+                <strong>{displayArtistName || 'Artist details pending'}</strong>
                 <p>{artistSummary}</p>
               </div>
             </div>
@@ -207,8 +209,8 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
 
           <section className={styles.card}>
             <button className={styles.cardHeaderButton} type="button" onClick={() => setCreditsExpanded((current) => !current)}>
-              <h4>歌曲提供者</h4>
-              <span>{creditsExpanded ? '收起' : '展开'}</span>
+              <h4>Track credits</h4>
+              <span>{creditsExpanded ? 'Collapse' : 'Expand'}</span>
             </button>
             <div className={styles.creditList}>
               {credits.slice(0, creditsExpanded ? credits.length : 3).map((credit) => (
@@ -222,9 +224,9 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
 
           <section className={styles.card}>
             <div className={styles.cardHeader}>
-              <h4>队列中的下一首歌</h4>
+              <h4>Up next</h4>
               <button className={styles.inlineTextButton} type="button" onClick={onToggleQueue}>
-                打开队列
+                Open queue
               </button>
             </div>
 
@@ -237,7 +239,7 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
                 </div>
               </button>
             ) : (
-              <div className={styles.emptyState}>当前歌单中没有下一首歌。</div>
+              <div className={styles.emptyState}>No next track is available in the current playlist context.</div>
             )}
           </section>
         </div>
@@ -265,5 +267,5 @@ const mapStateToProps = (state) => {
 export default connect(mapStateToProps)(CurrentPlayingPanel)
 
 function formatFollowers(count) {
-  return new Intl.NumberFormat('zh-CN').format(count)
+  return new Intl.NumberFormat('en-US').format(count)
 }

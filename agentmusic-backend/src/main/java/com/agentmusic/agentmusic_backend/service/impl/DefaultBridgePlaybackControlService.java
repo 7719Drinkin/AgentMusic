@@ -226,7 +226,7 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
         PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
         return spotifyBridgeAuthService.getValidAccessToken()
                 .map(accessToken -> {
-                    String resolvedDeviceId = resolveTargetDeviceId(accessToken, userId, deviceId);
+                    String resolvedDeviceId = resolveTransferDeviceId(accessToken, deviceId);
                     if (resolvedDeviceId == null) {
                         return current;
                     }
@@ -244,6 +244,38 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
                     );
                 })
                 .orElse(current);
+    }
+
+    private String resolveTransferDeviceId(String accessToken, String requestedDeviceId) {
+        if (requestedDeviceId == null || requestedDeviceId.isBlank()) {
+            throw new IllegalArgumentException("Playback device id is required for transfer.");
+        }
+
+        List<SpotifyBridgeDevice> availableDevices = spotifyPlaybackClient.getAvailableDevices(accessToken).stream()
+                .filter(device -> device.id() != null && !device.id().isBlank())
+                .toList();
+        if (availableDevices.isEmpty()) {
+            throw new SpotifyPlaybackUnavailableException(
+                    "Spotify did not report any available devices. Keep the same bridge account Web Player or desktop client online."
+            );
+        }
+
+        return availableDevices.stream()
+                .filter(device -> requestedDeviceId.equals(device.id()))
+                .findFirst()
+                .map(device -> {
+                    if (device.restricted()) {
+                        throw new SpotifyPlaybackUnavailableException(
+                                ApiErrorCodes.DEVICE_RESTRICTED,
+                                "Selected Spotify device is restricted. Switch to an active Web Player or desktop client."
+                        );
+                    }
+                    return device.id();
+                })
+                .orElseThrow(() -> new SpotifyPlaybackUnavailableException(
+                        ApiErrorCodes.DEVICE_OFFLINE,
+                        "Selected Spotify device is offline or no longer available. Refresh devices and try again."
+                ));
     }
 
     private String resolveTargetDeviceId(String accessToken, String userId, String requestedDeviceId) {

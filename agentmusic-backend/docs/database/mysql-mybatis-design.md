@@ -220,6 +220,20 @@ Current required validation includes:
 - `sessions.current_track_index`
 - `users.preferences`
 
+Current startup diagnostics now report failures by stage:
+
+1. base schema application
+2. migration table initialization
+3. migration application
+4. schema validation
+
+The failure message now includes:
+
+- the stage name
+- the current database target description
+- a direct remediation hint
+- the original cause message
+
 ## E2E validation status
 
 Current browser-level validation is available through:
@@ -248,7 +262,7 @@ Operational prerequisite:
 
 ## Remaining implementation work
 
-- add more explicit user-facing diagnostics when startup migration fails
+- continue refining distinct startup failures such as missing table, missing column, and migration SQL syntax / permission errors
 - continue device list / device switch UI integration on top of the stabilized persistence path
 
 ## Current development note

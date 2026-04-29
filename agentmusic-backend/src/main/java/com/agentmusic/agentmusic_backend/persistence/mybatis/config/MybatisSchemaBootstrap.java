@@ -29,6 +29,8 @@ public class MybatisSchemaBootstrap {
 
     private static final Logger log = LoggerFactory.getLogger(MybatisSchemaBootstrap.class);
     private static final String SESSION_CONTEXT_MIGRATION = "20260425_add_session_context_columns.sql";
+    private static final String BASE_SCHEMA_RESOURCE = "db/mysql/schema.sql";
+    private static final String MIGRATION_RESOURCE_PATTERN = "classpath*:db/mysql/migrations/*.sql";
     private static final Set<String> REQUIRED_TABLES = Set.of(
             "users",
             "playlists",
@@ -52,17 +54,39 @@ public class MybatisSchemaBootstrap {
 
     @PostConstruct
     void initialize() {
-        applyBaseSchema();
-        ensureMigrationTable();
-        applyPendingMigrations();
-        validateSchema();
+        String databaseDescription = describeDatabaseTarget();
+        log.info("Initializing mybatis persistence bootstrap for {}", databaseDescription);
+        runBootstrapStage(
+                "base schema application",
+                databaseDescription,
+                () -> applyBaseSchema(databaseDescription),
+                "Verify MYSQL_URL / MYSQL_USERNAME / MYSQL_PASSWORD and confirm " + BASE_SCHEMA_RESOURCE + " is present."
+        );
+        runBootstrapStage(
+                "migration table initialization",
+                databaseDescription,
+                this::ensureMigrationTable,
+                "Verify the database user can create and update schema_migrations."
+        );
+        runBootstrapStage(
+                "migration application",
+                databaseDescription,
+                () -> applyPendingMigrations(databaseDescription),
+                "Inspect db/mysql/migrations/*.sql and schema_migrations for partially applied changes."
+        );
+        runBootstrapStage(
+                "schema validation",
+                databaseDescription,
+                this::validateSchema,
+                "Check db/mysql/schema.sql, db/mysql/migrations, and the live database schema."
+        );
     }
 
-    private void applyBaseSchema() {
-        Resource schema = new ClassPathResource("db/mysql/schema.sql");
+    private void applyBaseSchema(String databaseDescription) {
+        Resource schema = new ClassPathResource(BASE_SCHEMA_RESOURCE);
         ResourceDatabasePopulator populator = new ResourceDatabasePopulator(false, false, "UTF-8", schema);
         populator.execute(dataSource);
-        log.info("Ensured base MySQL schema from db/mysql/schema.sql");
+        log.info("Ensured base MySQL schema from {} for {}", BASE_SCHEMA_RESOURCE, databaseDescription);
     }
 
     private void ensureMigrationTable() {
@@ -74,11 +98,13 @@ public class MybatisSchemaBootstrap {
                 """);
     }
 
-    private void applyPendingMigrations() {
+    private void applyPendingMigrations(String databaseDescription) {
         Set<String> appliedMigrations = new HashSet<>(jdbcTemplate.query(
                 "SELECT migration_name FROM schema_migrations",
                 (resultSet, rowNum) -> resultSet.getString(1)
         ));
+        int appliedCount = 0;
+        int recordedSatisfiedCount = 0;
 
         for (Resource resource : loadMigrationResources()) {
             String migrationName = resource.getFilename();
@@ -90,24 +116,44 @@ public class MybatisSchemaBootstrap {
             }
             if (isAlreadySatisfied(migrationName)) {
                 recordMigration(migrationName);
+                recordedSatisfiedCount++;
+                log.info("Recorded already satisfied MySQL migration {} for {}", migrationName, databaseDescription);
                 continue;
             }
 
             ResourceDatabasePopulator populator = new ResourceDatabasePopulator(false, false, "UTF-8", resource);
-            populator.execute(dataSource);
-            recordMigration(migrationName);
-            log.info("Applied MySQL migration {}", migrationName);
+            try {
+                populator.execute(dataSource);
+                recordMigration(migrationName);
+                appliedCount++;
+                log.info("Applied MySQL migration {} for {}", migrationName, databaseDescription);
+            } catch (RuntimeException exception) {
+                throw new IllegalStateException(
+                        "Failed while applying MySQL migration " + migrationName
+                                + ". Check db/mysql/migrations and schema_migrations for partial state.",
+                        exception
+                );
+            }
         }
+        log.info(
+                "MySQL migration scan completed for {}. Applied={}, alreadySatisfied={}",
+                databaseDescription,
+                appliedCount,
+                recordedSatisfiedCount
+        );
     }
 
     private List<Resource> loadMigrationResources() {
         try {
-            Resource[] resources = resourceResolver.getResources("classpath*:db/mysql/migrations/*.sql");
+            Resource[] resources = resourceResolver.getResources(MIGRATION_RESOURCE_PATTERN);
             List<Resource> result = new ArrayList<>(List.of(resources));
             result.sort(Comparator.comparing(resource -> resource.getFilename() == null ? "" : resource.getFilename()));
             return result;
         } catch (IOException exception) {
-            throw new IllegalStateException("Failed to load MySQL migration resources", exception);
+            throw new IllegalStateException(
+                    "Failed to load MySQL migration resources from " + MIGRATION_RESOURCE_PATTERN,
+                    exception
+            );
         }
     }
 
@@ -157,7 +203,11 @@ public class MybatisSchemaBootstrap {
                 return resultSet.next();
             }
         } catch (SQLException exception) {
-            throw new IllegalStateException("Failed to inspect MySQL table metadata for " + tableName, exception);
+            throw new IllegalStateException(
+                    "Failed to inspect MySQL table metadata for " + tableName
+                            + ". Check database connectivity and metadata permissions.",
+                    exception
+            );
         }
     }
 
@@ -182,6 +232,55 @@ public class MybatisSchemaBootstrap {
                     "Failed to inspect MySQL column metadata for " + tableName + "." + columnName,
                     exception
             );
+        }
+    }
+
+    private void runBootstrapStage(
+            String stageName,
+            String databaseDescription,
+            Runnable action,
+            String remediation
+    ) {
+        try {
+            action.run();
+        } catch (RuntimeException exception) {
+            throw new IllegalStateException(
+                    formatBootstrapFailureMessage(stageName, databaseDescription, remediation, exception.getMessage()),
+                    exception
+            );
+        }
+    }
+
+    public static String formatBootstrapFailureMessage(
+            String stageName,
+            String databaseDescription,
+            String remediation,
+            String causeMessage
+    ) {
+        StringBuilder builder = new StringBuilder()
+                .append("Mybatis persistence bootstrap failed during ")
+                .append(stageName)
+                .append(". Target=")
+                .append(databaseDescription)
+                .append(". ")
+                .append(remediation);
+        if (causeMessage != null && !causeMessage.isBlank()) {
+            builder.append(" Cause: ").append(causeMessage);
+        }
+        return builder.toString();
+    }
+
+    private String describeDatabaseTarget() {
+        try (Connection connection = dataSource.getConnection()) {
+            String catalog = connection.getCatalog();
+            String url = connection.getMetaData().getURL();
+            if (catalog != null && !catalog.isBlank()) {
+                return catalog + " @ " + url;
+            }
+            return url;
+        } catch (SQLException exception) {
+            log.warn("Failed to describe MySQL connection target for bootstrap diagnostics", exception);
+            return "unresolved-mysql-target";
         }
     }
 }

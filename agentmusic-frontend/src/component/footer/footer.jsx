@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { connect } from 'react-redux'
 import { syncPlaybackSession as syncPlaybackSessionAction } from '../../actions'
-import { getErrorMessage } from '../../api/http'
+import { getErrorCode, getErrorMessage } from '../../api/http'
 import { fetchArtist, fetchTrack } from '../../api/music'
 import {
   changePlaybackMode,
@@ -34,8 +34,24 @@ function resolvePlaybackError(error, fallbackMessage) {
   return getErrorMessage(error, fallbackMessage)
 }
 
-function resolveDeviceError(error, fallbackMessage) {
-  return getErrorMessage(error, fallbackMessage)
+function resolveDeviceFeedback(error, fallbackMessage) {
+  const code = getErrorCode(error)
+  const message = getErrorMessage(error, fallbackMessage)
+
+  switch (code) {
+    case 'spotify-device-offline':
+      return { code, message, tone: 'warning' }
+    case 'spotify-device-restricted':
+      return { code, message, tone: 'warning' }
+    case 'spotify-device-unavailable':
+      return { code, message, tone: 'warning' }
+    case 'spotify-authorization':
+    case 'spotify-network':
+    case 'server-failure':
+      return { code, message, tone: 'error' }
+    default:
+      return { code, message, tone: 'error' }
+  }
 }
 
 function Footer(props) {
@@ -125,15 +141,18 @@ function Footer(props) {
 
     try {
       const deviceList = await fetchPlaybackDevices(DEMO_USER_ID)
-      setDevices(Array.isArray(deviceList) ? deviceList : [])
+      const normalizedDeviceList = Array.isArray(deviceList) ? deviceList : []
+      setDevices(normalizedDeviceList)
       setDevicePanelMessage('')
       setDevicePanelTone('info')
       setPlaybackError('')
+      return normalizedDeviceList
     } catch (error) {
-      const message = resolveDeviceError(error, 'Failed to load playback devices.')
-      setDevicePanelMessage(message)
-      setDevicePanelTone('error')
-      setPlaybackError(message)
+      const feedback = resolveDeviceFeedback(error, 'Failed to load playback devices.')
+      setDevicePanelMessage(feedback.message)
+      setDevicePanelTone(feedback.tone)
+      setPlaybackError(feedback.message)
+      return []
     } finally {
       if (!silent) {
         setIsDevicesLoading(false)
@@ -366,8 +385,8 @@ function Footer(props) {
       setIsDeviceBusy(true)
       const session = await transferPlayback(DEMO_USER_ID, deviceId, props.isPlaying)
       await applyPlaybackSession(session)
-      await refreshDevices({ silent: true })
-      const nextDevice = devices.find((item) => item.id === deviceId)
+      const refreshedDevices = await refreshDevices({ silent: true })
+      const nextDevice = refreshedDevices.find((item) => item.id === deviceId)
       setDevicePanelMessage(
         nextDevice?.name
           ? `Switched playback to ${nextDevice.name}.`
@@ -377,10 +396,10 @@ function Footer(props) {
       setPlaybackError('')
       return true
     } catch (error) {
-      const message = resolveDeviceError(error, 'Failed to switch playback device.')
-      setDevicePanelMessage(message)
-      setDevicePanelTone('error')
-      setPlaybackError(message)
+      const feedback = resolveDeviceFeedback(error, 'Failed to switch playback device.')
+      setDevicePanelMessage(feedback.message)
+      setDevicePanelTone(feedback.tone)
+      setPlaybackError(feedback.message)
       return false
     } finally {
       setIsDeviceBusy(false)
