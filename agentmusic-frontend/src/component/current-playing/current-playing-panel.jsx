@@ -112,6 +112,13 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
   )
   const credits = useMemo(() => buildCredits(currentTrack, displayArtistName), [currentTrack, displayArtistName])
   const currentTrackBadge = currentTrack?.albumName ? `From ${currentTrack.albumName}` : 'Live playback context'
+  const queueSize = playlistDetail?.tracks?.length ?? 0
+  const currentOrdinal = queueSize > 0
+    ? Math.min(Math.max((currentTrackIndex ?? 0) + 1, 1), queueSize)
+    : 0
+  const remainingQueueCount = queueSize > 0 && currentOrdinal > 0
+    ? Math.max(queueSize - currentOrdinal, 0)
+    : 0
 
   const handleArtistNavigation = () => {
     if (!displayArtistName) {
@@ -181,6 +188,17 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
         </header>
 
         <div className={styles.content}>
+          <section className={styles.contextStrip}>
+            <span className={styles.contextPill}>
+              {queueSize > 0 ? `Track ${currentOrdinal} of ${queueSize}` : 'Playlist context pending'}
+            </span>
+            <span className={styles.contextDetail}>
+              {queueSize > 0
+                ? `${remainingQueueCount} track${remainingQueueCount === 1 ? '' : 's'} queued after this`
+                : 'Queue details will appear after recommendation playback starts.'}
+            </span>
+          </section>
+
           <div className={styles.coverSection}>
             <img className={styles.coverArt} src={coverSrc} alt={currentTrack?.title || 'Current track cover'} />
           </div>
@@ -196,7 +214,7 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
           <button className={styles.artistCard} type="button" onClick={handleArtistNavigation}>
             <div className={styles.artistCardHeader}>
               <h4>About the artist</h4>
-              <span>Open artist search</span>
+              <span>Open artist spotlight</span>
             </div>
             <div className={styles.artistCardBody}>
               <img className={styles.artistAvatar} src={currentArtist?.imageUrl || coverSrc} alt={displayArtistName || 'Artist avatar'} />
@@ -229,6 +247,11 @@ function CurrentPlayingPanel({ trackData, currentPlaylistId, currentTrackIndex, 
                 Open queue
               </button>
             </div>
+            <p className={styles.cardSubline}>
+              {remainingQueueCount > 0
+                ? `${remainingQueueCount} more track${remainingQueueCount === 1 ? '' : 's'} follow in the current playlist context.`
+                : 'No additional queued tracks are available after the current selection.'}
+            </p>
 
             {nextQueueItem ? (
               <button className={styles.nextTrackButton} type="button" onClick={handlePlayNext}>

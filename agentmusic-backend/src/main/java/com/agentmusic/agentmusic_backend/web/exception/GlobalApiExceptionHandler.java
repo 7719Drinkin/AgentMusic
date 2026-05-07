@@ -22,6 +22,12 @@ public class GlobalApiExceptionHandler {
                 .body(new ApiErrorResponse(exception.code(), exception.getMessage()));
     }
 
+    @ExceptionHandler(ApiRequestFailureException.class)
+    public ResponseEntity<ApiErrorResponse> handleApiRequestFailure(ApiRequestFailureException exception) {
+        return ResponseEntity.status(exception.status())
+                .body(new ApiErrorResponse(exception.code(), exception.getMessage()));
+    }
+
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleNotFound(NotFoundException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)

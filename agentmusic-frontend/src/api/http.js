@@ -2,6 +2,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080
 
 const ERROR_CODE = {
   AUTHORIZATION: 'spotify-authorization',
+  AUTHORIZATION_MISSING: 'spotify-authorization-missing',
   AUTHORIZATION_STATE: 'spotify-authorization-state',
   BRIDGE_DISABLED: 'spotify-bridge-disabled',
   DEVICE_UNAVAILABLE: 'spotify-device-unavailable',
@@ -104,44 +105,22 @@ function normalizeBackendErrorCode(errorCode) {
 function classifyErrorCode(path, status, detailMessage) {
   const detail = detailMessage.toLowerCase()
   const isPlaybackPath = path.startsWith('/api/playback/')
+  const isAuthPath = path.startsWith('/api/auth/spotify/')
 
-  if (
-    detail.includes('invalid or expired spotify bridge authorization state') ||
-    detail.includes('authorization state is invalid or expired')
-  ) {
-    return ERROR_CODE.AUTHORIZATION_STATE
-  }
-
-  if (detail.includes('spotify bridge mode is disabled')) {
-    return ERROR_CODE.BRIDGE_DISABLED
-  }
-
-  if (
-    detail.includes('authorization expired') ||
-    detail.includes('authorization is invalid')
-  ) {
+  if ((isPlaybackPath || isAuthPath) && status === 401) {
     return ERROR_CODE.AUTHORIZATION
   }
 
-  if (
-    detail.includes('offline') ||
-    detail.includes('no longer available')
-  ) {
-    return ERROR_CODE.DEVICE_OFFLINE
+  if ((isPlaybackPath || isAuthPath) && status === 503) {
+    return ERROR_CODE.BRIDGE_DISABLED
   }
 
-  if (
-    detail.includes('web player') ||
-    detail.includes('desktop client online') ||
-    detail.includes('target device') ||
-    detail.includes('device is offline') ||
-    detail.includes('device unavailable')
-  ) {
-    return ERROR_CODE.DEVICE_UNAVAILABLE
-  }
-
-  if (detail.includes('restricted')) {
+  if (isPlaybackPath && status === 403) {
     return ERROR_CODE.DEVICE_RESTRICTED
+  }
+
+  if (isPlaybackPath && status === 404) {
+    return ERROR_CODE.DEVICE_UNAVAILABLE
   }
 
   if (
@@ -178,6 +157,8 @@ function toUserMessage(path, status, code, detailMessage) {
     case ERROR_CODE.AUTHORIZATION:
     case ERROR_CODE.AUTHORIZATION_STATE:
       return 'Spotify bridge authorization expired or is invalid. Reconnect the bridge account and try again.'
+    case ERROR_CODE.AUTHORIZATION_MISSING:
+      return 'Spotify bridge account is not connected. Reconnect the bridge account and try again.'
     case ERROR_CODE.BRIDGE_DISABLED:
       return 'Spotify bridge mode is disabled on the backend. Enable the bridge configuration and try again.'
     case ERROR_CODE.DEVICE_UNAVAILABLE:

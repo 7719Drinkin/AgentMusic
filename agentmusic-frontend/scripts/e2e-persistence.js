@@ -213,10 +213,7 @@ async function run() {
       }
     }
 
-    const songRows = page.locator('button').filter({
-      has: page.locator('img'),
-      has: page.locator('strong'),
-    })
+    const songRows = page.getByTestId('playlist-song-row')
     await songRows.first().waitFor({ timeout: 15000 })
     const songRowCount = await songRows.count()
     const firstSongTitle = songRowCount > 0

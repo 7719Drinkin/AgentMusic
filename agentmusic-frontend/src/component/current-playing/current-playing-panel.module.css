@@ -38,6 +38,34 @@
     min-height: 1px;
     flex-shrink: 0;
 }
+.contextStrip{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+    border: 1px solid rgba(255,255,255,0.08);
+}
+.contextPill{
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: rgba(29,185,84,0.14);
+    color: #d8ffe6;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+.contextDetail{
+    color: rgba(255,255,255,0.74);
+    font-size: 12px;
+    line-height: 1.45;
+}
 .content::-webkit-scrollbar{
     width: 8px;
 }
@@ -92,6 +120,10 @@
     transition: opacity 0.18s ease, background-color 0.18s ease;
 }
 .panelShell:hover .headerAction{
+    opacity: 1;
+}
+
+.panelShell:focus-within .headerAction{
     opacity: 1;
 }
 .headerAction:hover{
@@ -219,6 +251,12 @@
 .card{
     padding: 16px;
 }
+.cardSubline{
+    margin: 10px 0 0;
+    color: rgba(255,255,255,0.64);
+    font-size: 12px;
+    line-height: 1.45;
+}
 .cardHeaderButton{
     width: 100%;
     border: 0;
@@ -314,4 +352,10 @@
     margin-top: 14px;
     color: rgba(255,255,255,0.6);
     font-size: 13px;
+}
+
+@media (hover: none) {
+    .headerAction{
+        opacity: 1;
+    }
 }

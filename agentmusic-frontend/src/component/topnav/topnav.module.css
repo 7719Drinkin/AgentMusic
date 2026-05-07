@@ -1,68 +1,206 @@
-.Topnav{
-    position: sticky;
-    top: 0;
-    right: 0;
-    left: 0;
-    height: 60px;
-    z-index: 99;
-    background-color: transparent;
+.Topnav {
+  position: sticky;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 99;
+  padding: 14px 16px 0;
 }
-.Topnav div{
-    padding: 0px 32px;
-    height: 60px;
-    display: flex;
-    align-items: center;
+
+.Bar {
+  width: min(100%, 1320px);
+  margin: 0 auto;
+  min-height: 58px;
+  padding: 11px 16px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background:
+    radial-gradient(circle at top left, rgba(29, 185, 84, 0.12), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.018)),
+    rgba(13, 14, 14, 0.74);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 18px 38px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(18px);
+}
+
+.HistoryRail {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.034);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.HistoryButton {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.74);
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.HistoryButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.RouteCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.Eyebrow {
+  margin: 0;
+  color: rgba(151, 226, 181, 0.86);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.RouteRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.RouteRow h2 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+
+.Detail {
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.NavCluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  justify-self: end;
+  min-width: 0;
+}
+
+.RouteSwitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.RouteSwitch a {
+  min-height: 32px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.RouteSwitch a:hover {
+  color: #fff;
+}
+
+.RouteSwitch a.ActiveRoute {
+  background: rgba(255, 255, 255, 0.11);
+  color: #fff;
+}
+
+.ProfileBadge {
+  min-height: 32px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 980px) {
+  .Topnav {
+    padding: 12px 12px 0;
+  }
+
+  .Bar {
+    grid-template-columns: auto 1fr;
+  }
+
+  .NavCluster {
+    grid-column: 1 / -1;
     justify-content: space-between;
+  }
 }
-.Topnav div div{
-    position: relative;
-    margin: 0;
-    padding: 0;
-    display: inline-block;
-    height: auto;
-}
-.Topnav span {
-    display: flex;
-    align-items: center;
-}
-.ProfileBtn{
-    border: none;
-    height: 32px;
-    padding: 0px 16px;
-    border-radius: 16px;
-    background-color: rgba(0,0,0,.7);
-    color: #fff;
-}
-@media screen and (max-width: 640px) {
-    .Topnav{
-        background-color: #121212;
-        height: 50px;
-    }
-    .Topnav div{
-        height: 50px;
-        padding: 0px 16px;
-    }
-    .Topnav div div{
-        position: absolute;
-        left: 0;
-        top: 46px;
-        right: 0;
-        padding: 8px 16px;
-        background: #121212;
-        border-top: 1px solid #333333;
-        border-bottom: 1px solid #333333;
-    }
-    .Topnav div nav{
-        position: absolute;
-        left: 0;
-        top: 46px;
-        right: 0;
-        padding: 8px 16px;
-        background: #121212;
-        border-top: 1px solid #333333;
-        border-bottom: 1px solid #333333;
-        display: grid;
-        grid-template-columns: 128px 106px 98px 94px;
-        overflow-x: scroll;
-    }
+
+@media screen and (max-width: 760px) {
+  .Topnav {
+    padding: 10px 10px 0;
+  }
+
+  .Bar {
+    padding: 10px 12px;
+    gap: 10px;
+    border-radius: 18px;
+  }
+
+  .RouteRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .Detail {
+    white-space: normal;
+  }
+
+  .NavCluster {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .RouteSwitch {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .RouteSwitch a {
+    flex: 1 1 0;
+  }
+
+  .ProfileBadge {
+    justify-content: center;
+  }
 }

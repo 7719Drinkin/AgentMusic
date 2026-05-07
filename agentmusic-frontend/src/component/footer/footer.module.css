@@ -6,6 +6,7 @@
     height: auto;
     width: 100%;
     z-index: 9;
+    padding: 0 12px 12px;
 }
 .PlaybackError{
     padding: 10px 16px;
@@ -17,24 +18,32 @@
 }
 .nowplayingbar{
     display: grid;
-    grid-template-columns: 30% 40% 30%;
-    background-color: var(--card-background);
-    border-top: 1px solid var(--sidenav-active);
-    padding: 17px 16px;
+    grid-template-columns: minmax(250px, 1.05fr) minmax(360px, 1.35fr) minmax(250px, 1fr);
+    background:
+        linear-gradient(180deg, rgba(31,31,31,.96), rgba(22,22,22,.98));
+    border: 1px solid rgba(255,255,255,.06);
+    border-top-color: rgba(255,255,255,.08);
+    border-radius: 24px;
+    padding: 16px 18px;
+    gap: 18px;
     color: #fff;
+    box-shadow: 0 18px 42px rgba(0,0,0,.34);
 }
 .footerMid{
     display: flex;
     flex-direction: column;
     align-items: center;
+    min-width: 0;
 }
 @media screen and (max-width: 640px) {
     .footer{
         bottom: 45px;
+        padding: 0 8px 8px;
     }
     .nowplayingbar{
-        padding: 8px 16px;
+        padding: 10px 14px;
         grid-template-columns: 1fr;
         row-gap: 16px;
+        border-radius: 20px;
     }
 }

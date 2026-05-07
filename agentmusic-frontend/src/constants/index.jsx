@@ -18,31 +18,6 @@ export const MENU = [
     icon: <Icon.Library />,
     iconSelected: <Icon.LibraryActive />,
   },
-  {
-    title: 'Search',
-    path: '/search',
-    icon: <Icon.Search />,
-    iconSelected: <Icon.SearchActive />,
-  },
-  {
-    title: 'Library',
-    path: '/library',
-    icon: <Icon.Like />,
-    iconSelected: <Icon.LikeActive />,
-  },
-]
-
-export const PLAYLISTBTN = [
-  {
-    title: 'Create Playlist',
-    path: '/',
-    ImgName: 'createPlaylist',
-  },
-  {
-    title: 'Liked Songs',
-    path: '/library',
-    ImgName: 'popularSong',
-  },
 ]
 
 export const LIBRARYTABS = [

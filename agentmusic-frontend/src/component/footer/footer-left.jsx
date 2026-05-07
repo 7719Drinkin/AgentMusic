@@ -28,7 +28,7 @@ function FooterLeft({ trackData, onOpenNowPlayingPanel }) {
         className={styles.coverButton}
         type="button"
         onClick={() => onOpenNowPlayingPanel?.()}
-        aria-label="打开当前播放栏"
+        aria-label="Open now playing view"
       >
         <ImgBox trackData={trackData} />
       </button>
@@ -37,16 +37,16 @@ function FooterLeft({ trackData, onOpenNowPlayingPanel }) {
         className={styles.footerIcon}
         icon={<Icons.Like />}
         activeicon={<Icons.LikeActive />}
-        tooltip="加入歌单"
-        ariaLabel="加入歌单"
+        tooltip="Save to playlist"
+        ariaLabel="Save to playlist"
         disabled={!hasTrack}
       />
       <IconButton
         className={styles.footerIcon}
         icon={<Icons.Corner />}
         activeicon={<Icons.Corner />}
-        tooltip="打开当前播放栏"
-        ariaLabel="打开当前播放栏"
+        tooltip="Open now playing view"
+        ariaLabel="Open now playing view"
         onClick={() => onOpenNowPlayingPanel?.()}
         toggleOnClick={false}
         disabled={!hasTrack}
@@ -60,7 +60,7 @@ function ImgBox({ trackData }) {
 
   return (
     <div className={styles.imgBox}>
-      <img src={coverSrc} alt={trackData.trackName || '当前曲目封面'} />
+      <img src={coverSrc} alt={trackData.trackName || 'Current track cover'} />
     </div>
   )
 }
@@ -69,10 +69,10 @@ function SongDetails({ trackData, onOpenPanel, onArtistClick }) {
   return (
     <div className={styles.songDetails}>
       <button className={styles.trackLink} type="button" onClick={() => onOpenPanel?.()}>
-        {trackData.trackName || '暂无播放'}
+        {trackData.trackName || 'Nothing playing yet'}
       </button>
       <button className={styles.artistLink} type="button" onClick={onArtistClick}>
-        {trackData.trackArtist || '等待推荐'}
+        {trackData.trackArtist || 'Waiting for recommendation'}
       </button>
     </div>
   )

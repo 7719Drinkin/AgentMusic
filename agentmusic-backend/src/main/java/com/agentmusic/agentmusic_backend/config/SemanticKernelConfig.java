@@ -16,13 +16,14 @@ public class SemanticKernelConfig {
 
     @Bean
     public Kernel kernel(OpenAiProperties openAiProperties) {
-        if (openAiProperties == null || !StringUtils.hasText(openAiProperties.apiKey())) {
+        if (openAiProperties == null || !StringUtils.hasText(openAiProperties.resolvedApiKey())) {
             return Kernel.builder().build();
         }
 
+        String endpoint = normalizeEndpoint(openAiProperties.baseUrl());
         OpenAIAsyncClient client = new OpenAIClientBuilder()
-                .credential(new KeyCredential(openAiProperties.apiKey()))
-                .endpoint("https://api.openai.com")
+                .credential(new KeyCredential(openAiProperties.resolvedApiKey()))
+                .endpoint(endpoint)
                 .buildAsyncClient();
 
         OpenAIChatCompletion chatCompletion = OpenAIChatCompletion.builder()
@@ -33,5 +34,20 @@ public class SemanticKernelConfig {
         return Kernel.builder()
                 .withAIService(OpenAIChatCompletion.class, chatCompletion)
                 .build();
+    }
+
+    private String normalizeEndpoint(String baseUrl) {
+        if (!StringUtils.hasText(baseUrl)) {
+            return "https://api.openai.com";
+        }
+
+        String normalized = baseUrl.trim();
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        if (normalized.endsWith("/v1")) {
+            normalized = normalized.substring(0, normalized.length() - 3);
+        }
+        return normalized;
     }
 }

@@ -23,6 +23,7 @@ function ChatPage() {
   const streamRef = useRef(null)
 
   const hasMessages = messages.length > 0
+  const ghostPrompt = hasMessages ? CHAT_SUGGESTIONS[0] : EMPTY_STATE_PROMPTS[0]
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current
@@ -59,7 +60,7 @@ function ChatPage() {
           return
         }
 
-        setErrorMessage(resolveChatError(error, '加载聊天历史失败。'))
+        setErrorMessage(resolveChatError(error, 'Failed to load chat history.'))
       } finally {
         if (!cancelled) {
           setIsLoadingHistory(false)
@@ -109,13 +110,13 @@ function ChatPage() {
         window.dispatchEvent(new CustomEvent('agentmusic:playback-session-updated'))
       }
     } catch (error) {
-      const message = resolveChatError(error, '发送消息失败。')
+      const message = resolveChatError(error, 'Failed to send the message.')
       setMessages((current) => [
         ...current,
         {
           id: `local-agent-error-${Date.now()}`,
           role: 'AGENT',
-          message: `Agent 请求失败：${message}`,
+          message: `Agent request failed: ${message}`,
         },
       ])
       setErrorMessage(message)
@@ -125,89 +126,136 @@ function ChatPage() {
   }
 
   const handleKeyDown = (event) => {
+    if ((event.key === 'Tab' || (event.key === 'Enter' && !event.shiftKey)) && !input.trim()) {
+      event.preventDefault()
+      acceptGhostPrompt()
+      return
+    }
+
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       submitMessage(input)
     }
   }
 
+  const acceptGhostPrompt = () => {
+    if (isSending || input.trim() || !ghostPrompt) {
+      return
+    }
+
+    setInput(ghostPrompt)
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus()
+    })
+  }
+
   return (
     <div className={styles.ChatPage}>
+      <div className={styles.Bg}></div>
+      <div className={styles.HoverBg}></div>
+
       <Topnav />
 
       <div className={styles.PageShell}>
         {!hasMessages && !isLoadingHistory ? (
-          <section className={styles.EmptyState}>
-            <div className={styles.EmptyContent}>
-              <p className={styles.Kicker}>AgentMusic</p>
-              <h1>你想听什么？</h1>
+          <section className={styles.EmptyFrame} data-testid="chat-empty-frame">
+            <div className={styles.EmptyHero}>
+              <div className={styles.EmptyEyebrowRow}>
+                <p className={styles.Kicker}>AgentMusic</p>
+                <span className={styles.ContextPill}>Conversation-first control</span>
+              </div>
+              <h1>Describe what you want to hear.</h1>
               <p className={styles.Subtitle}>
-                直接描述你想听的风格、场景或播放需求，Agent 会先理解意图，再生成推荐和播放动作。
+                Ask for a mood, a scene, an artist, or a playback change. AgentMusic will interpret the request,
+                create the recommendation, and move playback with the same thread.
               </p>
               <div className={styles.EmptyActions}>
                 <Link className={styles.SecondaryLink} to="/music">
-                  打开音乐主界面
+                  Open Music Home
                 </Link>
               </div>
+            </div>
+
+            <div className={styles.EmptyComposerBlock}>
               <Composer
                 input={input}
                 textareaRef={textareaRef}
                 onInputChange={setInput}
                 onKeyDown={handleKeyDown}
                 onSubmit={submitMessage}
+                onAcceptGhostPrompt={acceptGhostPrompt}
+                ghostPrompt={ghostPrompt}
                 centered
                 disabled={isSending}
               />
               {errorMessage ? <p className={styles.StatusText}>{errorMessage}</p> : null}
-              <div className={styles.PromptGrid}>
-                {EMPTY_STATE_PROMPTS.map((prompt) => (
-                  <button
-                    key={prompt}
-                    className={styles.PromptCard}
-                    type="button"
-                    onClick={() => setInput(prompt)}
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
             </div>
           </section>
         ) : (
-          <section className={styles.ChatLayout}>
+          <section className={styles.ChatFrame} data-testid="chat-frame">
             <header className={styles.ChatHeader}>
-              <div>
-                <p className={styles.Kicker}>智能聊天</p>
-                <h1>对话中</h1>
+              <div className={styles.ChatHeaderCopy}>
+                <p className={styles.Kicker}>Active thread</p>
+                <h1>Agent conversation</h1>
               </div>
               <div className={styles.ChatHeaderActions}>
                 <button
                   className={styles.MinimalButton}
                   type="button"
-                  onClick={() => setMessages([])}
+                  onClick={() => {
+                    setMessages([])
+                    setErrorMessage('')
+                  }}
                 >
-                  新建对话
+                  New thread
                 </button>
                 <Link className={styles.SecondaryLink} to="/music">
-                  切换到音乐主界面
+                  Open Music Home
                 </Link>
               </div>
             </header>
 
-            <div ref={streamRef} className={styles.ChatStream}>
+            <div ref={streamRef} className={styles.ChatStream} data-testid="chat-stream">
               {isLoadingHistory ? (
-                <p className={styles.StatusText}>正在加载聊天历史...</p>
+                <p className={styles.StatusText}>Loading chat history...</p>
               ) : null}
-              {messages.map((item) => (
+
+              {messages.map((item) => {
+                const isAgent = item.role === 'AGENT'
+                return (
+                  <article
+                    key={item.id}
+                    className={`${styles.MessageRow} ${isAgent ? styles.AgentRow : styles.UserRow}`.trim()}
+                    data-testid="chat-message-row"
+                  >
+                    <div className={styles.MessageMeta}>
+                      <span className={styles.MessageRole}>{isAgent ? 'Agent' : 'You'}</span>
+                    </div>
+                    <div
+                      className={`${styles.MessageBubble} ${
+                        isAgent ? styles.AgentBubble : styles.UserBubble
+                      }`.trim()}
+                    >
+                      <p>{item.message}</p>
+                    </div>
+                  </article>
+                )
+              })}
+
+              {isSending ? (
                 <article
-                  key={item.id}
-                  className={`${styles.MessageBubble} ${
-                    item.role === 'AGENT' ? styles.AgentBubble : styles.UserBubble
-                  }`}
+                  className={`${styles.MessageRow} ${styles.AgentRow}`.trim()}
+                  data-testid="chat-message-pending"
                 >
-                  <p>{item.message}</p>
+                  <div className={styles.MessageMeta}>
+                    <span className={styles.MessageRole}>Agent</span>
+                  </div>
+                  <div className={`${styles.MessageBubble} ${styles.AgentBubble} ${styles.PendingBubble}`.trim()}>
+                    <p>Agent is thinking...</p>
+                  </div>
                 </article>
-              ))}
+              ) : null}
+
               {errorMessage ? <p className={styles.StatusText}>{errorMessage}</p> : null}
             </div>
 
@@ -218,20 +266,10 @@ function ChatPage() {
                 onInputChange={setInput}
                 onKeyDown={handleKeyDown}
                 onSubmit={submitMessage}
+                onAcceptGhostPrompt={acceptGhostPrompt}
+                ghostPrompt={ghostPrompt}
                 disabled={isSending}
               />
-              <div className={styles.SuggestionRow}>
-                {CHAT_SUGGESTIONS.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    className={styles.SuggestionChip}
-                    type="button"
-                    onClick={() => setInput(suggestion)}
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
             </div>
           </section>
         )}
@@ -246,6 +284,8 @@ function Composer({
   onInputChange,
   onKeyDown,
   onSubmit,
+  onAcceptGhostPrompt,
+  ghostPrompt,
   centered = false,
   disabled = false,
 }) {
@@ -256,6 +296,18 @@ function Composer({
   return (
     <div className={wrapperClassName}>
       <div className={styles.InputShell}>
+        <div className={styles.InputStage}>
+          {!input && !disabled ? (
+            <button
+              className={styles.GhostPrompt}
+              type="button"
+              onClick={onAcceptGhostPrompt}
+              onFocus={onAcceptGhostPrompt}
+            >
+              <span className={styles.GhostPromptText}>{ghostPrompt}</span>
+              <span className={styles.GhostPromptHint}>Tab or Enter to accept</span>
+            </button>
+          ) : null}
         <textarea
           ref={textareaRef}
           className={styles.ChatInput}
@@ -263,20 +315,22 @@ function Composer({
           value={input}
           onChange={(event) => onInputChange(event.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="给 AgentMusic 发送消息"
+          placeholder=""
           disabled={disabled}
+          tabIndex={input ? 0 : -1}
         />
+        </div>
         <div className={styles.InputActions}>
-          <TooltipIconButton tooltip="点击进行语音输入，或长按 Ctrl+M" disabled={disabled}>
+          <TooltipIconButton tooltip="Voice input" disabled={disabled}>
             <Sound />
           </TooltipIconButton>
           <TooltipIconButton
-            tooltip={disabled ? '发送中' : '发送'}
+            tooltip={disabled ? 'Sending' : 'Send'}
             filled
             disabled={disabled}
             onClick={() => onSubmit(input)}
           >
-            <span className={styles.SendArrow}>→</span>
+            <span className={styles.SendArrow}>-&gt;</span>
           </TooltipIconButton>
         </div>
       </div>

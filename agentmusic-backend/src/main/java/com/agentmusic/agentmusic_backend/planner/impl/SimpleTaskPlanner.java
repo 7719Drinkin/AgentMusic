@@ -6,6 +6,7 @@ import com.agentmusic.agentmusic_backend.planner.PlanStep;
 import com.agentmusic.agentmusic_backend.planner.PlanStepType;
 import com.agentmusic.agentmusic_backend.planner.PlanningContext;
 import com.agentmusic.agentmusic_backend.planner.TaskPlanner;
+import com.agentmusic.agentmusic_backend.planner.TaskPlanningResult;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -14,8 +15,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class SimpleTaskPlanner implements TaskPlanner {
 
+    public static final String SOURCE = "simple-task-planner";
+
     @Override
-    public AgentPlan createPlan(PlanningContext planningContext) {
+    public TaskPlanningResult createPlan(PlanningContext planningContext) {
         String message = planningContext.request().message() == null
                 ? ""
                 : planningContext.request().message().trim().toLowerCase();
@@ -43,7 +46,11 @@ public class SimpleTaskPlanner implements TaskPlanner {
         }
 
         steps.add(new PlanStep(steps.size() + 1, PlanStepType.PERSIST_CHAT_REPLY, Map.of()));
-        return new AgentPlan(intent, buildSummary(intent), List.copyOf(steps));
+        return new TaskPlanningResult(
+                new AgentPlan(intent, buildSummary(intent), List.copyOf(steps)),
+                SOURCE,
+                false
+        );
     }
 
     private AgentIntent classify(String message) {

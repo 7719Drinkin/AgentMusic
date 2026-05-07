@@ -2,10 +2,12 @@ package com.agentmusic.agentmusic_backend.service.impl;
 
 import com.agentmusic.agentmusic_backend.config.AgentChatProperties;
 import com.agentmusic.agentmusic_backend.config.OpenAiProperties;
-import com.agentmusic.agentmusic_backend.web.dto.AgentRuntimeStatusDto;
 import com.agentmusic.agentmusic_backend.service.LiveChatReplyService;
+import com.agentmusic.agentmusic_backend.web.dto.AgentRuntimeStatusDto;
+import com.agentmusic.agentmusic_backend.web.dto.ChatMessageDto;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,13 +34,13 @@ public class OpenAiLiveChatReplyService implements LiveChatReplyService {
         this.openAiProperties = openAiProperties;
         this.agentChatProperties = agentChatProperties;
         this.webClient = WebClient.builder()
-                .baseUrl("https://api.openai.com/v1")
+                .baseUrl(resolveBaseUrl(openAiProperties))
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
 
     @Override
-    public Optional<String> generateReply(List<String> recentMessages, String userMessage) {
+    public Optional<String> generateReply(List<ChatMessageDto> recentMessages, String userMessage) {
         if (!isEnabled() || !StringUtils.hasText(userMessage)) {
             return Optional.empty();
         }
@@ -50,27 +52,29 @@ public class OpenAiLiveChatReplyService implements LiveChatReplyService {
         ));
 
         recentMessages.stream()
-                .filter(StringUtils::hasText)
-                .limit(6)
+                .filter(message -> message != null && StringUtils.hasText(message.message()))
+                .sorted(Comparator.comparing(ChatMessageDto::createdAt).reversed())
+                .limit(Math.max(1, agentChatProperties.llmRecentMessageLimit()))
+                .sorted(Comparator.comparing(ChatMessageDto::createdAt))
                 .forEach(message -> messages.add(Map.of(
-                        "role", "user",
-                        "content", message
+                        "role", toOpenAiRole(message),
+                        "content", message.message().trim()
                 )));
 
         messages.add(Map.of(
                 "role", "user",
-                "content", userMessage
+                "content", userMessage.trim()
         ));
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", openAiProperties.chat().modelId());
         payload.put("messages", messages);
-        payload.put("temperature", 0.7);
+        payload.put("temperature", agentChatProperties.llmTemperature());
 
         try {
             Map<?, ?> response = webClient.post()
                     .uri("/chat/completions")
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + openAiProperties.apiKey())
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + openAiProperties.resolvedApiKey())
                     .bodyValue(payload)
                     .retrieve()
                     .bodyToMono(Map.class)
@@ -79,7 +83,7 @@ public class OpenAiLiveChatReplyService implements LiveChatReplyService {
             String content = extractMessageContent(response);
             return StringUtils.hasText(content) ? Optional.of(content.trim()) : Optional.empty();
         } catch (Exception exception) {
-            return Optional.of("实时 LLM 回复调用失败，已回退到本地占位逻辑。");
+            return Optional.of("Real-time LLM reply failed. Falling back to the local reply flow.");
         }
     }
 
@@ -87,7 +91,8 @@ public class OpenAiLiveChatReplyService implements LiveChatReplyService {
     public boolean isEnabled() {
         return agentChatProperties.liveLlmEnabled()
                 && openAiProperties != null
-                && StringUtils.hasText(openAiProperties.apiKey())
+                && StringUtils.hasText(openAiProperties.resolvedApiKey())
+                && StringUtils.hasText(openAiProperties.baseUrl())
                 && openAiProperties.chat() != null
                 && StringUtils.hasText(openAiProperties.chat().modelId());
     }
@@ -96,7 +101,7 @@ public class OpenAiLiveChatReplyService implements LiveChatReplyService {
     public AgentRuntimeStatusDto getRuntimeStatus() {
         return new AgentRuntimeStatusDto(
                 agentChatProperties.liveLlmEnabled(),
-                openAiProperties != null && StringUtils.hasText(openAiProperties.apiKey()),
+                openAiProperties != null && StringUtils.hasText(openAiProperties.resolvedApiKey()),
                 openAiProperties != null && openAiProperties.chat() != null
                         ? openAiProperties.chat().modelId()
                         : null,
@@ -127,5 +132,19 @@ public class OpenAiLiveChatReplyService implements LiveChatReplyService {
 
         Object content = messageMap.get("content");
         return content instanceof String contentText ? contentText : "";
+    }
+
+    private String resolveBaseUrl(OpenAiProperties properties) {
+        if (properties != null && StringUtils.hasText(properties.baseUrl())) {
+            return properties.baseUrl().trim();
+        }
+        return "https://api.openai.com/v1";
+    }
+
+    private String toOpenAiRole(ChatMessageDto message) {
+        return switch (message.role()) {
+            case USER -> "user";
+            case AGENT -> "assistant";
+        };
     }
 }

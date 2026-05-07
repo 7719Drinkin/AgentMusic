@@ -3,7 +3,7 @@ export const QUEUE_PLAY_REQUEST_EVENT = 'agentmusic:queue-play-request'
 
 export function buildArtistSearchLocation(artistName, state = {}) {
   return {
-    pathname: '/search',
+    pathname: '/music',
     search: `?artist=${encodeURIComponent(artistName)}`,
     state: {
       artistName,

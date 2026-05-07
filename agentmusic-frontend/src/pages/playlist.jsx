@@ -34,7 +34,13 @@ function formatDateTime(value) {
   }).format(date)
 }
 
-function PlaylistPage(props) {
+function PlaylistPage({
+  playbackMode,
+  deviceId,
+  currentPlaylistId,
+  currentTrackIndex,
+  isPlaying,
+}) {
   const { path } = useParams()
   const playlistId = decodeURIComponent(path)
   const [playlist, setPlaylist] = useState(null)
@@ -105,7 +111,7 @@ function PlaylistPage(props) {
 
   const playlistTracks = playlist?.tracks ?? []
   const playlistCover = playlistTracks[0]?.track?.albumImageUrl || '/image/Playlist/liked-songs.PNG'
-  const activePlaylist = props.currentPlaylistId === playlistId
+  const activePlaylist = currentPlaylistId === playlistId
 
   const playlistRows = useMemo(() => {
     return playlistTracks.map((item, index) => {
@@ -119,13 +125,26 @@ function PlaylistPage(props) {
         addedAtLabel: formatDateTime(item.addedAt),
         durationLabel: convertTime((track.durationMs || 0) / 1000),
         albumImageUrl: track.albumImageUrl || playlistCover,
-        isCurrent: activePlaylist && props.currentTrackIndex === index,
+        isCurrent: activePlaylist && currentTrackIndex === index,
       }
     })
-  }, [activePlaylist, artistDirectory, playlistCover, playlistTracks, props.currentTrackIndex])
+  }, [activePlaylist, artistDirectory, currentTrackIndex, playlistCover, playlistTracks])
 
   const createdAtLabel = playlist?.createdAt ? formatDateTime(playlist.createdAt) : '--'
   const playlistMetaText = `${playlistRows.length} 首 · 版本 ${playlist?.version ?? '-'} · 创建于 ${createdAtLabel}`
+  const heroStatusLabel = activePlaylist
+    ? isPlaying
+      ? '当前正在播放'
+      : '当前播放上下文'
+    : '推荐歌单'
+  const playActionTitle = activePlaylist
+    ? isPlaying
+      ? '继续当前歌单'
+      : '恢复这张歌单'
+    : '播放这张歌单'
+  const playActionDescription = activePlaylist
+    ? '从第 1 首开始，沿用当前播放模式与设备上下文。当前歌单会保持与播放器状态同步。'
+    : '从第 1 首开始接管当前播放会话，并沿用当前设备与播放模式。'
 
   const loadAvailableDevices = async () => {
     const devices = await fetchPlaybackDevices(DEMO_USER_ID)
@@ -143,7 +162,7 @@ function PlaylistPage(props) {
 
       const devices = await loadAvailableDevices()
       if (devices.length === 0) {
-        setPlaybackError('No active Spotify device is available. Keep the same bridge account Web Player or desktop client online.')
+        setPlaybackError('当前没有可用的 Spotify 设备。请保持同一 bridge 账号的 Web Player 或桌面客户端在线。')
         return
       }
 
@@ -151,8 +170,8 @@ function PlaylistPage(props) {
         trackId,
         playlistId,
         trackIndex,
-        deviceId: props.deviceId,
-        playbackMode: props.playbackMode,
+        deviceId,
+        playbackMode,
       })
       window.dispatchEvent(new CustomEvent(PLAYBACK_REFRESH_EVENT))
     } catch (error) {
@@ -183,14 +202,17 @@ function PlaylistPage(props) {
         <img className={styles.Cover} src={playlistCover} alt={playlist?.name || '歌单封面'} />
 
         <div className={styles.HeroMeta}>
-          <span className={styles.PlaylistType}>推荐歌单</span>
+          <div className={styles.HeroEyebrowRow}>
+            <span className={styles.PlaylistType}>推荐歌单</span>
+            <span className={styles.HeroStatePill}>{heroStatusLabel}</span>
+          </div>
           <TitleL>{playlist?.name || '歌单详情'}</TitleL>
           <div className={styles.PlaylistMetaRow}>
             <span className={styles.MetaChip}>{playlistRows.length} 首</span>
             <span className={styles.MetaChip}>版本 {playlist?.version ?? '-'}</span>
             <span className={styles.MetaChip}>创建于 {createdAtLabel}</span>
           </div>
-          <TextRegularM>
+          <TextRegularM className={styles.PlaylistMetaLead}>
             {isLoading
               ? '正在加载歌单详情...'
               : errorMessage || `${playlistMetaText} · 根据当前对话上下文生成。`}
@@ -209,8 +231,8 @@ function PlaylistPage(props) {
           <Icons.Play />
         </button>
         <div className={styles.PlayActionText}>
-          <strong>{isPlaybackBusy ? '正在切换播放...' : '播放这张歌单'}</strong>
-          <span>从第 1 首开始，沿用当前播放模式与设备上下文。</span>
+          <strong>{isPlaybackBusy ? '正在切换播放...' : playActionTitle}</strong>
+          <span>{playActionDescription}</span>
         </div>
       </section>
 
@@ -237,7 +259,7 @@ function PlaylistPage(props) {
 
         {playlistRows.map((row) => {
           const rowStateLabel = row.isCurrent
-            ? props.isPlaying
+            ? isPlaying
               ? '当前播放'
               : '当前曲目'
             : ''
@@ -249,6 +271,7 @@ function PlaylistPage(props) {
               type="button"
               onClick={() => handlePlayTrack(row.trackId, row.index)}
               disabled={isPlaybackBusy}
+              data-testid="playlist-song-row"
             >
               <span className={styles.RowIndex}>{row.index + 1}</span>
               <span className={styles.RowTrack}>

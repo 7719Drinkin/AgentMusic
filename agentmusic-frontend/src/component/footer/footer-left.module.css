@@ -3,7 +3,7 @@
     align-items: center;
     justify-content: flex-start;
     min-width: 0;
-    gap: 4px;
+    gap: 8px;
 }
 .footerIcon svg{
     font-size: 19.2px;
@@ -26,7 +26,7 @@
     width: 56px;
     height: 56px;
     overflow: hidden;
-    border-radius: 6px;
+    border-radius: 10px;
 }
 .imgBox img{
     width: 100%;
@@ -34,12 +34,12 @@
     object-fit: cover;
 }
 .songDetails{
-    margin-left: 16px;
-    margin-right: 16px;
+    margin-left: 10px;
+    margin-right: 12px;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
 }
 .trackLink,
 .artistLink{
@@ -56,6 +56,7 @@
     color: #fff;
     font-size: 14px;
     line-height: 1.25;
+    font-weight: 600;
 }
 .artistLink{
     color: rgb(179, 179, 179);

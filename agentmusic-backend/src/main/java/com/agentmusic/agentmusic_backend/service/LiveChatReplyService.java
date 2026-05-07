@@ -1,12 +1,13 @@
 package com.agentmusic.agentmusic_backend.service;
 
 import com.agentmusic.agentmusic_backend.web.dto.AgentRuntimeStatusDto;
-import java.util.List;
 import java.util.Optional;
+import java.util.List;
+import com.agentmusic.agentmusic_backend.web.dto.ChatMessageDto;
 
 public interface LiveChatReplyService {
 
-    Optional<String> generateReply(List<String> recentMessages, String userMessage);
+    Optional<String> generateReply(List<ChatMessageDto> recentMessages, String userMessage);
 
     boolean isEnabled();
 

@@ -4,16 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.agentmusic.agentmusic_backend.web.exception.ApiErrorCodes;
 import com.agentmusic.agentmusic_backend.web.exception.ApiErrorResponse;
+import com.agentmusic.agentmusic_backend.web.exception.ApiRequestFailureException;
 import com.agentmusic.agentmusic_backend.web.exception.GlobalApiExceptionHandler;
 import com.agentmusic.agentmusic_backend.web.exception.SpotifyBridgeAuthorizationException;
 import com.agentmusic.agentmusic_backend.web.exception.SpotifyPlaybackUnavailableException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.RequestEntity;
+import org.springframework.http.HttpRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
@@ -51,6 +53,22 @@ class GlobalApiExceptionHandlerTests {
     }
 
     @Test
+    void shouldReturnUnauthorizedForMissingBridgeAuthorizationErrors() {
+        var response = handler.handleSpotifyAuthorization(
+                new SpotifyBridgeAuthorizationException(
+                        ApiErrorCodes.AUTHORIZATION_MISSING,
+                        "Spotify bridge account is not connected. Reconnect the bridge account and try again."
+                )
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).isEqualTo(new ApiErrorResponse(
+                ApiErrorCodes.AUTHORIZATION_MISSING,
+                "Spotify bridge account is not connected. Reconnect the bridge account and try again."
+        ));
+    }
+
+    @Test
     void shouldPreserveStructuredPlaybackErrorCode() {
         var response = handler.handleSpotifyPlaybackUnavailable(
                 new SpotifyPlaybackUnavailableException(
@@ -79,6 +97,23 @@ class GlobalApiExceptionHandlerTests {
         assertThat(response.getBody()).isEqualTo(new ApiErrorResponse(
                 ApiErrorCodes.DEVICE_OFFLINE,
                 "Selected Spotify device is offline or no longer available. Refresh devices and try again."
+        ));
+    }
+
+    @Test
+    void shouldPreserveStructuredApiRequestFailure() {
+        var response = handler.handleApiRequestFailure(
+                new ApiRequestFailureException(
+                        ApiErrorCodes.SERVER_FAILURE,
+                        HttpStatus.BAD_GATEWAY,
+                        "Spotify authorization service returned an incomplete response. Try again shortly."
+                )
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        assertThat(response.getBody()).isEqualTo(new ApiErrorResponse(
+                ApiErrorCodes.SERVER_FAILURE,
+                "Spotify authorization service returned an incomplete response. Try again shortly."
         ));
     }
 
@@ -127,7 +162,7 @@ class GlobalApiExceptionHandlerTests {
                 HttpHeaders.EMPTY,
                 new byte[0],
                 StandardCharsets.UTF_8,
-                RequestEntity.put(URI.create("https://api.spotify.com/v1/me/player")).build()
+                playbackRequest()
         );
 
         var response = handler.handleWebClientResponse(exception);
@@ -147,7 +182,7 @@ class GlobalApiExceptionHandlerTests {
                 HttpHeaders.EMPTY,
                 new byte[0],
                 StandardCharsets.UTF_8,
-                RequestEntity.put(URI.create("https://api.spotify.com/v1/me/player")).build()
+                playbackRequest()
         );
 
         var response = handler.handleWebClientResponse(exception);
@@ -157,5 +192,29 @@ class GlobalApiExceptionHandlerTests {
                 ApiErrorCodes.DEVICE_UNAVAILABLE,
                 "Spotify did not report an active playback device. Keep the same bridge account Web Player or desktop client online."
         ));
+    }
+
+    private HttpRequest playbackRequest() {
+        return new HttpRequest() {
+            @Override
+            public HttpMethod getMethod() {
+                return HttpMethod.PUT;
+            }
+
+            @Override
+            public URI getURI() {
+                return URI.create("https://api.spotify.com/v1/me/player");
+            }
+
+            @Override
+            public HttpHeaders getHeaders() {
+                return HttpHeaders.EMPTY;
+            }
+
+            @Override
+            public Map<String, Object> getAttributes() {
+                return Map.of();
+            }
+        };
     }
 }

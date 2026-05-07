@@ -21,3 +21,9 @@ agentmusic-backend/.m2-temp/
 agentmusic-backend/cp.txt
 agentmusic-backend/javac-sources.txt
 agentmusic-backend/*.log
+
+# test-smoke
+.codex-llm-shadow/
+
+# test-ui
+artifacts/

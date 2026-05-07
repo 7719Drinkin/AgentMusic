@@ -2,27 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useHistory, useLocation } from 'react-router-dom'
 import { getErrorMessage } from '../../api/http'
 import { fetchRecentPlaylists } from '../../api/playlists'
-import { PLAYLISTBTN } from '../../constants'
 import TextRegularM from '../text/text-regular-m'
 import TitleS from '../text/title-s'
-import PlaylistButton from './playlist-button'
 import styles from './playlist.module.css'
 
 const DEMO_USER_ID = 'demo-user'
 const PLAYLIST_REFRESH_EVENT = 'agentmusic:playlists-updated'
-const MAX_PLAYLIST_TITLE_LENGTH = 20
-
-function truncatePlaylistTitle(title) {
-  if (!title) {
-    return ''
-  }
-
-  if (title.length <= MAX_PLAYLIST_TITLE_LENGTH) {
-    return title
-  }
-
-  return `${title.slice(0, MAX_PLAYLIST_TITLE_LENGTH - 1)}…`
-}
 
 function Playlist() {
   const history = useHistory()
@@ -48,7 +33,7 @@ function Playlist() {
           return
         }
 
-        setErrorMessage(getErrorMessage(error, '推荐歌单加载失败。'))
+        setErrorMessage(getErrorMessage(error, 'Failed to load recommended playlists.'))
       } finally {
         if (!cancelled) {
           setIsLoading(false)
@@ -80,26 +65,17 @@ function Playlist() {
 
   return (
     <div className={styles.Playlist}>
-      <TitleS>推荐歌单</TitleS>
-
-      <div className={styles.FixedItems}>
-        {PLAYLISTBTN.map((playlist) => (
-          <PlaylistButton
-            href={playlist.path}
-            ImgName={playlist.ImgName}
-            key={playlist.title}
-          >
-            {playlist.title}
-          </PlaylistButton>
-        ))}
+      <div className={styles.PlaylistHeader}>
+        <TitleS>Recommended playlists</TitleS>
+        <TextRegularM className={styles.PlaylistIntro}>
+          Latest recommendation sets generated from Agent sessions.
+        </TextRegularM>
       </div>
 
-      <hr className={styles.hr} />
-
       <div className={styles.PlaylistList} data-testid="sidebar-playlist-list">
-        {isLoading ? <TextRegularM>正在加载推荐歌单...</TextRegularM> : null}
+        {isLoading ? <TextRegularM>Loading recommended playlists...</TextRegularM> : null}
         {!isLoading && !errorMessage && playlists.length === 0 ? (
-          <TextRegularM>还没有生成过推荐歌单。</TextRegularM>
+          <TextRegularM>No recommendation playlists yet.</TextRegularM>
         ) : null}
         {errorMessage ? <TextRegularM>{errorMessage}</TextRegularM> : null}
 
@@ -111,7 +87,7 @@ function Playlist() {
           return (
             <button
               key={playlist.id}
-              className={`${styles.PlaylistCard} ${isActive ? styles.ActivePlaylistCard : ''}`}
+              className={`${styles.PlaylistCard} ${isActive ? styles.ActivePlaylistCard : ''}`.trim()}
               type="button"
               onClick={() => handlePlaylistSelect(playlist)}
               data-testid="sidebar-playlist-card"
@@ -120,13 +96,15 @@ function Playlist() {
                 <img className={styles.PlaylistCardImage} src={cover} alt={playlist.name} />
               ) : (
                 <span className={styles.PlaylistCardFallback} aria-hidden="true">
-                  AR
+                  AM
                 </span>
               )}
 
               <span className={styles.PlaylistCardContent}>
-                <span className={styles.PlaylistCardTitle}>{truncatePlaylistTitle(playlist.name)}</span>
-                <span className={styles.PlaylistCardMeta}>推荐歌单 · {trackCount} 首</span>
+                <span className={styles.PlaylistCardTitle} title={playlist.name}>
+                  {playlist.name}
+                </span>
+                <span className={styles.PlaylistCardMeta}>Agent playlist · {trackCount} tracks</span>
               </span>
             </button>
           )

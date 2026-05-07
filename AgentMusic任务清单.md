@@ -16,6 +16,12 @@
   - `web`
   - `integration.spotify`
   - `persistence`
+- 完成 `planner.llm` 规划 Harness：
+  - 输入 Envelope
+  - 严格 JSON 输出契约
+  - 固定 step template
+  - 服务端验证
+  - 单元测试
 - 引入 MyBatis / MySQL / Redis 的基础依赖与配置入口。
 - E2E 持久化验证脚本已建立并稳定可复跑。
 
@@ -38,6 +44,20 @@
   - 添加时间
   - 时长
 
+#### Music Home
+
+- `Music Home` 已保留并改成推荐内容聚合页。
+- 当前 `Music Home` 已改成圆角卡片化布局，并支持分区展开 / 收起。
+- `Music Home` 页面滚动问题已修复，页面底部内容可滚动进入视口并正常交互。
+- 当前首页已展示：
+  - 最近推荐歌单
+  - 最近推荐中出现的歌曲
+  - 最近推荐中出现的艺人
+  - 最近推荐中出现的专辑
+- `Search` 与 `Library` 不再作为独立功能页保留：
+  - `/search` 现重定向到 `/music`
+  - `/library` 现重定向到 `/`
+
 #### 播放器与当前播放栏
 
 - 底部播放器已接真实会话。
@@ -51,6 +71,8 @@
 - `transfer playback` 已打通。
 - 设备面板已接到底部播放器，可显示当前可用设备。
 - 设备摘要已显示当前设备名称，并已进入 E2E 验证路径。
+- 左侧推荐歌单区已去除与主导航重复的 `Agent Chat` / `Music Home` 固定入口。
+- 左上角标识已改为 `AgentMusic` 文字标识，并与侧栏外壳统一为圆角卡片化风格。
 - 已验证：
   - `pause / play / sync`
   - `next / previous`
@@ -128,10 +150,13 @@
   - `spotify-device-offline` 错误码。
   - 显式设备切换离线分支。
 - 已继续补：
+  - bridge 未连接 / access token 缺失 -> `spotify-authorization-missing`
   - 播放 `403` -> `spotify-device-restricted`
   - 播放 `404` -> `spotify-device-unavailable`
   - bridge disabled -> `spotify-bridge-disabled`
   - OAuth state 失效 -> `spotify-authorization-state`
+- 已修正：
+  - bridge 账号未连接时，播放控制与设备列表接口不再回退成“本地假成功”。
 - 已扩展覆盖：
   - 聊天历史加载失败。
   - Agent 请求失败。
@@ -141,13 +166,42 @@
 - 下一步：
   - 继续细化设备切换中的成功 / 失败 / 离线提示。
   - 继续补充更多后端错误码，继续压缩前端按消息文本分类的兜底分支。
+  - 当前前端已继续收一轮：播放 / 授权路径 `401/403/404/503` 优先按路径+状态归类，仅对传输层异常保留文本兜底。
   - 收设备摘要与设备面板的剩余视觉细节。
+
+#### D. 真实 LLM 接入前置工作
+
+- 已完成：
+  - `openai.base-url` 可配置，支持 OpenAI 兼容接口。
+  - `agent.chat.planning-harness-version`
+  - `agent.chat.llm-recent-message-limit`
+  - `agent.chat.llm-temperature`
+  - `agent.chat.llm-planning-max-repair-attempts`
+  - `agent.chat.llm-http-max-retries`
+  - `agent.chat.llm-http-retry-backoff-ms`
+  - `planner.llm` Harness 设计与单测
+  - 影子模式真实调用器：
+    - `OpenAiCompatiblePlanningClient`
+    - `LiveLlmPlanningSmokeRunner`
+  - LLM 输出验收流程文档化：
+    - 原始输出必须先经过 Harness 解析与校验
+    - 只有成功转换为 `AgentPlan` 才算可接受
+  - Kimi 兼容接口在推荐主路径上已通过真实 shadow smoke，且重复运行可稳定通过 Harness
+  - 已完成 `LlmBackedTaskPlanner` 主链接入：
+    - 优先走真实 LLM + Harness
+    - 失败时回退到 `SimpleTaskPlanner`
+    - 回复 metadata 中已补 `planningSource` / `planningFallbackUsed`
+- 下一步：
+  - 验证真实运行中的 `/api/agent/chat` 已稳定返回 `planningSource=llm-harness`
+  - 评估 `429` 限流下的回退体验和重试策略
 
 ### Priority 2
 
 - 多设备场景下的设备切换联调与验证。
 - 设备面板的视觉细节与状态提示。
 - 歌单页与当前播放栏的进一步视觉细化。
+  - 本轮已完成歌单页 hero 状态 pill、说明文案清理、当前播放栏上下文条与 `Up next` 说明补强。
+  - 本轮已继续完成歌单页乱码文案清理、设备面板 `current session tracked` 头部信息和无 hover 场景下的当前播放栏头部按钮可见性修复。
 
 ### Priority 3
 
@@ -158,9 +212,10 @@
 
 ## 3. 当前建议执行顺序
 
-1. 继续完善设备切换状态回显和多设备联调。
-2. 继续补充后端结构化错误码覆盖面。
-3. 再继续播放器和歌单页的细节增强。
+1. 验证真实运行中的主聊天接口是否稳定命中 `llm-harness`，并处理 provider `429` 下的回退体验。
+2. 继续完善设备切换状态回显和多设备联调。
+3. 继续补充后端结构化错误码覆盖面。
+4. 再继续播放器和歌单页的细节增强。
 
 当前说明：
 

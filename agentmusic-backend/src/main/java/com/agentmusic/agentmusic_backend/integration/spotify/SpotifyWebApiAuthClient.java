@@ -3,6 +3,8 @@ package com.agentmusic.agentmusic_backend.integration.spotify;
 import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyAuthClient;
 import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyToken;
 import com.agentmusic.agentmusic_backend.config.SpotifyBridgeProperties;
+import com.agentmusic.agentmusic_backend.web.exception.ApiErrorCodes;
+import com.agentmusic.agentmusic_backend.web.exception.ApiRequestFailureException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -12,6 +14,7 @@ import java.util.Base64;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
@@ -92,7 +95,11 @@ public class SpotifyWebApiAuthClient implements SpotifyAuthClient {
                 .block();
 
         if (response == null || response.accessToken() == null || response.tokenType() == null || response.expiresIn() == null) {
-            throw new IllegalStateException("Spotify token response is incomplete.");
+            throw new ApiRequestFailureException(
+                    ApiErrorCodes.SERVER_FAILURE,
+                    HttpStatus.BAD_GATEWAY,
+                    "Spotify authorization service returned an incomplete response. Try again shortly."
+            );
         }
 
         Set<String> scopes = response.scope() == null || response.scope().isBlank()

@@ -46,6 +46,7 @@ function resolveDeviceFeedback(error, fallbackMessage) {
     case 'spotify-device-unavailable':
       return { code, message, tone: 'warning' }
     case 'spotify-authorization':
+    case 'spotify-authorization-missing':
     case 'spotify-network':
     case 'server-failure':
       return { code, message, tone: 'error' }

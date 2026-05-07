@@ -1,142 +1,262 @@
 .ChatPage {
   --player-bar-height: 118px;
-  min-height: 100vh;
-  background: #121212;
-  box-sizing: border-box;
-  padding-bottom: var(--player-bar-height);
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.Bg {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(180deg, #101111 0%, #131414 36%, #0c0d0d 100%);
+  z-index: -2;
+}
+
+.HoverBg {
+  position: absolute;
+  inset: 0 0 auto;
+  min-height: 360px;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 14% 10%, rgba(29, 185, 84, 0.14), transparent 24%),
+    radial-gradient(circle at 86% 0%, rgba(255, 255, 255, 0.06), transparent 28%),
+    linear-gradient(180deg, rgba(17, 19, 18, 0.88), rgba(10, 10, 10, 0.2) 76%, rgba(10, 10, 10, 0) 100%);
 }
 
 .PageShell {
-  width: min(900px, calc(100vw - 64px));
+  width: min(100%, 1240px);
+  flex: 1 1 auto;
   margin: 0 auto;
-  min-height: calc(100vh - var(--player-bar-height));
+  padding: 10px 16px 14px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.EmptyState {
-  min-height: calc(100vh - 60px - var(--player-bar-height));
+.EmptyFrame,
+.ChatFrame {
+  border-radius: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  background:
+    radial-gradient(circle at top right, rgba(29, 185, 84, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.018));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 18px 36px rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(14px);
+  overflow: hidden;
+}
+
+.EmptyFrame {
   display: grid;
-  place-items: center;
+  gap: 0;
+  min-height: min(720px, 100%);
 }
 
-.EmptyContent {
-  width: min(760px, 100%);
-  margin: 0 auto;
-  text-align: center;
+.EmptyHero,
+.EmptyComposerBlock {
+  padding: 22px 24px;
+}
+
+.EmptyHero {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.EmptyEyebrowRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
 .Kicker {
-  margin: 0 0 10px;
-  color: #1db954;
-  font-size: 12px;
-  letter-spacing: 0.12em;
+  margin: 0;
+  color: #97e2b5;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
-.EmptyContent h1,
-.ChatHeader h1 {
-  margin: 0;
-  color: #fff;
-  font-size: clamp(32px, 6vw, 44px);
-  line-height: 1.05;
+.ContextPill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.Subtitle {
-  max-width: 680px;
-  margin: 14px auto 0;
-  color: #b3b3b3;
-  font-size: 16px;
+.EmptyHero h1,
+.ChatHeader h1 {
+  margin: 0;
+  font-size: clamp(24px, 3.6vw, 34px);
+  line-height: 1.02;
+  letter-spacing: -0.05em;
+}
+
+.Subtitle,
+.HeaderLead {
+  max-width: 920px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+  line-height: 1.58;
 }
 
 .EmptyActions {
   display: flex;
-  justify-content: center;
-  margin-top: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
-.SecondaryLink,
-.MinimalButton,
-.SuggestionChip,
-.PromptCard {
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: transform 0.18s ease, background-color 0.18s ease;
-  text-decoration: none;
-  font: inherit;
+.EmptyComposerBlock,
+.BottomComposer {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.016), rgba(255, 255, 255, 0.008));
 }
 
-.SecondaryLink,
-.MinimalButton,
-.SuggestionChip {
-  background: #2a2a2a;
-  color: #fff;
-  padding: 11px 16px;
+.EmptyComposerBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.PromptGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.PromptCard {
-  background: #1d1d1d;
-  color: #fff;
-  padding: 16px 18px;
-  text-align: left;
-  border-radius: 18px;
-}
-
-.ChatLayout {
-  height: calc(100vh - 60px - var(--player-bar-height));
+.ChatFrame {
+  height: 100%;
+  min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 16px;
-  padding: 16px 0 20px;
 }
 
 .ChatHeader {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 8px;
+  gap: 12px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ChatHeaderCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .ChatHeaderActions {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
 .ChatStream {
   overflow-y: auto;
-  padding: 8px 6px 8px 0;
+  padding: 18px 22px 10px;
   display: grid;
   align-content: start;
-  gap: 18px;
+  gap: 16px;
+  scrollbar-gutter: stable;
+}
+
+.ChatStream::-webkit-scrollbar {
+  width: 12px;
+}
+
+.ChatStream::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ChatStream::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+.ChatStream:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.24);
+  background-clip: padding-box;
+}
+
+.MessageRow {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.MessageMeta {
+  display: flex;
+}
+
+.MessageRole {
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .MessageBubble {
-  max-width: min(760px, 100%);
-  padding: 16px 18px;
+  max-width: min(920px, 92%);
+  padding: 12px 14px;
   border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
 }
 
 .MessageBubble p {
   margin: 0;
   color: #fff;
-  white-space: normal;
+  font-size: 13px;
+  line-height: 1.58;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.AgentRow {
+  justify-items: start;
+}
+
+.UserRow {
+  justify-items: end;
 }
 
 .AgentBubble {
-  background: #1d1d1d;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.PendingBubble {
+  border-style: dashed;
+  border-color: rgba(151, 226, 181, 0.24);
+  background: linear-gradient(135deg, rgba(29, 185, 84, 0.08), rgba(255, 255, 255, 0.03));
 }
 
 .UserBubble {
-  margin-left: auto;
-  background: linear-gradient(135deg, #16653b, #1db954);
+  background: linear-gradient(135deg, #17924c, #1db954);
+}
+
+.UserRow .MessageMeta {
+  justify-content: flex-end;
+}
+
+.BottomComposer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 18px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .Composer {
@@ -144,32 +264,60 @@
 }
 
 .CenteredComposer {
-  margin-top: 28px;
-}
-
-.BottomComposer {
-  padding-top: 8px;
-  background: linear-gradient(180deg, rgba(18, 18, 18, 0), #121212 22%);
+  margin-top: 0;
 }
 
 .InputShell {
-  border: 1px solid #303030;
-  border-radius: 28px;
-  background: #1d1d1d;
-  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 24px;
+  background: rgba(10, 10, 10, 0.42);
+  padding: 10px 12px;
+  backdrop-filter: blur(14px);
+}
+
+.InputStage {
+  position: relative;
+}
+
+.GhostPrompt {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: text;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: flex-start;
+}
+
+.GhostPromptText {
+  color: rgba(255, 255, 255, 0.34);
+  font-size: 13px;
+  line-height: 1.48;
+}
+
+.GhostPromptHint {
+  color: rgba(255, 255, 255, 0.18);
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .ChatInput {
   width: 100%;
-  min-height: 24px;
-  max-height: 220px;
+  min-height: 20px;
+  max-height: 144px;
   overflow-y: auto;
   border: none;
   resize: none;
   background: transparent;
   color: #fff;
-  font-size: 16px;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.48;
 }
 
 .ChatInput:focus {
@@ -180,25 +328,30 @@
   opacity: 0.7;
 }
 
+.ChatInput::placeholder {
+  color: rgba(255, 255, 255, 0.42);
+}
+
 .InputActions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
   margin-top: 8px;
 }
 
 .IconButton {
   position: relative;
-  border: none;
-  width: 38px;
-  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #2a2a2a;
+  background: rgba(255, 255, 255, 0.06);
   color: #fff;
   cursor: pointer;
+  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
 }
 
 .IconButton:disabled {
@@ -207,17 +360,28 @@
 }
 
 .IconButton svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
+}
+
+.IconButton:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .FilledIconButton {
   background: #1db954;
-  color: #000;
+  color: #07150d;
+  border-color: transparent;
+}
+
+.FilledIconButton:hover {
+  background: #22cc5e;
 }
 
 .SendArrow {
-  font-size: 18px;
+  font-size: 13px;
   font-weight: 700;
   line-height: 1;
 }
@@ -242,25 +406,52 @@
   opacity: 1;
 }
 
-.SuggestionRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 14px;
+.SecondaryLink,
+.MinimalButton {
+  text-decoration: none;
+  font: inherit;
+  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.SecondaryLink,
+.MinimalButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.045);
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.SecondaryLink:hover,
+.MinimalButton:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .StatusText {
-  margin: 16px 0 0;
-  color: #b3b3b3;
-  font-size: 14px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
-.PromptCard:hover,
-.SecondaryLink:hover,
-.MinimalButton:hover,
-.SuggestionChip:hover,
-.IconButton:hover {
-  transform: translateY(-1px);
+@media screen and (max-width: 960px) {
+  .PageShell {
+    width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .ChatHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 @media screen and (max-width: 760px) {
@@ -269,15 +460,33 @@
   }
 
   .PageShell {
-    width: calc(100vw - 24px);
+    width: 100%;
+    padding: 8px 10px 12px;
   }
 
-  .PromptGrid {
-    grid-template-columns: 1fr;
+  .EmptyFrame,
+  .ChatFrame {
+    border-radius: 22px;
+  }
+
+  .EmptyHero,
+  .EmptyComposerBlock,
+  .ChatHeader,
+  .ChatStream,
+  .BottomComposer {
+    padding-left: 14px;
+    padding-right: 14px;
   }
 
   .ChatHeader {
-    align-items: flex-start;
-    flex-direction: column;
+    padding-top: 16px;
+  }
+
+  .MessageBubble {
+    max-width: 100%;
+  }
+
+  .ChatInput {
+    font-size: 13px;
   }
 }

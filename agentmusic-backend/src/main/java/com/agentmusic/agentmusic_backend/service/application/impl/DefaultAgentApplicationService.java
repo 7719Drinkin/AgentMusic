@@ -1,20 +1,22 @@
 package com.agentmusic.agentmusic_backend.service.application.impl;
 
 import com.agentmusic.agentmusic_backend.domain.ChatRole;
-import com.agentmusic.agentmusic_backend.web.dto.AgentChatRequest;
-import com.agentmusic.agentmusic_backend.web.dto.AgentChatResponse;
-import com.agentmusic.agentmusic_backend.web.dto.ChatMessageDto;
 import com.agentmusic.agentmusic_backend.planner.AgentIntent;
-import com.agentmusic.agentmusic_backend.planner.PlannerExecutionResult;
 import com.agentmusic.agentmusic_backend.planner.AgentPlan;
+import com.agentmusic.agentmusic_backend.planner.PlannerExecutionResult;
 import com.agentmusic.agentmusic_backend.planner.PlanningContext;
 import com.agentmusic.agentmusic_backend.planner.TaskExecutor;
 import com.agentmusic.agentmusic_backend.planner.TaskPlanner;
+import com.agentmusic.agentmusic_backend.planner.TaskPlanningResult;
+import com.agentmusic.agentmusic_backend.planner.impl.LlmBackedTaskPlanner;
+import com.agentmusic.agentmusic_backend.service.application.AgentApplicationService;
 import com.agentmusic.agentmusic_backend.service.BackendRuntimeFacade;
 import com.agentmusic.agentmusic_backend.service.ChatMemoryService;
 import com.agentmusic.agentmusic_backend.service.LiveChatReplyService;
+import com.agentmusic.agentmusic_backend.web.dto.AgentChatRequest;
+import com.agentmusic.agentmusic_backend.web.dto.AgentChatResponse;
+import com.agentmusic.agentmusic_backend.web.dto.ChatMessageDto;
 import java.util.HashMap;
-import com.agentmusic.agentmusic_backend.service.application.AgentApplicationService;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -44,28 +46,35 @@ public class DefaultAgentApplicationService implements AgentApplicationService {
 
     @Override
     public AgentChatResponse chat(AgentChatRequest request) {
-        chatMemoryService.appendMessage(
+        ChatMessageDto userMessage = chatMemoryService.appendMessage(
                 request.userId(),
                 ChatRole.USER,
                 request.message(),
                 Map.of("voiceInput", request.voiceInput())
         );
 
+        List<ChatMessageDto> recentHistory = chatMemoryService.getRecentMessages(request.userId(), 20).stream()
+                .filter(message -> !message.id().equals(userMessage.id()))
+                .toList();
+
         PlanningContext planningContext = new PlanningContext(
                 request,
-                chatMemoryService.getRecentMessages(request.userId(), 20).stream()
+                recentHistory.stream()
                         .map(ChatMessageDto::message)
                         .toList()
         );
-        AgentPlan plan = taskPlanner.createPlan(planningContext);
-        PlannerExecutionResult executionResult = executePlan(plan, planningContext);
+        TaskPlanningResult planningResult = taskPlanner.createPlan(planningContext);
+        AgentPlan plan = planningResult.plan();
+        PlannerExecutionResult executionResult = executePlan(plan, planningContext, recentHistory);
 
         Map<String, Object> replyMetadata = new HashMap<>();
         var runtimeStatus = liveChatReplyService.getRuntimeStatus();
-        replyMetadata.put("stage", resolveReplyStage(plan));
+        replyMetadata.put("stage", resolveReplyStage(plan, planningResult));
         replyMetadata.put("intent", executionResult.plan().intent().name());
         replyMetadata.put("stepCount", executionResult.plan().steps().size());
         replyMetadata.put("planSummary", executionResult.plan().summary());
+        replyMetadata.put("planningSource", planningResult.source());
+        replyMetadata.put("planningFallbackUsed", planningResult.fallbackUsed());
         replyMetadata.put("liveLlmEnabledConfigured", runtimeStatus.liveLlmEnabledConfigured());
         replyMetadata.put("openAiKeyPresent", runtimeStatus.openAiKeyPresent());
         replyMetadata.put("openAiModelId", runtimeStatus.openAiModelId());
@@ -90,20 +99,30 @@ public class DefaultAgentApplicationService implements AgentApplicationService {
         return chatMemoryService.getRecentMessages(userId, limit);
     }
 
-    private PlannerExecutionResult executePlan(AgentPlan plan, PlanningContext planningContext) {
+    private PlannerExecutionResult executePlan(
+            AgentPlan plan,
+            PlanningContext planningContext,
+            List<ChatMessageDto> recentHistory
+    ) {
         if (plan.intent() != AgentIntent.CHAT_ONLY && plan.intent() != AgentIntent.UNKNOWN) {
             return taskExecutor.execute(plan, planningContext);
         }
 
         return liveChatReplyService.generateReply(
-                        planningContext.recentMessages(),
+                        recentHistory,
                         planningContext.request().message()
                 )
                 .map(reply -> new PlannerExecutionResult(plan, reply))
                 .orElseGet(() -> taskExecutor.execute(plan, planningContext));
     }
 
-    private String resolveReplyStage(AgentPlan plan) {
+    private String resolveReplyStage(AgentPlan plan, TaskPlanningResult planningResult) {
+        if (LlmBackedTaskPlanner.LLM_SOURCE.equals(planningResult.source())) {
+            return "llm-planner";
+        }
+        if (planningResult.fallbackUsed()) {
+            return "planner-fallback";
+        }
         if ((plan.intent() == AgentIntent.CHAT_ONLY || plan.intent() == AgentIntent.UNKNOWN)
                 && liveChatReplyService.isEnabled()) {
             return "live-llm-or-fallback";

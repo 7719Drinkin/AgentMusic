@@ -2,6 +2,8 @@ package com.agentmusic.agentmusic_backend.persistence.repository.file;
 
 import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyToken;
 import com.agentmusic.agentmusic_backend.persistence.repository.SpotifyBridgeTokenRepository;
+import com.agentmusic.agentmusic_backend.web.exception.ApiErrorCodes;
+import com.agentmusic.agentmusic_backend.web.exception.ApiRequestFailureException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -16,6 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -59,7 +62,12 @@ public class FileSpotifyBridgeTokenRepository implements SpotifyBridgeTokenRepos
             }
             cachedToken.set(spotifyToken);
         } catch (IOException error) {
-            throw new IllegalStateException("Failed to persist Spotify bridge token.", error);
+            throw new ApiRequestFailureException(
+                    ApiErrorCodes.SERVER_FAILURE,
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to persist Spotify bridge authorization state.",
+                    error
+            );
         }
     }
 

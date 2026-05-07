@@ -1,24 +1,27 @@
 package com.agentmusic.agentmusic_backend;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.agentmusic.agentmusic_backend.domain.ChatRole;
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
 import com.agentmusic.agentmusic_backend.domain.User;
 import com.agentmusic.agentmusic_backend.domain.UserPreferences;
-import com.agentmusic.agentmusic_backend.web.dto.PlaylistDto;
-import com.agentmusic.agentmusic_backend.web.dto.TrackDto;
 import com.agentmusic.agentmusic_backend.service.BackendRuntimeFacade;
 import com.agentmusic.agentmusic_backend.service.ChatMemoryService;
 import com.agentmusic.agentmusic_backend.service.PlaybackSessionService;
 import com.agentmusic.agentmusic_backend.service.PlaylistService;
 import com.agentmusic.agentmusic_backend.service.UserContextService;
+import com.agentmusic.agentmusic_backend.web.dto.PlaylistDto;
+import com.agentmusic.agentmusic_backend.web.dto.TrackDto;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
+@Transactional
 class BackendRuntimeFacadeIntegrationTests {
 
     @Autowired
@@ -38,11 +41,11 @@ class BackendRuntimeFacadeIntegrationTests {
 
     @Test
     void runtimeFacadeShouldExposePlaylistChatAndSessionData() {
-        String userId = "user-1";
+        String userId = "test-user-" + UUID.randomUUID();
         userContextService.save(new User(
                 userId,
-                "demo-user",
-                "demo@example.com",
+                "demo-" + userId,
+                userId + "@example.com",
                 null,
                 new UserPreferences(
                         List.of("Cantopop"),
@@ -63,14 +66,25 @@ class BackendRuntimeFacadeIntegrationTests {
                         new TrackDto("track-2", "Song B", "artist-2", "Album B", "album-2", 200000, null, null)
                 )
         );
-        chatMemoryService.appendMessage(userId, ChatRole.USER, "来点轻松的粤语歌", null);
-        playbackSessionService.saveSession(userId, null, "track-1", playlist.id(), 0, 12000, true, PlaybackMode.SHUFFLE, "device-1");
+        chatMemoryService.appendMessage(userId, ChatRole.USER, "light cantopop songs", null);
+        playbackSessionService.saveSession(
+                userId,
+                null,
+                "track-1",
+                playlist.id(),
+                0,
+                12000,
+                true,
+                PlaybackMode.SHUFFLE,
+                "device-1"
+        );
 
         assertThat(backendRuntimeFacade.getRecentPlaylists(userId))
                 .extracting(PlaylistDto::id)
                 .containsExactly(playlist.id());
         assertThat(backendRuntimeFacade.getRecentChatMessages(userId))
-                .hasSize(1);
+                .extracting("message")
+                .contains("light cantopop songs");
         assertThat(backendRuntimeFacade.getActiveSession(userId))
                 .isPresent()
                 .get()

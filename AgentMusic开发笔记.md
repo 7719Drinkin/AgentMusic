@@ -16,6 +16,17 @@
 5. 底部播放器与右侧当前播放栏显示真实播放上下文。
 6. 通过 Spotify bridge 账号控制真实 Spotify 设备播放。
 
+当前前端信息架构也已收口为两条主线：
+
+1. `Agent Chat`
+2. `Music Home`
+
+其中：
+
+- `Search` 页不再作为独立功能保留，相关“找歌 / 找艺人”意图由 Agent Chat 替代。
+- `Library` 页不再作为独立功能保留，资料库类入口由 Agent Chat 与推荐歌单历史替代。
+- `Music Home` 保留，用于展示最近推荐流程中沉淀出的歌曲、艺人、歌单、专辑元素。
+
 ## 2. 当前后端结构
 
 本轮已完成一次受控包重构，目标是把 Web 层、Spotify 集成层、持久化层拆开，减少横向技术包混放。
@@ -30,6 +41,7 @@
   - 领域模型，如 `Playlist`、`Track`、`PlaybackSession`。
 - `planner`
   - Agent 意图识别、规划与执行骨架。
+  - 当前已新增 `planner.llm`，用于约束真实 LLM 规划输入 / 输出契约。
 - `service`
   - 领域服务接口与应用服务接口。
 - `web.controller`
@@ -77,6 +89,66 @@
 - 后端会生成真实推荐歌单并写入 `currentPlaylistId/currentTrackIndex`。
 - 左侧栏可展示推荐歌单历史。
 
+### 3.1.1 LLM 接入前置准备
+
+- 已完成严格的 LLM 规划 Harness。
+- 当前已定义：
+  - 输入 Envelope
+  - 严格 JSON 输出契约
+  - 意图到执行步骤的固定模板
+  - 服务端逐字段校验规则
+  - 单元测试覆盖
+- 当前 Harness 输出目标是 `AgentPlan`，后续真实 LLM 接入时必须先经过该 Harness 校验。
+- OpenAI 兼容客户端基址已改成可配置：
+  - `openai.base-url`
+- 这样可以直接对接 Kimi 兼容 OpenAI 的 endpoint，而不再写死 OpenAI 官方域名。
+- 当前真实 LLM 仍未接管主聊天主链，主规划仍以现有 `SimpleTaskPlanner` 作为 fallback。
+- 当前已增加影子模式真实调用器：
+  - `OpenAiCompatiblePlanningClient`
+  - `LiveLlmPlanningSmokeRunner`
+- 该路径不接主链，只用于验证真实 provider 输出能否通过 Harness。
+- 当前已新增 `LlmBackedTaskPlanner` 作为主 planner 入口：
+  - 优先调用真实 OpenAI 兼容 provider
+  - 返回结果先经过 Harness 校验
+  - 校验成功后直接产出 `AgentPlan`
+  - 调用失败、限流或校验失败时回退到 `SimpleTaskPlanner`
+- `TaskPlanner` 当前已返回 `TaskPlanningResult`，用于显式记录：
+  - `planningSource`
+  - `planningFallbackUsed`
+- `DefaultAgentApplicationService` 已把上述元数据写入 Agent 回复 metadata，便于后续前端和联调验证主链到底命中了真实 LLM 还是 fallback。
+
+### 3.1.2 LLM 输出验收规则
+
+当前对真实 LLM 输出的验收不以“回答看起来合理”为标准，而以“是否能被 Harness 严格接受”为标准。
+
+当前验收流程固定为：
+
+1. 调用 OpenAI 兼容 `chat/completions`。
+2. 只读取 `choices[0].message.content`。
+3. 将原始内容交给 `AgentLlmPlanningHarness.parseAndValidate(...)`。
+4. 仅当以下条件全部成立时，才判定该输出可接受：
+   - JSON 解析成功。
+   - `schemaVersion` 匹配。
+   - `intent` 属于白名单。
+   - `steps` 严格匹配对应模板。
+   - `arguments` 通过字段级校验。
+   - 最终成功转换为 `AgentPlan`。
+5. 任一条件失败时，视为该次 LLM 输出不可接受，应回退到 `SimpleTaskPlanner`。
+
+当前人工烟雾测试结论：
+
+- Kimi 兼容接口已经能返回结构化 JSON。
+- 第一轮真实输出曾未通过 Harness，原因是步骤参数不完整。
+- 收紧 prompt 并加入一次修复回合后，推荐主路径当前已经连续通过真实 shadow smoke。
+- 当前已实测稳定通过的路径是：
+  - 用户请求“来点适合雨天通勤的中文歌并直接播放”
+  - 输出 `intent=PLAY_RECOMMENDATION`
+  - step 序列严格匹配 `PLAY_RECOMMENDATION` 模板
+  - `limit` / `query` 参数通过 Harness 校验
+- 这说明当前重点已经从“继续定义契约”转移到“将 validated `AgentPlan` 接入主聊天规划链路”。
+- 当前该主链接入已完成，真实 provider 路径在本地 runner 中已能进入 `LlmBackedTaskPlanner`。
+- 当前一次实际 runner 观察到的 fallback 原因是 provider `429 Too Many Requests`，不是 Harness 结构错误。
+
 ### 3.2 歌单页
 
 - 左侧推荐歌单点击后进入真实歌单页。
@@ -88,6 +160,18 @@
   - 添加时间
   - 时长
 - `addedAt` 已从后端 DTO 向前端透传。
+
+### 3.2.1 Music Home
+
+- `Music Home` 已从占位页改为真实推荐内容聚合页。
+- `Music Home` 当前已改成简洁圆角卡片布局，并支持分区展开 / 收起。
+- `Music Home` 主页面滚动容器已修正为独立滚动区，页面底部内容现在可以滚动到视口内并正常交互。
+- 当前首页已展示：
+  - 最近推荐歌单
+  - 最近推荐中出现的歌曲
+  - 最近推荐中出现的艺人
+  - 最近推荐中出现的专辑
+- 艺人聚焦入口已从旧 `/search` 路径切到 `/music?artist=...`。
 
 ### 3.3 播放器与当前播放栏
 
@@ -102,6 +186,7 @@
   - 通用播放控制失败。
 - 后端 API 错误响应已开始返回结构化错误码：
   - `spotify-authorization`
+  - `spotify-authorization-missing`
   - `spotify-device-unavailable`
   - `spotify-device-offline`
   - `spotify-device-restricted`
@@ -109,12 +194,19 @@
   - `not-found`
   - `request-failure`
 - 前端 `http.js` 现在优先消费后端错误码，再回退到状态码与消息文本兜底。
+- 当前前端 fallback 已进一步收敛：
+  - 播放路径 `401` 优先归类为授权错误。
+  - 播放路径 `403` 优先归类为受限设备。
+  - 播放路径 `404` 优先归类为设备不可用。
+  - 授权与播放路径 `503` 优先归类为 bridge disabled。
+  - 当前只对传输层 / DNS 类异常保留文本兜底分类。
 - 设备显式切换现在对“所选设备已离线”返回独立错误码，不再模糊落成通用播放冲突。
 - 同一套错误归一逻辑已扩展到：
   - 聊天历史加载。
   - Agent 消息发送。
   - 左侧推荐歌单加载。
 - 聊天页与左侧推荐歌单页的损坏文案已清理，避免在联调和 E2E 中混入乱码。
+- 左侧推荐歌单区域已去除与主导航重复的 `Agent Chat` / `Music Home` 固定入口。
 - 左侧推荐歌单区已拆成固定头部 + 可滚动列表区，歌单数量超出可视高度后可滚动查看。
 - 底部设备摘要在 session 仍持有 `deviceId` 但设备列表为空时，不再错误显示 `No active device`，而是明确显示 session 设备不可用 / 离线。
 - 队列抽屉已支持：
@@ -126,6 +218,15 @@
   - 主播放动作说明。
   - 当前曲目 pill。
   - 更清晰的行 hover / active 状态。
+  - 歌单页历史残留乱码文案已清理，页面文案恢复为正常中文。
+- 当前播放栏视觉已继续收口：
+  - 新增播放上下文条，直接显示当前是第几首以及后续队列数量。
+  - `Up next` 卡片增加当前歌单上下文说明，减少只看封面时的信息不足。
+  - 当前播放栏头部按钮在无 hover 场景下也可见，避免触屏或窄窗口下操作入口消失。
+- 设备面板视觉已继续收口：
+  - 面板头部改为 `available + current session tracked` 的双层信息结构。
+  - 当前设备状态文案从泛化 `Ready` 改为更明确的 `Current device`。
+- 左上角标识已从原 Spotify 图形标识改为 `AgentMusic` 文字标识，并和侧栏外壳统一为圆角卡片化外观。
 
 ### 3.4 真实 Spotify 播放控制
 
@@ -142,6 +243,8 @@
 
 - `SHUFFLE` 已明确收敛为“本地歌单上下文模式”，不再依赖 Spotify 原生队列上下文。
 - `next / previous` 的目标曲目由本地歌单上下文决策，再通过真实 Spotify `playTrack` 落到设备上。
+- 当 bridge 账号未连接或 access token 缺失时，播放控制与设备列表接口现在会直接返回结构化授权错误，不再回退为本地会话假成功。
+- 仍属于 legacy 的 Spotify 授权令牌不完整响应、bridge token 文件落盘失败，现也已改为结构化 API 失败响应，不再落入通用 `IllegalStateException`。
 
 ### 3.5 Spotify 集成稳定性修复
 
@@ -374,13 +477,15 @@
 ### Priority 1
 
 1. 完善设备切换后的回显、刷新与边界状态。
-2. 继续减少前端按消息文本分类的兜底分支，逐步补齐后端结构化错误码覆盖面。
-3. 继续补 schema / migration 失败场景下更细的分类，例如缺表、缺列、migration SQL 失败的独立提示。
+2. 已完成：将 `planner.llm` Harness 接到主聊天规划链路，使用真实 LLM 优先产出 `AgentPlan`，失败时回退到 `SimpleTaskPlanner`。
+3. 继续减少前端按消息文本分类的兜底分支，逐步补齐后端结构化错误码覆盖面。
+4. 继续补 schema / migration 失败场景下更细的分类，例如缺表、缺列、migration SQL 失败的独立提示。
 
 本轮新增补充：
 
 - `WebClientResponseException` 的播放 `403/404` 不再统一落到授权失败。
 - 当前已明确区分：
+  - `spotify-authorization-missing`
   - `spotify-device-restricted`
   - `spotify-device-unavailable`
   - `spotify-device-offline`

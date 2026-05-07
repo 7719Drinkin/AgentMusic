@@ -17,10 +17,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.IntStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DefaultPlaylistService implements PlaylistService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultPlaylistService.class);
 
     private final PlaylistRepository playlistRepository;
     private final PlaylistTrackRepository playlistTrackRepository;
@@ -74,14 +78,15 @@ public class DefaultPlaylistService implements PlaylistService {
     @Override
     public List<PlaylistDto> getRecentPlaylists(String userId, int limit) {
         return playlistRepository.findRecentByUserId(userId, limit).stream()
-                .map(this::toPlaylistDto)
+                .map(this::toPlaylistDtoIfPlayable)
+                .flatMap(Optional::stream)
                 .toList();
     }
 
     @Override
     public Optional<PlaylistDto> getPlaylistById(String playlistId) {
         return playlistRepository.findById(playlistId)
-                .map(this::toPlaylistDto);
+                .flatMap(this::toPlaylistDtoIfPlayable);
     }
 
     private PlaylistDto toPlaylistDto(Playlist playlist) {
@@ -90,6 +95,35 @@ public class DefaultPlaylistService implements PlaylistService {
                 .map(playlistTrack -> musicMetadataService.findTrack(playlistTrack.trackId()).orElseThrow())
                 .toList();
         return DomainDtoMapper.toDto(playlist, playlistTracks, tracks);
+    }
+
+    private Optional<PlaylistDto> toPlaylistDtoIfPlayable(Playlist playlist) {
+        List<PlaylistTrack> playlistTracks = playlistTrackRepository.findByPlaylistId(playlist.id());
+        if (playlistTracks.isEmpty()) {
+            return Optional.of(DomainDtoMapper.toDto(playlist, List.of(), List.of()));
+        }
+
+        boolean hasInvalidTrackId = playlistTracks.stream()
+                .map(PlaylistTrack::trackId)
+                .anyMatch(trackId -> !isLikelySpotifyTrackId(trackId));
+        if (hasInvalidTrackId) {
+            LOGGER.warn("Skipping non-playable playlist {} because at least one track id is not a valid Spotify id.", playlist.id());
+            return Optional.empty();
+        }
+
+        List<Track> tracks = playlistTracks.stream()
+                .map(playlistTrack -> musicMetadataService.findTrack(playlistTrack.trackId()).orElse(null))
+                .toList();
+        if (tracks.stream().anyMatch(track -> track == null)) {
+            LOGGER.warn("Skipping playlist {} because at least one track metadata record is missing.", playlist.id());
+            return Optional.empty();
+        }
+
+        return Optional.of(DomainDtoMapper.toDto(playlist, playlistTracks, tracks));
+    }
+
+    private boolean isLikelySpotifyTrackId(String trackId) {
+        return trackId != null && trackId.matches("^[A-Za-z0-9]{22}$");
     }
 
     private Track toDomainTrack(TrackDto trackDto) {

@@ -25,17 +25,8 @@ function FooterRight({
   const [pendingDeviceId, setPendingDeviceId] = useState(null)
   const devicePanelRef = useRef(null)
   const currentDevice = devices.find((device) => device.active || device.id === currentDeviceId) || null
-  const currentDeviceName = currentDevice?.name || ''
   const hasRestrictedOnly = !isDevicesLoading && devices.length > 0 && devices.every((device) => device.restricted)
   const hasCurrentDeviceMissing = !isDevicesLoading && Boolean(currentDeviceId) && !currentDevice
-  const deviceSummaryText = currentDeviceName
-    || (isDevicesLoading
-      ? 'Refreshing...'
-      : hasCurrentDeviceMissing
-        ? 'Session device unavailable'
-        : currentDeviceId
-          ? 'Session device pending'
-          : 'No active device')
   const deviceSummaryState = getDeviceSummaryState({
     isDevicesLoading,
     devicePanelMessage,
@@ -76,6 +67,7 @@ function FooterRight({
     if (!deviceId) {
       return
     }
+
     setPendingDeviceId(deviceId)
     const switched = await onTransferDevice?.(deviceId)
     setPendingDeviceId(null)
@@ -120,17 +112,11 @@ function FooterRight({
           aria-label="Playback devices"
           data-testid="playback-device-toggle"
         >
-          <span className={styles.deviceSummaryIcon}>
+          <span
+            className={`${styles.deviceSummaryIcon} ${styles.deviceSummaryIconButton} ${deviceSummaryStateClassName}`.trim()}
+            data-testid="playback-device-summary"
+          >
             <Icons.Devices />
-          </span>
-          <span className={styles.deviceSummaryTextWrap}>
-            <span className={styles.deviceSummaryLabel}>Playback device</span>
-            <span className={styles.deviceSummaryText} data-testid="playback-device-summary">
-              {deviceSummaryText}
-            </span>
-            <span className={`${styles.deviceSummaryState} ${deviceSummaryStateClassName}`.trim()}>
-              {deviceSummaryState.text}
-            </span>
           </span>
         </button>
         {isDevicePanelOpen ? (
@@ -138,10 +124,12 @@ function FooterRight({
             <div className={styles.devicePanelHeader}>
               <div>
                 <p className={styles.devicePanelTitle}>Playback devices</p>
-                <p className={styles.devicePanelMeta}>
-                  {devices.length} available
-                  {currentDeviceId ? ' · current session device tracked' : ''}
-                </p>
+                <div className={styles.devicePanelMetaRow}>
+                  <p className={styles.devicePanelMeta}>{devices.length} available</p>
+                  {currentDeviceId ? (
+                    <span className={styles.devicePanelMetaBadge}>Current session tracked</span>
+                  ) : null}
+                </div>
               </div>
               <button
                 className={styles.refreshButton}
@@ -197,6 +185,7 @@ function FooterRight({
                     : isActive
                       ? styles.deviceStatusCurrent
                       : styles.deviceStatusMuted
+
                 return (
                   <button
                     key={device.id}
@@ -217,7 +206,7 @@ function FooterRight({
                       <span className={styles.deviceType}>{device.type}</span>
                     </span>
                     <span className={`${styles.deviceStatus} ${statusClassName}`.trim()}>
-                      {isRestricted ? 'Restricted' : isPending ? 'Switching...' : isActive ? 'Ready' : 'Available'}
+                      {isRestricted ? 'Restricted' : isPending ? 'Switching...' : isActive ? 'Current device' : 'Available'}
                     </span>
                   </button>
                 )
