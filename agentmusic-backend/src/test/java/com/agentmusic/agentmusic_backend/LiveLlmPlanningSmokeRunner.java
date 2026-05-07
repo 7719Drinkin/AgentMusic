@@ -2,16 +2,20 @@ package com.agentmusic.agentmusic_backend;
 
 import com.agentmusic.agentmusic_backend.config.AgentChatProperties;
 import com.agentmusic.agentmusic_backend.config.OpenAiProperties;
+import com.agentmusic.agentmusic_backend.domain.ChatRole;
 import com.agentmusic.agentmusic_backend.planner.PlanningContext;
 import com.agentmusic.agentmusic_backend.planner.llm.AgentLlmPlanningHarness;
 import com.agentmusic.agentmusic_backend.planner.llm.OpenAiCompatiblePlanningClient;
 import com.agentmusic.agentmusic_backend.web.dto.AgentChatRequest;
+import com.agentmusic.agentmusic_backend.web.dto.ChatMessageDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import org.springframework.util.StringUtils;
 
@@ -33,8 +37,21 @@ public final class LiveLlmPlanningSmokeRunner {
         );
 
         PlanningContext context = new PlanningContext(
-                new AgentChatRequest("demo-user", "来点适合雨天通勤的中文歌并直接播放", false),
-                List.of("上一轮生成的是粤语歌单", "当前在通勤场景")
+                new AgentChatRequest(
+                        "demo-user",
+                        "Recommend atmospheric Mandarin songs for a late-night train ride and start playback.",
+                        false
+                ),
+                List.of(
+                        new ChatMessageDto(
+                                "history-1",
+                                ChatRole.AGENT,
+                                "Previous playlist included River and other city-pop tracks.",
+                                Map.of(),
+                                LocalDateTime.of(2026, 5, 1, 20, 1)
+                        )
+                ),
+                List.of("Night Ride -> River / Everyday / Missing You")
         );
 
         var result = planningClient.generateValidatedPlan(context);
@@ -64,9 +81,10 @@ public final class LiveLlmPlanningSmokeRunner {
 
     private static OpenAiProperties buildOpenAiProperties(Properties properties) {
         return new OpenAiProperties(
-                resolveValue(properties.getProperty("openai.api.key")),
+                resolveValue(properties.getProperty("openai.api-key")),
                 resolveValue(properties.getProperty("openai.base-url")),
-                new OpenAiProperties.Chat(resolveValue(properties.getProperty("openai.chat.model-id")))
+                new OpenAiProperties.Chat(resolveValue(properties.getProperty("openai.chat.model-id"))),
+                new OpenAiProperties.Api(resolveValue(properties.getProperty("openai.api.key")))
         );
     }
 

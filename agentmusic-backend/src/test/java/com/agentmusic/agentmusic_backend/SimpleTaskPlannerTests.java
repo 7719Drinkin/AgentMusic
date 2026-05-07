@@ -14,9 +14,10 @@ class SimpleTaskPlannerTests {
     private final SimpleTaskPlanner planner = new SimpleTaskPlanner();
 
     @Test
-    void shouldClassifyChineseRecommendationAsPlayRecommendation() {
+    void shouldClassifyRecommendationAsPlayRecommendation() {
         var result = planner.createPlan(new PlanningContext(
-                new AgentChatRequest("demo-user", "来点适合雨天通勤的中文歌", false),
+                new AgentChatRequest("demo-user", "Build a playlist mix for a rainy commute and play it now.", false),
+                List.of(),
                 List.of()
         ));
 
@@ -24,9 +25,10 @@ class SimpleTaskPlannerTests {
     }
 
     @Test
-    void shouldClassifyChineseRecommendOnlyRequest() {
+    void shouldClassifyRecommendOnlyRequest() {
         var result = planner.createPlan(new PlanningContext(
-                new AgentChatRequest("demo-user", "先生成歌单，不要直接播放", false),
+                new AgentChatRequest("demo-user", "Build a playlist mix, recommend only.", false),
+                List.of(),
                 List.of()
         ));
 
@@ -34,9 +36,21 @@ class SimpleTaskPlannerTests {
     }
 
     @Test
-    void shouldClassifyChinesePlaybackControlRequest() {
+    void shouldClassifyChineseRecommendationRequestWithExplicitTitle() {
         var result = planner.createPlan(new PlanningContext(
-                new AgentChatRequest("demo-user", "把当前播放切成随机模式", false),
+                new AgentChatRequest("demo-user", "推荐张雨生的《河》以及他的其他歌曲", false),
+                List.of(),
+                List.of()
+        ));
+
+        assertEquals(AgentIntent.RECOMMEND_PLAYLIST, result.plan().intent());
+    }
+
+    @Test
+    void shouldClassifyPlaybackControlRequest() {
+        var result = planner.createPlan(new PlanningContext(
+                new AgentChatRequest("demo-user", "Switch the current playback to shuffle mode.", false),
+                List.of(),
                 List.of()
         ));
 

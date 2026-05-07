@@ -6,15 +6,23 @@ import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
 import com.agentmusic.agentmusic_backend.web.dto.PlaylistDto;
 import com.agentmusic.agentmusic_backend.web.dto.TrackDto;
 import com.agentmusic.agentmusic_backend.planner.AgentPlan;
+import com.agentmusic.agentmusic_backend.planner.PlanStep;
+import com.agentmusic.agentmusic_backend.planner.PlanStepType;
 import com.agentmusic.agentmusic_backend.planner.PlannerExecutionResult;
 import com.agentmusic.agentmusic_backend.planner.PlanningContext;
 import com.agentmusic.agentmusic_backend.planner.TaskExecutor;
 import com.agentmusic.agentmusic_backend.service.application.MusicQueryApplicationService;
 import com.agentmusic.agentmusic_backend.service.application.PlaybackApplicationService;
 import com.agentmusic.agentmusic_backend.service.application.PlaylistApplicationService;
+import com.agentmusic.agentmusic_backend.service.impl.SearchQueryRefiner;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 @Component
 public class DefaultTaskExecutor implements TaskExecutor {
@@ -22,15 +30,18 @@ public class DefaultTaskExecutor implements TaskExecutor {
     private final MusicQueryApplicationService musicQueryApplicationService;
     private final PlaybackApplicationService playbackApplicationService;
     private final PlaylistApplicationService playlistApplicationService;
+    private final SearchQueryRefiner searchQueryRefiner;
 
     public DefaultTaskExecutor(
             MusicQueryApplicationService musicQueryApplicationService,
             PlaybackApplicationService playbackApplicationService,
-            PlaylistApplicationService playlistApplicationService
+            PlaylistApplicationService playlistApplicationService,
+            SearchQueryRefiner searchQueryRefiner
     ) {
         this.musicQueryApplicationService = musicQueryApplicationService;
         this.playbackApplicationService = playbackApplicationService;
         this.playlistApplicationService = playlistApplicationService;
+        this.searchQueryRefiner = searchQueryRefiner;
     }
 
     @Override
@@ -38,18 +49,26 @@ public class DefaultTaskExecutor implements TaskExecutor {
         String message = planningContext.request().message() == null ? "" : planningContext.request().message();
         String userId = planningContext.request().userId();
 
-        String reply = switch (plan.intent()) {
-            case PLAYBACK_CONTROL -> executePlaybackControl(userId, message);
-            case TRACK_LOOKUP -> executeTrackLookup(message);
-            case RECOMMEND_PLAYLIST -> executeRecommendation(userId, message, false);
-            case PLAY_RECOMMENDATION -> executeRecommendation(userId, message, true);
-            case PLAYLIST_HISTORY_ACCESS -> executePlaylistHistoryAccess(userId);
-            case COMPOSITE_REQUEST -> executeCompositeRequest(userId, message);
-            default -> "Planner skeleton ready. Intent=" + plan.intent()
-                    + ", steps=" + plan.steps().size()
-                    + ". Spotify bridge-mode execution wiring is pending for this intent.";
+        return switch (plan.intent()) {
+            case PLAYBACK_CONTROL -> new PlannerExecutionResult(plan, executePlaybackControl(userId, message));
+            case TRACK_LOOKUP -> {
+                String query = resolveQuery(plan, message, PlanStepType.LOOKUP_TRACK);
+                yield new PlannerExecutionResult(plan, executeTrackLookup(query));
+            }
+            case RECOMMEND_PLAYLIST -> executeRecommendation(plan, userId, message, false);
+            case PLAY_RECOMMENDATION -> executeRecommendation(plan, userId, message, true);
+            case PLAYLIST_HISTORY_ACCESS -> new PlannerExecutionResult(plan, executePlaylistHistoryAccess(userId));
+            case COMPOSITE_REQUEST -> {
+                String query = resolveQuery(plan, message, PlanStepType.SEARCH_TRACKS, PlanStepType.UPDATE_PLAYBACK_STATE);
+                yield new PlannerExecutionResult(plan, executeCompositeRequest(userId, query, message));
+            }
+            default -> new PlannerExecutionResult(
+                    plan,
+                    "Planner skeleton ready. Intent=" + plan.intent()
+                            + ", steps=" + plan.steps().size()
+                            + ". Spotify bridge-mode execution wiring is pending for this intent."
+            );
         };
-        return new PlannerExecutionResult(plan, reply);
     }
 
     private String executeTrackLookup(String message) {
@@ -86,15 +105,19 @@ public class DefaultTaskExecutor implements TaskExecutor {
         return "Playback control request received, but no track is currently available to resume.";
     }
 
-    private String executeRecommendation(String userId, String message, boolean autoPlay) {
-        RecommendationExecution recommendation = createRecommendationPlaylist(userId, message);
-        if (recommendation == null) {
-            return "No suitable tracks were found for the current recommendation request.";
+    private PlannerExecutionResult executeRecommendation(AgentPlan plan, String userId, String message, boolean autoPlay) {
+        String recommendationQuery = searchQueryRefiner.selectExecutionQuery(message, null);
+        RecommendationExecution recommendation = createRecommendationPlaylist(userId, recommendationQuery, message);
+        if (recommendation.candidateTracks().isEmpty()) {
+            return new PlannerExecutionResult(plan, "No suitable tracks were found for the current recommendation request.");
         }
 
         if (!autoPlay) {
-            return "Created recommendation playlist " + recommendation.playlist().name()
-                    + " with " + recommendation.playlist().tracks().size() + " tracks.";
+            return new PlannerExecutionResult(
+                    plan,
+                    "Created recommendation playlist " + recommendation.playlist().name()
+                            + " with " + recommendation.playlist().tracks().size() + " tracks."
+            );
         }
 
         TrackDto entryTrack = recommendation.entryTrack();
@@ -106,14 +129,17 @@ public class DefaultTaskExecutor implements TaskExecutor {
                 null,
                 inferPlaybackMode(message)
         );
-        return "Created recommendation playlist " + recommendation.playlist().name()
-                + " with " + recommendation.playlist().tracks().size()
-                + " tracks and started playback from " + entryTrack.title()
-                + " in mode " + session.playbackMode() + ".";
+        return new PlannerExecutionResult(
+                plan,
+                "Created recommendation playlist " + recommendation.playlist().name()
+                        + " with " + recommendation.playlist().tracks().size()
+                        + " tracks and started playback from " + entryTrack.title()
+                        + " in mode " + session.playbackMode() + "."
+        );
     }
 
-    private String executeCompositeRequest(String userId, String message) {
-        List<TrackDto> tracks = musicQueryApplicationService.searchTracks(message, 5);
+    private String executeCompositeRequest(String userId, String query, String message) {
+        List<TrackDto> tracks = musicQueryApplicationService.searchTracks(query, 5);
         if (tracks.isEmpty()) {
             return "No matching track was found for the current request.";
         }
@@ -162,20 +188,144 @@ public class DefaultTaskExecutor implements TaskExecutor {
         return normalized.contains("暂停") || normalized.contains("pause");
     }
 
-    private RecommendationExecution createRecommendationPlaylist(String userId, String message) {
-        List<TrackDto> tracks = musicQueryApplicationService.searchTracks(message, 10);
-        if (tracks.isEmpty()) {
-            return null;
+    private RecommendationExecution createRecommendationPlaylist(String userId, String searchQuery, String originalMessage) {
+        SearchQueryRefiner.SearchQueryHints hints = searchQueryRefiner.analyze(originalMessage);
+        LinkedHashSet<String> candidateQueries = new LinkedHashSet<>();
+        if (StringUtils.hasText(searchQuery)) {
+            candidateQueries.add(searchQuery.trim());
+        }
+        if (StringUtils.hasText(originalMessage)) {
+            candidateQueries.add(originalMessage.trim());
+        }
+        candidateQueries.addAll(hints.candidates());
+
+        Map<String, TrackDto> aggregatedTracks = new LinkedHashMap<>();
+        for (String candidateQuery : candidateQueries) {
+            List<TrackDto> candidateTracks = musicQueryApplicationService.searchTracks(candidateQuery, 20);
+            for (TrackDto candidateTrack : candidateTracks) {
+                aggregatedTracks.putIfAbsent(candidateTrack.trackId(), candidateTrack);
+            }
         }
 
-        List<TrackDto> selectedTracks = tracks.stream()
-                .limit(5)
-                .toList();
+        if (aggregatedTracks.isEmpty()) {
+            return new RecommendationExecution(
+                    List.of(),
+                    null,
+                    null
+            );
+        }
+
+        List<TrackDto> selectedTracks = selectRecommendationTracks(originalMessage, List.copyOf(aggregatedTracks.values()), 5);
         PlaylistDto playlist = playlistApplicationService.createPlaylist(
                 userId,
-                new CreatePlaylistRequest(buildPlaylistName(message), selectedTracks)
+                new CreatePlaylistRequest(buildPlaylistName(originalMessage), selectedTracks)
         );
-        return new RecommendationExecution(playlist, selectedTracks.getFirst());
+        return new RecommendationExecution(
+                List.copyOf(aggregatedTracks.values()),
+                playlist,
+                selectedTracks.getFirst()
+        );
+    }
+
+    private List<TrackDto> selectRecommendationTracks(String message, List<TrackDto> tracks, int limit) {
+        SearchQueryRefiner.SearchQueryHints hints = searchQueryRefiner.analyze(message);
+        if (hints.explicitTitles().isEmpty() || !hints.wantsAdditionalTracks()) {
+            return tracks.stream().limit(limit).toList();
+        }
+
+        String primaryTitle = hints.explicitTitles().getFirst();
+        List<TrackDto> exactTitleMatches = tracks.stream()
+                .filter(track -> titleMatches(track.title(), primaryTitle))
+                .toList();
+        if (exactTitleMatches.isEmpty()) {
+            List<TrackDto> contextFallbackTracks = selectContextFallbackTracks(hints, limit);
+            if (!contextFallbackTracks.isEmpty()) {
+                return contextFallbackTracks;
+            }
+            return tracks.stream().limit(limit).toList();
+        }
+
+        String primaryArtistId = exactTitleMatches.getFirst().artistId();
+        List<TrackDto> selected = new ArrayList<>();
+        LinkedHashSet<String> seenTrackIds = new LinkedHashSet<>();
+
+        addIfAbsent(selected, seenTrackIds, exactTitleMatches.getFirst());
+
+        tracks.stream()
+                .filter(track -> primaryArtistId != null && primaryArtistId.equals(track.artistId()))
+                .filter(track -> !titleMatches(track.title(), primaryTitle))
+                .forEach(track -> addIfAbsent(selected, seenTrackIds, track));
+
+        tracks.stream()
+                .filter(track -> !titleMatches(track.title(), primaryTitle))
+                .forEach(track -> addIfAbsent(selected, seenTrackIds, track));
+
+        exactTitleMatches.stream()
+                .skip(1)
+                .forEach(track -> addIfAbsent(selected, seenTrackIds, track));
+
+        tracks.forEach(track -> addIfAbsent(selected, seenTrackIds, track));
+
+        return selected.stream().limit(limit).toList();
+    }
+
+    private List<TrackDto> selectContextFallbackTracks(SearchQueryRefiner.SearchQueryHints hints, int limit) {
+        if (hints.contextKeywords().isEmpty()) {
+            return List.of();
+        }
+
+        String contextQuery = joinKeywords(hints.contextKeywords());
+        if (!StringUtils.hasText(contextQuery)) {
+            return List.of();
+        }
+
+        List<TrackDto> contextTracks = musicQueryApplicationService.searchTracks(contextQuery, 10);
+        if (contextTracks.isEmpty()) {
+            return List.of();
+        }
+
+        String dominantArtistId = resolveDominantArtistId(contextTracks);
+        if (!StringUtils.hasText(dominantArtistId)) {
+            return contextTracks.stream().limit(limit).toList();
+        }
+
+        List<TrackDto> selected = new ArrayList<>();
+        LinkedHashSet<String> seenTrackIds = new LinkedHashSet<>();
+
+        contextTracks.stream()
+                .filter(track -> dominantArtistId.equals(track.artistId()))
+                .forEach(track -> addIfAbsent(selected, seenTrackIds, track));
+
+        contextTracks.forEach(track -> addIfAbsent(selected, seenTrackIds, track));
+        return selected.stream().limit(limit).toList();
+    }
+
+    private String resolveQuery(AgentPlan plan, String fallback, PlanStepType... preferredStepTypes) {
+        String plannerQuery = null;
+        if (plan == null || plan.steps() == null || preferredStepTypes == null) {
+            return searchQueryRefiner.selectExecutionQuery(fallback, null);
+        }
+
+        for (PlanStepType preferredStepType : preferredStepTypes) {
+            for (PlanStep step : plan.steps()) {
+                if (step == null || step.type() != preferredStepType) {
+                    continue;
+                }
+                Map<String, Object> arguments = step.arguments();
+                if (arguments == null) {
+                    continue;
+                }
+                Object query = arguments.get("query");
+                if (query instanceof String queryText && StringUtils.hasText(queryText)) {
+                    plannerQuery = queryText.trim();
+                    break;
+                }
+            }
+            if (plannerQuery != null) {
+                break;
+            }
+        }
+        return searchQueryRefiner.selectExecutionQuery(fallback, plannerQuery);
     }
 
     private String buildPlaylistName(String message) {
@@ -187,7 +337,56 @@ public class DefaultTaskExecutor implements TaskExecutor {
         return "Agent Recommendation - " + prefix;
     }
 
+    private boolean titleMatches(String actualTitle, String expectedTitle) {
+        String normalizedActual = normalizeForMatching(actualTitle);
+        String normalizedExpected = normalizeForMatching(expectedTitle);
+        if (normalizedActual.isBlank() || normalizedExpected.isBlank()) {
+            return false;
+        }
+        return normalizedActual.equals(normalizedExpected) || normalizedActual.contains(normalizedExpected);
+    }
+
+    private String normalizeForMatching(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        return value.toLowerCase(Locale.ROOT).replaceAll("[\\s\\p{Punct}]+", "");
+    }
+
+    private void addIfAbsent(List<TrackDto> selected, LinkedHashSet<String> seenTrackIds, TrackDto track) {
+        if (track == null || !StringUtils.hasText(track.trackId())) {
+            return;
+        }
+        if (seenTrackIds.add(track.trackId())) {
+            selected.add(track);
+        }
+    }
+
+    private String resolveDominantArtistId(List<TrackDto> tracks) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (TrackDto track : tracks) {
+            if (track == null || !StringUtils.hasText(track.artistId())) {
+                continue;
+            }
+            counts.merge(track.artistId(), 1, Integer::sum);
+        }
+
+        return counts.entrySet().stream()
+                .max(Map.Entry.<String, Integer>comparingByValue()
+                        .thenComparing(Map.Entry.comparingByKey()))
+                .map(Map.Entry::getKey)
+                .orElse(null);
+    }
+
+    private String joinKeywords(List<String> keywords) {
+        if (keywords == null || keywords.isEmpty()) {
+            return "";
+        }
+        return String.join(" ", keywords);
+    }
+
     private record RecommendationExecution(
+            List<TrackDto> candidateTracks,
             PlaylistDto playlist,
             TrackDto entryTrack
     ) {

@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 @Component
@@ -58,7 +59,7 @@ public class OpenAiCompatiblePlanningClient {
 
             latestRawContent = content.trim();
             try {
-                return planningHarness.parseAndValidate(latestRawContent);
+                return planningHarness.parseAndValidate(latestRawContent, context);
             } catch (IllegalArgumentException exception) {
                 latestValidationException = exception;
                 if (attempt >= maxRepairAttempts) {
@@ -141,7 +142,12 @@ public class OpenAiCompatiblePlanningClient {
                         .retrieve()
                         .bodyToMono(Map.class)
                         .block(REQUEST_TIMEOUT);
-            } catch (WebClientResponseException.TooManyRequests exception) {
+            } catch (WebClientResponseException exception) {
+                if (!isRetryable(exception) || attempt >= maxRetries) {
+                    throw exception;
+                }
+                sleepBeforeRetry(retryBackoffMs, attempt + 1);
+            } catch (WebClientRequestException exception) {
                 if (attempt >= maxRetries) {
                     throw exception;
                 }
@@ -150,6 +156,11 @@ public class OpenAiCompatiblePlanningClient {
         }
 
         throw new IllegalStateException("LLM planning request failed without a terminal result.");
+    }
+
+    private boolean isRetryable(WebClientResponseException exception) {
+        return exception instanceof WebClientResponseException.TooManyRequests
+                || exception.getStatusCode().is5xxServerError();
     }
 
     @SuppressWarnings("unchecked")

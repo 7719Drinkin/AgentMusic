@@ -6,6 +6,7 @@ import com.agentmusic.agentmusic_backend.planner.AgentPlan;
 import com.agentmusic.agentmusic_backend.planner.PlanStep;
 import com.agentmusic.agentmusic_backend.planner.PlanStepType;
 import com.agentmusic.agentmusic_backend.planner.PlanningContext;
+import com.agentmusic.agentmusic_backend.web.dto.ChatMessageDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,6 +16,8 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -26,6 +29,10 @@ public class AgentLlmPlanningHarness {
     private static final int MAX_REASONING_LENGTH = 180;
     private static final String QUERY_ARGUMENT = "query";
     private static final String LIMIT_ARGUMENT = "limit";
+    private static final Pattern TITLE_PATTERN = Pattern.compile("《\\s*([^》]+?)\\s*》");
+    private static final List<String> RECOMMENDATION_HINTS = List.of("推荐", "来点", "想听", "适合", "歌单", "mix");
+    private static final List<String> PLAY_HINTS = List.of("播放", "开始播放", "直接播放", "现在播放", "play", "resume");
+    private static final List<String> NO_PLAY_HINTS = List.of("不要播放", "先不要播放", "先别播", "稍后播放");
 
     private static final Map<AgentIntent, List<PlanStepType>> STEP_TEMPLATES = createStepTemplates();
 
@@ -44,11 +51,23 @@ public class AgentLlmPlanningHarness {
     }
 
     public AgentLlmPlanningRequest buildRequest(PlanningContext context) {
-        List<String> recentMessages = context.recentMessages() == null
+        List<AgentLlmPlanningMessage> recentConversation = context.recentConversation() == null
                 ? List.of()
-                : context.recentMessages().stream()
-                .filter(StringUtils::hasText)
+                : context.recentConversation().stream()
+                .filter(message -> message != null && StringUtils.hasText(message.message()))
+                .sorted(java.util.Comparator.comparing(ChatMessageDto::createdAt))
                 .limit(Math.max(1, agentChatProperties.llmRecentMessageLimit()))
+                .map(message -> new AgentLlmPlanningMessage(
+                        toPlanningRole(message),
+                        message.message().trim()
+                ))
+                .toList();
+        List<String> recentRecommendationSummaries = context.recentRecommendationSummaries() == null
+                ? List.of()
+                : context.recentRecommendationSummaries().stream()
+                .filter(StringUtils::hasText)
+                .limit(3)
+                .map(String::trim)
                 .toList();
 
         return new AgentLlmPlanningRequest(
@@ -56,7 +75,8 @@ public class AgentLlmPlanningHarness {
                 context.request().userId(),
                 context.request().voiceInput(),
                 safeTrim(context.request().message()),
-                recentMessages,
+                recentConversation,
+                recentRecommendationSummaries,
                 Arrays.stream(AgentIntent.values()).map(Enum::name).toList(),
                 Arrays.stream(PlanStepType.values()).map(Enum::name).toList()
         );
@@ -95,6 +115,10 @@ public class AgentLlmPlanningHarness {
                 7. READ_USER_PREFERENCES, READ_LOCAL_SESSION, and PERSIST_CHAT_REPLY must use an empty arguments object.
                 8. If the request is ambiguous, prefer CHAT_ONLY or UNKNOWN instead of inventing tool work.
                 9. Never invent unsupported step types, unsupported arguments, or additional JSON fields.
+                10. latestUserMessage is the primary source of truth. recentConversation and recentRecommendationSummaries are background memory only.
+                11. Never let background memory override an explicit current request.
+                12. If latestUserMessage explicitly asks to repeat, revisit, or keep a previously recommended track / artist / playlist, you must preserve that request in the query.
+                13. If latestUserMessage asks for a different topic than history, do not continue the older topic.
 
                 Intent selection rules:
                 - If the user asks for recommended songs, a generated playlist, or music that fits a mood / scene / genre, use RECOMMEND_PLAYLIST or PLAY_RECOMMENDATION.
@@ -108,7 +132,9 @@ public class AgentLlmPlanningHarness {
                 - READ_USER_PREFERENCES arguments must be exactly {}
                 - READ_LOCAL_SESSION arguments must be exactly {}
                 - PERSIST_CHAT_REPLY arguments must be exactly {}
-                - Every query-driven step must use a non-empty "query" copied from the latest user message or a minimal equivalent query in the same language
+                - Every query-driven step must use a non-empty "query" copied from latestUserMessage or a minimal equivalent query in the same language
+                - Never copy literal topic words from examples or old history when latestUserMessage asks for something else
+                - Query construction priority is: latestUserMessage first, then user preferences, then recent recommendation history as a tie-breaker to avoid accidental repetition
 
                 Canonical PLAY_RECOMMENDATION example:
                 {
@@ -156,6 +182,10 @@ public class AgentLlmPlanningHarness {
     }
 
     public AgentLlmPlanningResult parseAndValidate(String rawJson) {
+        return parseAndValidate(rawJson, null);
+    }
+
+    public AgentLlmPlanningResult parseAndValidate(String rawJson, PlanningContext context) {
         AgentLlmPlanningResponse response;
         try {
             response = objectMapper.readValue(rawJson, AgentLlmPlanningResponse.class);
@@ -163,7 +193,7 @@ public class AgentLlmPlanningHarness {
             throw new IllegalArgumentException("LLM planning response is not valid JSON for the harness contract.", exception);
         }
 
-        validateResponse(response);
+        validateResponse(response, context);
 
         List<PlanStep> planSteps = new ArrayList<>();
         for (int index = 0; index < response.steps().size(); index++) {
@@ -183,7 +213,7 @@ public class AgentLlmPlanningHarness {
                 : "agentmusic.plan.v1";
     }
 
-    private void validateResponse(AgentLlmPlanningResponse response) {
+    private void validateResponse(AgentLlmPlanningResponse response, PlanningContext context) {
         if (response == null) {
             throw new IllegalArgumentException("LLM planning response is empty.");
         }
@@ -206,6 +236,8 @@ public class AgentLlmPlanningHarness {
             throw new IllegalArgumentException("LLM planning response steps are missing.");
         }
 
+        validateIntentAgainstLatestMessage(response.intent(), context);
+
         List<PlanStepType> expectedSteps = STEP_TEMPLATES.get(response.intent());
         if (expectedSteps == null) {
             throw new IllegalArgumentException("LLM planning response uses an unsupported intent template.");
@@ -220,11 +252,11 @@ public class AgentLlmPlanningHarness {
             if (actualStep == null || actualStep.type() != expectedStepType) {
                 throw new IllegalArgumentException("LLM planning response step sequence does not match the selected intent template.");
             }
-            validateStepArguments(actualStep);
+            validateStepArguments(actualStep, context);
         }
     }
 
-    private void validateStepArguments(AgentLlmPlanningStep step) {
+    private void validateStepArguments(AgentLlmPlanningStep step, PlanningContext context) {
         Map<String, Object> arguments = step.arguments() == null ? Map.of() : step.arguments();
 
         switch (step.type()) {
@@ -240,7 +272,7 @@ public class AgentLlmPlanningHarness {
                     GENERATE_RECOMMENDATION_CANDIDATES,
                     RANK_RECOMMENDATION_CANDIDATES,
                     CREATE_RECOMMENDATION_PLAYLIST,
-                    UPDATE_PLAYBACK_STATE -> validateQueryArguments(step.type(), arguments);
+                    UPDATE_PLAYBACK_STATE -> validateQueryArguments(step.type(), arguments, context);
         }
     }
 
@@ -255,7 +287,7 @@ public class AgentLlmPlanningHarness {
         }
     }
 
-    private void validateQueryArguments(PlanStepType stepType, Map<String, Object> arguments) {
+    private void validateQueryArguments(PlanStepType stepType, Map<String, Object> arguments, PlanningContext context) {
         if (!arguments.keySet().equals(Set.of(QUERY_ARGUMENT))) {
             throw new IllegalArgumentException(stepType.name() + " must only contain a query argument.");
         }
@@ -263,6 +295,18 @@ public class AgentLlmPlanningHarness {
         Object query = arguments.get(QUERY_ARGUMENT);
         if (!(query instanceof String queryText) || !StringUtils.hasText(queryText)) {
             throw new IllegalArgumentException(stepType.name() + " requires a non-empty query argument.");
+        }
+
+        List<String> explicitTitles = extractExplicitTitles(context);
+        if (!explicitTitles.isEmpty()) {
+            String normalizedQuery = normalizeForMatching(queryText);
+            for (String explicitTitle : explicitTitles) {
+                if (!normalizedQuery.contains(normalizeForMatching(explicitTitle))) {
+                    throw new IllegalArgumentException(
+                            stepType.name() + " query must preserve explicit titles from latestUserMessage."
+                    );
+                }
+            }
         }
     }
 
@@ -272,6 +316,72 @@ public class AgentLlmPlanningHarness {
 
     private String safeTrim(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private void validateIntentAgainstLatestMessage(AgentIntent intent, PlanningContext context) {
+        String latestMessage = context == null || context.request() == null
+                ? ""
+                : safeTrim(context.request().message()).toLowerCase(java.util.Locale.ROOT);
+        if (!StringUtils.hasText(latestMessage)) {
+            return;
+        }
+
+        boolean recommendationRequest = containsAny(latestMessage, RECOMMENDATION_HINTS);
+        boolean explicitPlayRequest = containsAny(latestMessage, PLAY_HINTS);
+        boolean noPlayRequest = containsAny(latestMessage, NO_PLAY_HINTS);
+
+        if (recommendationRequest && (intent == AgentIntent.TRACK_LOOKUP || intent == AgentIntent.ARTIST_LOOKUP)) {
+            throw new IllegalArgumentException("Recommendation requests must not be classified as direct lookup intents.");
+        }
+        if (recommendationRequest && (intent == AgentIntent.UNKNOWN || intent == AgentIntent.CHAT_ONLY)) {
+            throw new IllegalArgumentException("Recommendation requests must not be classified as UNKNOWN or CHAT_ONLY.");
+        }
+        if (recommendationRequest && explicitPlayRequest && !noPlayRequest && intent != AgentIntent.PLAY_RECOMMENDATION) {
+            throw new IllegalArgumentException("Recommendation requests with explicit playback must use PLAY_RECOMMENDATION.");
+        }
+        if (recommendationRequest && (!explicitPlayRequest || noPlayRequest) && intent == AgentIntent.PLAY_RECOMMENDATION) {
+            throw new IllegalArgumentException("Recommendation requests without playback must not use PLAY_RECOMMENDATION.");
+        }
+    }
+
+    private List<String> extractExplicitTitles(PlanningContext context) {
+        if (context == null || context.request() == null || !StringUtils.hasText(context.request().message())) {
+            return List.of();
+        }
+
+        Matcher matcher = TITLE_PATTERN.matcher(context.request().message());
+        List<String> titles = new ArrayList<>();
+        while (matcher.find()) {
+            String title = safeTrim(matcher.group(1));
+            if (StringUtils.hasText(title)) {
+                titles.add(title);
+            }
+        }
+        return List.copyOf(titles);
+    }
+
+    private String normalizeForMatching(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        return value.toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("[\\s\\p{Punct}]+", "");
+    }
+
+    private boolean containsAny(String value, List<String> fragments) {
+        for (String fragment : fragments) {
+            if (value.contains(fragment)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String toPlanningRole(ChatMessageDto message) {
+        return switch (message.role()) {
+            case USER -> "user";
+            case AGENT -> "assistant";
+        };
     }
 
     private static Map<AgentIntent, List<PlanStepType>> createStepTemplates() {

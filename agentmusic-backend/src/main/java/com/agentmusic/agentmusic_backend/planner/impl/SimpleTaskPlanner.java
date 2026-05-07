@@ -9,6 +9,7 @@ import com.agentmusic.agentmusic_backend.planner.TaskPlanner;
 import com.agentmusic.agentmusic_backend.planner.TaskPlanningResult;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
@@ -21,7 +22,7 @@ public class SimpleTaskPlanner implements TaskPlanner {
     public TaskPlanningResult createPlan(PlanningContext planningContext) {
         String message = planningContext.request().message() == null
                 ? ""
-                : planningContext.request().message().trim().toLowerCase();
+                : planningContext.request().message().trim().toLowerCase(Locale.ROOT);
 
         AgentIntent intent = classify(message);
         List<PlanStep> steps = new ArrayList<>();
@@ -61,6 +62,8 @@ public class SimpleTaskPlanner implements TaskPlanner {
                 "放歌",
                 "继续播放",
                 "开始播放",
+                "直接播放",
+                "现在播放",
                 "play",
                 "resume",
                 "shuffle",
@@ -72,16 +75,6 @@ public class SimpleTaskPlanner implements TaskPlanner {
         boolean mentionsArtist = containsAny(message, "歌手", "艺人", "artist");
         boolean mentionsSearch = containsAny(message, "搜索", "查找", "搜一个", "查一个", "search", "find");
         boolean mentionsHistory = containsAny(message, "历史歌单", "上次推荐", "上一版歌单", "之前的歌单", "最近推荐");
-        boolean recommendOnly = containsAny(
-                message,
-                "先不播放",
-                "不要播放",
-                "不要直接播放",
-                "先别播",
-                "我先看看",
-                "先看",
-                "recommend only"
-        );
         boolean mentionsRecommendation = containsAny(
                 message,
                 "推荐",
@@ -94,14 +87,22 @@ public class SimpleTaskPlanner implements TaskPlanner {
                 "适合",
                 "想听"
         );
+        boolean recommendOnly = containsAny(
+                message,
+                "先不播放",
+                "不要播放",
+                "先别播",
+                "稍后播放",
+                "recommend only"
+        );
 
         if (mentionsHistory) {
             return AgentIntent.PLAYLIST_HISTORY_ACCESS;
         }
-        if (mentionsRecommendation && recommendOnly) {
+        if (mentionsRecommendation && (recommendOnly || !mentionsPlay)) {
             return AgentIntent.RECOMMEND_PLAYLIST;
         }
-        if (mentionsRecommendation) {
+        if (mentionsRecommendation && mentionsPlay) {
             return AgentIntent.PLAY_RECOMMENDATION;
         }
         if (mentionsPlay && (mentionsSearch || mentionsArtist || mentionsPlaylist) && !mentionsPause) {

@@ -9,7 +9,11 @@ import com.agentmusic.agentmusic_backend.service.MusicMetadataService;
 import com.agentmusic.agentmusic_backend.service.SpotifyBridgeAuthService;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
@@ -128,22 +132,101 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
 
     @Override
     public List<Track> searchTracks(String query, int limit) {
-        List<String> candidates = searchQueryRefiner.buildCandidates(query);
-        if (candidates.isEmpty()) {
+        SearchQueryRefiner.SearchQueryHints hints = searchQueryRefiner.analyze(query);
+        if (hints.candidates().isEmpty()) {
             return List.of();
         }
 
-        for (String candidate : candidates) {
-            List<Track> spotifyTracks = spotifyBridgeAuthService.getValidAccessToken()
-                    .map(accessToken -> spotifyCatalogClient.searchTracks(candidate, accessToken, limit).stream()
-                            .map(this::saveTrack)
-                            .toList())
-                    .orElse(List.of());
-            if (!spotifyTracks.isEmpty()) {
-                return spotifyTracks;
+        Optional<String> accessToken = spotifyBridgeAuthService.getValidAccessToken();
+        if (accessToken.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, Track> aggregated = new LinkedHashMap<>();
+        // Spotify search has been unstable for long CJK natural-language queries when the single-request page
+        // size is too large. Keep each upstream candidate fetch in a conservative band, then merge locally.
+        int perCandidateLimit = Math.min(Math.max(limit, 8), 10);
+        for (String candidate : hints.candidates()) {
+            List<Track> spotifyTracks = spotifyCatalogClient.searchTracks(candidate, accessToken.get(), perCandidateLimit).stream()
+                    .map(this::saveTrack)
+                    .toList();
+            for (Track spotifyTrack : spotifyTracks) {
+                aggregated.putIfAbsent(spotifyTrack.trackId(), spotifyTrack);
             }
         }
 
-        return List.of();
+        if (aggregated.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, String> artistNameCache = new java.util.HashMap<>();
+        return aggregated.values().stream()
+                .sorted(Comparator
+                        .comparingInt((Track track) -> scoreTrack(track, hints, artistNameCache))
+                        .reversed()
+                        .thenComparing(Track::title, String.CASE_INSENSITIVE_ORDER))
+                .limit(limit)
+                .toList();
+    }
+
+    private int scoreTrack(
+            Track track,
+            SearchQueryRefiner.SearchQueryHints hints,
+            Map<String, String> artistNameCache
+    ) {
+        int score = 0;
+        String normalizedTitle = normalizeForMatching(track.title());
+        String normalizedAlbum = normalizeForMatching(track.albumName());
+        String normalizedArtist = normalizeForMatching(resolveArtistName(track.artistId(), artistNameCache));
+
+        for (String explicitTitle : hints.explicitTitles()) {
+            String normalizedExplicitTitle = normalizeForMatching(explicitTitle);
+            if (normalizedExplicitTitle.isBlank()) {
+                continue;
+            }
+            if (normalizedTitle.equals(normalizedExplicitTitle)) {
+                score += 200;
+            } else if (normalizedTitle.contains(normalizedExplicitTitle)) {
+                score += 120;
+            } else if (normalizedAlbum.contains(normalizedExplicitTitle)) {
+                score += 35;
+            }
+        }
+
+        for (String keyword : hints.contextKeywords()) {
+            String normalizedKeyword = normalizeForMatching(keyword);
+            if (normalizedKeyword.isBlank()) {
+                continue;
+            }
+            if (normalizedArtist.equals(normalizedKeyword)) {
+                score += 90;
+            } else if (normalizedArtist.contains(normalizedKeyword)) {
+                score += 60;
+            } else if (normalizedTitle.contains(normalizedKeyword)) {
+                score += 24;
+            } else if (normalizedAlbum.contains(normalizedKeyword)) {
+                score += 12;
+            }
+        }
+
+        return score;
+    }
+
+    private String resolveArtistName(String artistId, Map<String, String> artistNameCache) {
+        if (artistId == null || artistId.isBlank()) {
+            return "";
+        }
+        return artistNameCache.computeIfAbsent(
+                artistId,
+                id -> findArtistOrFetch(id).map(Artist::name).orElse("")
+        );
+    }
+
+    private String normalizeForMatching(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        return value.toLowerCase(Locale.ROOT)
+                .replaceAll("[\\s\\p{Punct}]+", "");
     }
 }

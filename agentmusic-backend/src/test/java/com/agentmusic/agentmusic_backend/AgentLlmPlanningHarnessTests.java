@@ -5,16 +5,23 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.agentmusic.agentmusic_backend.config.AgentChatProperties;
+import com.agentmusic.agentmusic_backend.domain.ChatRole;
 import com.agentmusic.agentmusic_backend.planner.AgentIntent;
 import com.agentmusic.agentmusic_backend.planner.PlanStepType;
 import com.agentmusic.agentmusic_backend.planner.PlanningContext;
 import com.agentmusic.agentmusic_backend.planner.llm.AgentLlmPlanningHarness;
 import com.agentmusic.agentmusic_backend.web.dto.AgentChatRequest;
+import com.agentmusic.agentmusic_backend.web.dto.ChatMessageDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class AgentLlmPlanningHarnessTests {
+
+    private static final String RECOMMENDATION_MESSAGE =
+            "\u7ed9\u6211\u63a8\u8350\u5f20\u96e8\u751f\u7684\u300a\u6cb3\u300b\u4ee5\u53ca\u4ed6\u7684\u5176\u4ed6\u6b4c\u66f2";
 
     private final AgentLlmPlanningHarness harness = new AgentLlmPlanningHarness(
             new AgentChatProperties(
@@ -31,20 +38,39 @@ class AgentLlmPlanningHarnessTests {
     );
 
     @Test
-    void buildRequestIncludesExplicitEnumsAndRecentMessages() {
+    void buildRequestIncludesStructuredConversationAndRecommendationMemory() {
         PlanningContext context = new PlanningContext(
-                new AgentChatRequest("demo-user", "来点适合雨天通勤的中文歌", false),
-                List.of("上一轮生成的是粤语歌单", "当前在通勤场景")
+                new AgentChatRequest("demo-user", "Recommend poetic Mandarin songs for a late-night train ride.", false),
+                List.of(
+                        new ChatMessageDto(
+                                "user-1",
+                                ChatRole.USER,
+                                "Build me a soft city-pop playlist.",
+                                Map.of(),
+                                LocalDateTime.of(2026, 5, 1, 20, 0)
+                        ),
+                        new ChatMessageDto(
+                                "agent-1",
+                                ChatRole.AGENT,
+                                "I recommended River by Tom Chang and a few other city-pop tracks.",
+                                Map.of(),
+                                LocalDateTime.of(2026, 5, 1, 20, 1)
+                        )
+                ),
+                List.of("Night Ride -> River / Everyday / Missing You")
         );
 
         var request = harness.buildRequest(context);
 
         assertEquals("agentmusic.plan.v1", request.schemaVersion());
         assertEquals("demo-user", request.userId());
-        assertEquals("来点适合雨天通勤的中文歌", request.latestUserMessage());
+        assertEquals("Recommend poetic Mandarin songs for a late-night train ride.", request.latestUserMessage());
         assertTrue(request.allowedIntents().contains(AgentIntent.PLAY_RECOMMENDATION.name()));
         assertTrue(request.allowedStepTypes().contains(PlanStepType.CREATE_RECOMMENDATION_PLAYLIST.name()));
-        assertEquals(2, request.recentMessages().size());
+        assertEquals(2, request.recentConversation().size());
+        assertEquals("user", request.recentConversation().getFirst().role());
+        assertEquals("assistant", request.recentConversation().getLast().role());
+        assertEquals(1, request.recentRecommendationSummaries().size());
     }
 
     @Test
@@ -54,16 +80,16 @@ class AgentLlmPlanningHarnessTests {
                   "schemaVersion": "agentmusic.plan.v1",
                   "intent": "PLAY_RECOMMENDATION",
                   "summary": "Build a recommendation playlist first, then start playback.",
-                  "reasoning": "The user asked for songs and expects immediate playback.",
+                  "reasoning": "The user asked for recommendation plus immediate playback.",
                   "confidence": 91,
                   "steps": [
                     {"type": "READ_CHAT_CONTEXT", "arguments": {"limit": 20}},
                     {"type": "READ_USER_PREFERENCES", "arguments": {}},
                     {"type": "READ_PLAYLIST_HISTORY", "arguments": {"limit": 10}},
-                    {"type": "GENERATE_RECOMMENDATION_CANDIDATES", "arguments": {"query": "来点适合雨天通勤的中文歌"}},
-                    {"type": "RANK_RECOMMENDATION_CANDIDATES", "arguments": {"query": "来点适合雨天通勤的中文歌"}},
-                    {"type": "CREATE_RECOMMENDATION_PLAYLIST", "arguments": {"query": "来点适合雨天通勤的中文歌"}},
-                    {"type": "UPDATE_PLAYBACK_STATE", "arguments": {"query": "来点适合雨天通勤的中文歌"}},
+                    {"type": "GENERATE_RECOMMENDATION_CANDIDATES", "arguments": {"query": "Recommend poetic Mandarin songs for a late-night train ride."}},
+                    {"type": "RANK_RECOMMENDATION_CANDIDATES", "arguments": {"query": "Recommend poetic Mandarin songs for a late-night train ride."}},
+                    {"type": "CREATE_RECOMMENDATION_PLAYLIST", "arguments": {"query": "Recommend poetic Mandarin songs for a late-night train ride."}},
+                    {"type": "UPDATE_PLAYBACK_STATE", "arguments": {"query": "Recommend poetic Mandarin songs for a late-night train ride."}},
                     {"type": "PERSIST_CHAT_REPLY", "arguments": {}}
                   ]
                 }
@@ -78,6 +104,36 @@ class AgentLlmPlanningHarnessTests {
     }
 
     @Test
+    void parseAndValidateRejectsQueryThatDropsExplicitTitleFromLatestMessage() {
+        PlanningContext context = new PlanningContext(
+                new AgentChatRequest("demo-user", RECOMMENDATION_MESSAGE, false),
+                List.of(),
+                List.of()
+        );
+
+        String responseJson = """
+                {
+                  "schemaVersion": "agentmusic.plan.v1",
+                  "intent": "RECOMMEND_PLAYLIST",
+                  "summary": "Recommend songs by Zhang Yusheng including He.",
+                  "reasoning": "The user asked for songs by Zhang Yusheng and mentioned a specific title.",
+                  "confidence": 90,
+                  "steps": [
+                    {"type": "READ_CHAT_CONTEXT", "arguments": {"limit": 20}},
+                    {"type": "READ_USER_PREFERENCES", "arguments": {}},
+                    {"type": "READ_PLAYLIST_HISTORY", "arguments": {"limit": 10}},
+                    {"type": "GENERATE_RECOMMENDATION_CANDIDATES", "arguments": {"query": "Zhang Yusheng He"}},
+                    {"type": "RANK_RECOMMENDATION_CANDIDATES", "arguments": {"query": "Zhang Yusheng He"}},
+                    {"type": "CREATE_RECOMMENDATION_PLAYLIST", "arguments": {"query": "Zhang Yusheng He"}},
+                    {"type": "PERSIST_CHAT_REPLY", "arguments": {}}
+                  ]
+                }
+                """;
+
+        assertThrows(IllegalArgumentException.class, () -> harness.parseAndValidate(responseJson, context));
+    }
+
+    @Test
     void parseAndValidateRejectsInvalidStepSequence() {
         String responseJson = """
                 {
@@ -88,7 +144,7 @@ class AgentLlmPlanningHarnessTests {
                   "confidence": 88,
                   "steps": [
                     {"type": "READ_CHAT_CONTEXT", "arguments": {"limit": 20}},
-                    {"type": "UPDATE_PLAYBACK_STATE", "arguments": {"query": "暂停当前播放"}},
+                    {"type": "UPDATE_PLAYBACK_STATE", "arguments": {"query": "Pause the current track."}},
                     {"type": "READ_LOCAL_SESSION", "arguments": {}},
                     {"type": "PERSIST_CHAT_REPLY", "arguments": {}}
                   ]
@@ -117,5 +173,30 @@ class AgentLlmPlanningHarnessTests {
                 """;
 
         assertThrows(IllegalArgumentException.class, () -> harness.parseAndValidate(responseJson));
+    }
+
+    @Test
+    void parseAndValidateRejectsRecommendationRequestClassifiedAsUnknown() {
+        PlanningContext context = new PlanningContext(
+                new AgentChatRequest("demo-user", RECOMMENDATION_MESSAGE, false),
+                List.of(),
+                List.of()
+        );
+
+        String responseJson = """
+                {
+                  "schemaVersion": "agentmusic.plan.v1",
+                  "intent": "UNKNOWN",
+                  "summary": "The request is unclear.",
+                  "reasoning": "The request could not be classified confidently.",
+                  "confidence": 32,
+                  "steps": [
+                    {"type": "READ_CHAT_CONTEXT", "arguments": {"limit": 20}},
+                    {"type": "PERSIST_CHAT_REPLY", "arguments": {}}
+                  ]
+                }
+                """;
+
+        assertThrows(IllegalArgumentException.class, () -> harness.parseAndValidate(responseJson, context));
     }
 }

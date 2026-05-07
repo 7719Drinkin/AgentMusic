@@ -53,7 +53,11 @@ function ChatPage() {
           return
         }
 
-        setMessages(history.map(normalizeMessage))
+        const orderedHistory = history
+          .map(normalizeMessage)
+          .sort((left, right) => compareMessageTime(left.createdAt, right.createdAt))
+
+        setMessages(orderedHistory)
         setErrorMessage('')
       } catch (error) {
         if (cancelled) {
@@ -357,7 +361,14 @@ function normalizeMessage(message) {
     id: message.id,
     role: typeof message.role === 'string' ? message.role : 'AGENT',
     message: message.message,
+    createdAt: message.createdAt ?? null,
   }
+}
+
+function compareMessageTime(left, right) {
+  const leftTime = left ? Date.parse(left) : 0
+  const rightTime = right ? Date.parse(right) : 0
+  return leftTime - rightTime
 }
 
 export default ChatPage

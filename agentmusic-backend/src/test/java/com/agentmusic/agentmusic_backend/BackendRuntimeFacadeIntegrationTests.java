@@ -41,7 +41,7 @@ class BackendRuntimeFacadeIntegrationTests {
 
     @Test
     void runtimeFacadeShouldExposePlaylistChatAndSessionData() {
-        String userId = "test-user-" + UUID.randomUUID();
+        String userId = "test-" + UUID.randomUUID().toString().substring(0, 8);
         userContextService.save(new User(
                 userId,
                 "demo-" + userId,
@@ -62,15 +62,15 @@ class BackendRuntimeFacadeIntegrationTests {
                 userId,
                 "Evening Mix",
                 List.of(
-                        new TrackDto("track-1", "Song A", "artist-1", "Album A", "album-1", 180000, null, null),
-                        new TrackDto("track-2", "Song B", "artist-2", "Album B", "album-2", 200000, null, null)
+                        new TrackDto("1A2b3C4d5E6f7G8h9I0j1K", "Song A", "artist-1", "Album A", "album-1", 180000, null, null),
+                        new TrackDto("2B3c4D5e6F7g8H9i0J1k2L", "Song B", "artist-2", "Album B", "album-2", 200000, null, null)
                 )
         );
         chatMemoryService.appendMessage(userId, ChatRole.USER, "light cantopop songs", null);
         playbackSessionService.saveSession(
                 userId,
                 null,
-                "track-1",
+                "1A2b3C4d5E6f7G8h9I0j1K",
                 playlist.id(),
                 0,
                 12000,
@@ -89,6 +89,6 @@ class BackendRuntimeFacadeIntegrationTests {
                 .isPresent()
                 .get()
                 .extracting("currentTrackId")
-                .isEqualTo("track-1");
+                .isEqualTo("1A2b3C4d5E6f7G8h9I0j1K");
     }
 }

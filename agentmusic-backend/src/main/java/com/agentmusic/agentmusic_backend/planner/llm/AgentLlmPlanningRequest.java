@@ -7,7 +7,8 @@ public record AgentLlmPlanningRequest(
         String userId,
         boolean voiceInput,
         String latestUserMessage,
-        List<String> recentMessages,
+        List<AgentLlmPlanningMessage> recentConversation,
+        List<String> recentRecommendationSummaries,
         List<String> allowedIntents,
         List<String> allowedStepTypes
 ) {

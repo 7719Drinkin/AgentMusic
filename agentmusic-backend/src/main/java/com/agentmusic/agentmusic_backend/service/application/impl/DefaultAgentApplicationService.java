@@ -16,10 +16,13 @@ import com.agentmusic.agentmusic_backend.service.LiveChatReplyService;
 import com.agentmusic.agentmusic_backend.web.dto.AgentChatRequest;
 import com.agentmusic.agentmusic_backend.web.dto.AgentChatResponse;
 import com.agentmusic.agentmusic_backend.web.dto.ChatMessageDto;
+import com.agentmusic.agentmusic_backend.web.dto.PlaylistDto;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 @Service
 public class DefaultAgentApplicationService implements AgentApplicationService {
@@ -56,12 +59,16 @@ public class DefaultAgentApplicationService implements AgentApplicationService {
         List<ChatMessageDto> recentHistory = chatMemoryService.getRecentMessages(request.userId(), 20).stream()
                 .filter(message -> !message.id().equals(userMessage.id()))
                 .toList();
+        List<String> recentRecommendationSummaries = backendRuntimeFacade.getRecentPlaylists(request.userId()).stream()
+                .limit(3)
+                .map(this::summarizePlaylist)
+                .filter(StringUtils::hasText)
+                .toList();
 
         PlanningContext planningContext = new PlanningContext(
                 request,
-                recentHistory.stream()
-                        .map(ChatMessageDto::message)
-                        .toList()
+                recentHistory,
+                recentRecommendationSummaries
         );
         TaskPlanningResult planningResult = taskPlanner.createPlan(planningContext);
         AgentPlan plan = planningResult.plan();
@@ -75,6 +82,9 @@ public class DefaultAgentApplicationService implements AgentApplicationService {
         replyMetadata.put("planSummary", executionResult.plan().summary());
         replyMetadata.put("planningSource", planningResult.source());
         replyMetadata.put("planningFallbackUsed", planningResult.fallbackUsed());
+        if (planningResult.fallbackReason() != null) {
+            replyMetadata.put("planningFallbackReason", planningResult.fallbackReason());
+        }
         replyMetadata.put("liveLlmEnabledConfigured", runtimeStatus.liveLlmEnabledConfigured());
         replyMetadata.put("openAiKeyPresent", runtimeStatus.openAiKeyPresent());
         replyMetadata.put("openAiModelId", runtimeStatus.openAiModelId());
@@ -128,5 +138,27 @@ public class DefaultAgentApplicationService implements AgentApplicationService {
             return "live-llm-or-fallback";
         }
         return "planner-skeleton";
+    }
+
+    private String summarizePlaylist(PlaylistDto playlist) {
+        if (playlist == null || !StringUtils.hasText(playlist.name())) {
+            return "";
+        }
+
+        String topTracks = playlist.tracks() == null
+                ? ""
+                : playlist.tracks().stream()
+                .map(playlistTrack -> playlistTrack.track())
+                .filter(Objects::nonNull)
+                .map(track -> track.title())
+                .filter(StringUtils::hasText)
+                .limit(3)
+                .reduce((left, right) -> left + " / " + right)
+                .orElse("");
+
+        if (!StringUtils.hasText(topTracks)) {
+            return playlist.name().trim();
+        }
+        return playlist.name().trim() + " -> " + topTracks;
     }
 }
