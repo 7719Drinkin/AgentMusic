@@ -156,6 +156,81 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
     }
 
     @Override
+    public List<Artist> searchArtists(String query, int limit) {
+        if (query == null || query.isBlank() || limit <= 0) {
+            return List.of();
+        }
+        Optional<String> accessToken = spotifyBridgeAuthService.getValidAccessToken();
+        if (accessToken.isEmpty()) {
+            return List.of();
+        }
+        return spotifyCatalogClient.searchArtists(query.trim(), accessToken.get(), limit).stream()
+                .map(this::saveArtist)
+                .toList();
+    }
+
+    @Override
+    public List<Track> getArtistTopTracks(String artistId, int limit) {
+        if (artistId == null || artistId.isBlank() || limit <= 0) {
+            return List.of();
+        }
+        Optional<String> accessToken = spotifyBridgeAuthService.getValidAccessToken();
+        if (accessToken.isEmpty()) {
+            return List.of();
+        }
+        return spotifyCatalogClient.getArtistTopTracks(artistId.trim(), accessToken.get(), limit).stream()
+                .filter(track -> artistId.equals(track.artistId()))
+                .map(this::saveTrack)
+                .toList();
+    }
+
+    @Override
+    public List<Track> getArtistCatalogTracks(String artistId, int limit) {
+        if (artistId == null || artistId.isBlank() || limit <= 0) {
+            return List.of();
+        }
+        Optional<String> accessToken = spotifyBridgeAuthService.getValidAccessToken();
+        if (accessToken.isEmpty()) {
+            return List.of();
+        }
+
+        String normalizedArtistId = artistId.trim();
+        int targetPoolSize = Math.min(Math.max(limit * 2, 20), 80);
+        int albumLimit = Math.min(Math.max(limit, 20), 40);
+        int albumTrackLimit = 50;
+
+        LinkedHashMap<String, Track> aggregated = new LinkedHashMap<>();
+        List<List<Track>> albumBuckets = new java.util.ArrayList<>();
+        for (String albumId : spotifyCatalogClient.getArtistAlbumIds(normalizedArtistId, accessToken.get(), albumLimit)) {
+            List<Track> bucket = spotifyCatalogClient.getAlbumTracks(albumId, accessToken.get(), albumTrackLimit).stream()
+                    .filter(track -> normalizedArtistId.equals(track.artistId()))
+                    .map(this::saveTrack)
+                    .toList();
+            if (!bucket.isEmpty()) {
+                albumBuckets.add(bucket);
+            }
+        }
+        for (int bucketIndex = 0; aggregated.size() < targetPoolSize; bucketIndex++) {
+            boolean addedAnyTrack = false;
+            for (List<Track> bucket : albumBuckets) {
+                if (bucketIndex >= bucket.size()) {
+                    continue;
+                }
+                Track savedTrack = bucket.get(bucketIndex);
+                Track previous = aggregated.putIfAbsent(savedTrack.trackId(), savedTrack);
+                addedAnyTrack = addedAnyTrack || previous == null;
+                if (aggregated.size() >= targetPoolSize) {
+                    return aggregated.values().stream().limit(limit).toList();
+                }
+            }
+            if (!addedAnyTrack) {
+                break;
+            }
+        }
+        return aggregated.values().stream().limit(limit).toList();
+    }
+
+    @Override
     public List<Track> searchTracks(String query, int limit) {
         boolean structuredQuery = searchQueryRefiner.isStructuredSpotifyQuery(query);
         SearchQueryRefiner.SearchQueryHints hints = searchQueryRefiner.analyze(query);
@@ -170,9 +245,7 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
         }
 
         Map<String, Track> aggregated = new LinkedHashMap<>();
-        // Spotify search has been unstable for long CJK natural-language queries when the single-request page
-        // size is too large. Keep each upstream candidate fetch in a conservative band, then merge locally.
-        int perCandidateLimit = Math.min(Math.max(limit, 8), 10);
+        int perCandidateLimit = resolvePerCandidateLimit(limit, structuredQuery, hints);
         for (String candidate : candidateQueries) {
             List<Track> spotifyTracks = spotifyCatalogClient.searchTracks(candidate, accessToken.get(), perCandidateLimit).stream()
                     .map(this::saveTrack)
@@ -194,6 +267,23 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
                         .thenComparing(Track::title, String.CASE_INSENSITIVE_ORDER))
                 .limit(limit)
                 .toList();
+    }
+
+    private int resolvePerCandidateLimit(
+            int limit,
+            boolean structuredQuery,
+            SearchQueryRefiner.SearchQueryHints hints
+    ) {
+        boolean structuredArtistOnlyQuery = structuredQuery
+                && !hints.artistTerms().isEmpty()
+                && hints.explicitTitles().isEmpty()
+                && hints.albumTerms().isEmpty();
+        if (structuredArtistOnlyQuery) {
+            return Math.min(Math.max(limit, 12), 30);
+        }
+        // Spotify search has been unstable for long CJK natural-language queries when the single-request page
+        // size is too large. Keep each upstream candidate fetch in a conservative band, then merge locally.
+        return Math.min(Math.max(limit, 8), 10);
     }
 
     private int scoreTrack(

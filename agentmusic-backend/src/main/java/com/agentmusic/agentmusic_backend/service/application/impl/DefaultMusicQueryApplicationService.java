@@ -29,6 +29,27 @@ public class DefaultMusicQueryApplicationService implements MusicQueryApplicatio
     }
 
     @Override
+    public List<ArtistDto> searchArtists(String query, int limit) {
+        return musicMetadataService.searchArtists(query, limit).stream()
+                .map(DomainDtoMapper::toDto)
+                .toList();
+    }
+
+    @Override
+    public List<TrackDto> getArtistTopTracks(String artistId, int limit) {
+        return musicMetadataService.getArtistTopTracks(artistId, limit).stream()
+                .map(DomainDtoMapper::toDto)
+                .toList();
+    }
+
+    @Override
+    public List<TrackDto> getArtistCatalogTracks(String artistId, int limit) {
+        return musicMetadataService.getArtistCatalogTracks(artistId, limit).stream()
+                .map(DomainDtoMapper::toDto)
+                .toList();
+    }
+
+    @Override
     public List<TrackDto> searchTracks(String query, int limit) {
         return musicMetadataService.searchTracks(query, limit).stream()
                 .map(DomainDtoMapper::toDto)

@@ -70,6 +70,130 @@ public class SpotifyWebApiCatalogClient implements SpotifyCatalogClient {
     }
 
     @Override
+    public List<Artist> searchArtists(String query, String accessToken, int limit) {
+        SearchArtistsResponse response = webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/search")
+                        .queryParam("q", query)
+                        .queryParam("type", "artist")
+                        .queryParam("limit", limit)
+                        .queryParamIfPresent(
+                                "market",
+                                StringUtils.hasText(searchMarket) ? Optional.of(searchMarket) : Optional.empty()
+                        )
+                        .build())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .bodyToMono(SearchArtistsResponse.class)
+                .onErrorResume(error -> {
+                    log.warn("Spotify artist search failed for query='{}'", query, error);
+                    return Mono.just(new SearchArtistsResponse(new ArtistsPage(List.of())));
+                })
+                .block();
+
+        if (response == null || response.artists() == null || response.artists().items() == null) {
+            return List.of();
+        }
+        return response.artists().items().stream()
+                .map(this::toDomainArtist)
+                .toList();
+    }
+
+    @Override
+    public List<Track> getArtistTopTracks(String artistId, String accessToken, int limit) {
+        ArtistTopTracksResponse response = webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/artists/{artistId}/top-tracks")
+                        .queryParamIfPresent(
+                                "market",
+                                StringUtils.hasText(searchMarket) ? Optional.of(searchMarket) : Optional.of("TW")
+                        )
+                        .build(artistId))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .bodyToMono(ArtistTopTracksResponse.class)
+                .onErrorResume(error -> {
+                    log.warn("Spotify artist top tracks lookup failed for artistId={}", artistId, error);
+                    return Mono.just(new ArtistTopTracksResponse(List.of()));
+                })
+                .block();
+
+        if (response == null || response.tracks() == null) {
+            return List.of();
+        }
+        return response.tracks().stream()
+                .map(this::toDomainTrack)
+                .limit(limit)
+                .toList();
+    }
+
+    @Override
+    public List<String> getArtistAlbumIds(String artistId, String accessToken, int limit) {
+        int remaining = Math.max(0, limit);
+        int offset = 0;
+        java.util.LinkedHashSet<String> albumIds = new java.util.LinkedHashSet<>();
+        while (remaining > 0) {
+            int pageSize = Math.min(10, remaining);
+            int currentOffset = offset;
+            ArtistAlbumsResponse response = webClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/artists/{artistId}/albums")
+                            .queryParam("include_groups", "album,single")
+                            .queryParam("limit", pageSize)
+                            .queryParam("offset", currentOffset)
+                            .queryParamIfPresent(
+                                    "market",
+                                    StringUtils.hasText(searchMarket) ? Optional.of(searchMarket) : Optional.empty()
+                            )
+                            .build(artistId))
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                    .retrieve()
+                    .bodyToMono(ArtistAlbumsResponse.class)
+                    .onErrorResume(error -> {
+                        log.warn("Spotify artist albums lookup failed for artistId={} offset={}", artistId, currentOffset, error);
+                        return Mono.just(new ArtistAlbumsResponse(List.of()));
+                    })
+                    .block();
+
+            if (response == null || response.items() == null || response.items().isEmpty()) {
+                break;
+            }
+            response.items().stream()
+                    .map(AlbumSummaryResponse::id)
+                    .filter(StringUtils::hasText)
+                    .forEach(albumIds::add);
+            if (response.items().size() < pageSize) {
+                break;
+            }
+            offset += pageSize;
+            remaining = limit - albumIds.size();
+        }
+        return albumIds.stream().limit(limit).toList();
+    }
+
+    @Override
+    public List<Track> getAlbumTracks(String albumId, String accessToken, int limit) {
+        AlbumDetailsResponse response = webClient.get()
+                .uri("/albums/{albumId}", albumId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .bodyToMono(AlbumDetailsResponse.class)
+                .onErrorResume(error -> {
+                    log.warn("Spotify album lookup failed for albumId={}", albumId, error);
+                    return Mono.empty();
+                })
+                .block();
+
+        if (response == null || response.tracks() == null || response.tracks().items() == null) {
+            return List.of();
+        }
+        return response.tracks().items().stream()
+                .map(track -> toDomainTrack(response, track))
+                .limit(limit)
+                .toList();
+    }
+
+    @Override
     public List<Track> searchTracks(String query, String accessToken, int limit) {
         SearchTracksResponse response = webClient.get()
                 .uri(uriBuilder -> uriBuilder
@@ -97,6 +221,22 @@ public class SpotifyWebApiCatalogClient implements SpotifyCatalogClient {
         return response.tracks().items().stream()
                 .map(this::toDomainTrack)
                 .toList();
+    }
+
+    private Track toDomainTrack(AlbumDetailsResponse album, AlbumTrackResponse track) {
+        LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), ZoneId.systemDefault());
+        return new Track(
+                track.id(),
+                track.name(),
+                track.firstArtistId(),
+                album.name(),
+                album.id(),
+                track.durationMs(),
+                track.previewUrl(),
+                album.firstImageUrl(),
+                now,
+                now
+        );
     }
 
     private Track toDomainTrack(TrackResponse response) {
@@ -131,7 +271,64 @@ public class SpotifyWebApiCatalogClient implements SpotifyCatalogClient {
     private record SearchTracksResponse(TracksPage tracks) {
     }
 
+    private record SearchArtistsResponse(ArtistsPage artists) {
+    }
+
     private record TracksPage(List<TrackResponse> items) {
+    }
+
+    private record ArtistsPage(List<ArtistResponse> items) {
+    }
+
+    private record ArtistTopTracksResponse(List<TrackResponse> tracks) {
+    }
+
+    private record ArtistAlbumsResponse(List<AlbumSummaryResponse> items) {
+    }
+
+    private record AlbumSummaryResponse(String id) {
+    }
+
+    private record AlbumDetailsResponse(
+            String id,
+            String name,
+            List<ImageResponse> images,
+            AlbumTracksPage tracks
+    ) {
+        public String firstImageUrl() {
+            if (images == null || images.isEmpty()) {
+                return null;
+            }
+            return images.getFirst().url();
+        }
+    }
+
+    private record AlbumTracksPage(List<AlbumTrackResponse> items) {
+    }
+
+    private record AlbumTrackResponse(
+            String id,
+            String name,
+            List<SimpleArtistResponse> artists,
+            Integer durationMs,
+            String previewUrl
+    ) {
+        @com.fasterxml.jackson.annotation.JsonProperty("duration_ms")
+        public Integer durationMs() {
+            return durationMs;
+        }
+
+        @com.fasterxml.jackson.annotation.JsonProperty("preview_url")
+        public String previewUrl() {
+            return previewUrl;
+        }
+
+        public String firstArtistId() {
+            if (artists == null || artists.isEmpty()) {
+                return null;
+            }
+            return artists.getFirst().id();
+        }
     }
 
     private record TrackResponse(

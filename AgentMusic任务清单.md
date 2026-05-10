@@ -1,7 +1,7 @@
 ﻿# AgentMusic 任务清单
 
-版本：T2.4
-更新日期：2026-04-29
+版本：T2.5
+更新日期：2026-05-10
 
 本文档用于跟踪当前版本的任务优先级、已完成工作和下一步实施顺序。
 
@@ -32,6 +32,18 @@
 - 推荐歌单可生成并写入播放会话。
 - 左侧栏可展示推荐歌单。
 - 推荐歌单已通过 E2E 验证写入 MySQL 并可从页面重新打开。
+- 推荐链已完成职责重分配：
+  - `LLM` 负责 `RecommendationSpec` 提炼与候选 rerank
+  - `代码` 负责 Spotify 候选召回、硬过滤与最终入歌单校验
+- `artist-only` 请求已切到：
+  - `artist name -> artistId -> artist albums -> album tracks`
+- `artist + track (+ album)` 请求已支持：
+  - 结构化 Spotify query
+  - 同艺人强过滤
+  - 显式标题优先
+- `album-only` 请求已支持：
+  - 专辑硬边界
+  - 等价语义归一化
 
 #### 歌单页
 
@@ -195,6 +207,21 @@
   - 验证真实运行中的 `/api/agent/chat` 已稳定返回 `planningSource=llm-harness`
   - 评估 `429` 限流下的回退体验和重试策略
 
+#### E. 推荐链文档化与主题型检索
+
+- 已新增推荐检索链独立文档：
+  - `agentmusic-backend/docs/recommendation-search-chain.md`
+- 当前已记录：
+  - `artist-only`
+  - `artist + track (+ album)`
+  - `album-only`
+  的真实运行链路和职责边界
+- 下一步：
+  - 补 `theme-aware retrieval flow`
+  - 例如：
+    - `给我来点90年代的粤语歌`
+    - `来点适合雨天通勤的中文歌`
+
 ### Priority 2
 
 - 多设备场景下的设备切换联调与验证。
@@ -202,19 +229,24 @@
 - 歌单页与当前播放栏的进一步视觉细化。
   - 本轮已完成歌单页 hero 状态 pill、说明文案清理、当前播放栏上下文条与 `Up next` 说明补强。
   - 本轮已继续完成歌单页乱码文案清理、设备面板 `current session tracked` 头部信息和无 hover 场景下的当前播放栏头部按钮可见性修复。
+- 推荐规格语义归一化 Harness：
+  - 当前仍有一部分等价表达 guardrail 写在本地代码里
+  - 后续可改成：
+    - `LLM semantic normalization`
+    - `deterministic validation / repair`
 
 ### Priority 3
 
 - 歌词功能。
 - 流式聊天输出。
-- 真实 LLM 主链接管。
+- 主题型推荐的风格 / 年代 / 语种标签强化。
 - 多用户独立 Spotify 授权。
 
 ## 3. 当前建议执行顺序
 
-1. 验证真实运行中的主聊天接口是否稳定命中 `llm-harness`，并处理 provider `429` 下的回退体验。
-2. 继续完善设备切换状态回显和多设备联调。
-3. 继续补充后端结构化错误码覆盖面。
+1. 继续处理 LLM provider 稳定性与 `planningFallbackReason` 可观测性。
+2. 实现 `theme-aware retrieval flow`，覆盖年代 / 语种 / 场景型请求。
+3. 将推荐语义归一化逐步迁移到单独的 LLM Harness，并保留 deterministic guardrail。
 4. 再继续播放器和歌单页的细节增强。
 
 当前说明：

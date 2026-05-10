@@ -2,8 +2,6 @@ package com.agentmusic.agentmusic_backend;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,12 +13,16 @@ import com.agentmusic.agentmusic_backend.planner.PlanStepType;
 import com.agentmusic.agentmusic_backend.planner.PlannerExecutionResult;
 import com.agentmusic.agentmusic_backend.planner.PlanningContext;
 import com.agentmusic.agentmusic_backend.planner.impl.DefaultTaskExecutor;
+import com.agentmusic.agentmusic_backend.service.RecommendationSelection;
+import com.agentmusic.agentmusic_backend.service.RecommendationSelectionService;
+import com.agentmusic.agentmusic_backend.service.RecommendationSpec;
 import com.agentmusic.agentmusic_backend.service.application.MusicQueryApplicationService;
 import com.agentmusic.agentmusic_backend.service.application.PlaybackApplicationService;
 import com.agentmusic.agentmusic_backend.service.application.PlaylistApplicationService;
 import com.agentmusic.agentmusic_backend.service.impl.SearchQueryRefiner;
 import com.agentmusic.agentmusic_backend.web.dto.AgentChatRequest;
 import com.agentmusic.agentmusic_backend.web.dto.CreatePlaylistRequest;
+import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
 import com.agentmusic.agentmusic_backend.web.dto.PlaylistDto;
 import com.agentmusic.agentmusic_backend.web.dto.PlaylistTrackDto;
 import com.agentmusic.agentmusic_backend.web.dto.TrackDto;
@@ -30,7 +32,6 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -38,15 +39,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class DefaultTaskExecutorTests {
 
     private static final String RECOMMENDATION_MESSAGE =
-            "\u7ed9\u6211\u63a8\u8350\u5f20\u96e8\u751f\u7684\u300a\u6cb3\u300b\u4ee5\u53ca\u4ed6\u7684\u5176\u4ed6\u6b4c\u66f2";
-    private static final String STRUCTURED_QUERY = "track:\u6cb3 artist:\u5f20\u96e8\u751f";
-    private static final String TRACK_HE = "\u6cb3";
-    private static final String TRACK_DAHAI = "\u5927\u6d77";
-    private static final String TRACK_FEI = "\u53e3\u662f\u5fc3\u975e";
-    private static final String TRACK_MISS = "\u5929\u5929\u60f3\u4f60";
-    private static final String TRACK_FISH = "\u4e00\u5929\u5230\u665a\u6e38\u6cf3\u7684\u9c7c";
-    private static final String TRACK_NOISE = "\u5f20\u4e09\u7684\u6b4c";
-    private static final String TRACK_DIZZY = "\u53d1\u6655";
+            "\u63a8\u8350\u5f20\u96e8\u751f\u4e13\u8f91\u300a\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5\u300b\u91cc\u7684\u300a\u53d1\u6655\u300b\u4ee5\u53ca\u4ed6\u7684\u5176\u4ed6\u6b4c\u66f2";
 
     @Mock
     private MusicQueryApplicationService musicQueryApplicationService;
@@ -57,28 +50,31 @@ class DefaultTaskExecutorTests {
     @Mock
     private PlaylistApplicationService playlistApplicationService;
 
-    @InjectMocks
-    private DefaultTaskExecutor taskExecutor;
+    @Mock
+    private RecommendationSelectionService recommendationSelectionService;
 
     @Test
-    void recommendPlaylistShouldKeepExplicitTitleThenFillSameArtistTracks() {
-        taskExecutor = new DefaultTaskExecutor(
-                musicQueryApplicationService,
-                playbackApplicationService,
-                playlistApplicationService,
-                new SearchQueryRefiner()
+    void recommendPlaylistShouldCreatePlaylistFromRecommendationSelection() {
+        DefaultTaskExecutor taskExecutor = createExecutor();
+        List<TrackDto> selectedTracks = List.of(
+                track("track-1", "\u767c\u6688", "artist-zhang", "\u5169\u4f0a\u6230\u722d-\u767d\u8272\u624d\u60c5"),
+                track("track-2", "\u518d\u898b\u5973\u90ce", "artist-zhang", "\u5169\u4f0a\u6230\u722d-\u767d\u8272\u624d\u60c5"),
+                track("track-3", "\u5f8c\u7a97", "artist-zhang", "\u5169\u4f0a\u6230\u722d-\u767d\u8272\u624d\u60c5")
         );
-
-        List<TrackDto> searchResults = List.of(
-                track("t-he-1", TRACK_HE, "artist-zhang"),
-                track("t-he-2", TRACK_HE, "artist-zhang"),
-                track("t-sea", TRACK_DAHAI, "artist-zhang"),
-                track("t-port", TRACK_FEI, "artist-zhang"),
-                track("t-air", TRACK_MISS, "artist-zhang"),
-                track("t-noise", TRACK_NOISE, "artist-other"),
-                track("t-fish", TRACK_FISH, "artist-zhang")
-        );
-        when(musicQueryApplicationService.searchTracks(eq(STRUCTURED_QUERY), anyInt())).thenReturn(searchResults);
+        when(recommendationSelectionService.buildSelection(any(PlanningContext.class)))
+                .thenReturn(new RecommendationSelection(
+                        new RecommendationSpec(
+                                "\u5f20\u96e8\u751f",
+                                "\u53d1\u6655",
+                                "\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5",
+                                12,
+                                true,
+                                true,
+                                true,
+                                true
+                        ),
+                        selectedTracks
+                ));
         when(playlistApplicationService.createPlaylist(eq("demo-user"), any(CreatePlaylistRequest.class)))
                 .thenAnswer(invocation -> {
                     CreatePlaylistRequest request = invocation.getArgument(1);
@@ -99,232 +95,120 @@ class DefaultTaskExecutorTests {
                     );
                 });
 
-        AgentPlan plan = new AgentPlan(
-                AgentIntent.RECOMMEND_PLAYLIST,
-                "Recommend Zhang Yusheng songs including He.",
-                List.of(
-                        new PlanStep(1, PlanStepType.READ_CHAT_CONTEXT, Map.of("limit", 20)),
-                        new PlanStep(2, PlanStepType.READ_USER_PREFERENCES, Map.of()),
-                        new PlanStep(3, PlanStepType.READ_PLAYLIST_HISTORY, Map.of("limit", 10)),
-                        new PlanStep(4, PlanStepType.GENERATE_RECOMMENDATION_CANDIDATES, Map.of("query", STRUCTURED_QUERY)),
-                        new PlanStep(5, PlanStepType.RANK_RECOMMENDATION_CANDIDATES, Map.of("query", STRUCTURED_QUERY)),
-                        new PlanStep(6, PlanStepType.CREATE_RECOMMENDATION_PLAYLIST, Map.of("query", STRUCTURED_QUERY)),
-                        new PlanStep(7, PlanStepType.PERSIST_CHAT_REPLY, Map.of())
-                )
-        );
-
         PlannerExecutionResult result = taskExecutor.execute(
-                plan,
-                new PlanningContext(
-                        new AgentChatRequest("demo-user", RECOMMENDATION_MESSAGE, false),
-                        List.of(),
-                        List.of()
-                )
+                recommendationPlan(),
+                planningContext(false)
         );
 
         ArgumentCaptor<CreatePlaylistRequest> requestCaptor = ArgumentCaptor.forClass(CreatePlaylistRequest.class);
         verify(playlistApplicationService).createPlaylist(eq("demo-user"), requestCaptor.capture());
-
         assertThat(result.replyMessage()).contains("Created recommendation playlist");
         assertThat(requestCaptor.getValue().tracks()).extracting(TrackDto::title)
-                .startsWith(TRACK_HE, TRACK_DAHAI, TRACK_FEI, TRACK_MISS, TRACK_FISH);
-        assertThat(requestCaptor.getValue().tracks()).extracting(TrackDto::artistId)
-                .doesNotContain("artist-other");
+                .containsExactly("\u767c\u6688", "\u518d\u898b\u5973\u90ce", "\u5f8c\u7a97");
     }
 
     @Test
-    void recommendPlaylistShouldUseLatestMessageQueryWhenPlannerReturnsEnglishRewrite() {
-        taskExecutor = new DefaultTaskExecutor(
-                musicQueryApplicationService,
-                playbackApplicationService,
-                playlistApplicationService,
-                new SearchQueryRefiner()
+    void playRecommendationShouldStartPlaybackFromFirstSelectedTrack() {
+        DefaultTaskExecutor taskExecutor = createExecutor();
+        List<TrackDto> selectedTracks = List.of(
+                track("track-1", "\u767c\u6688", "artist-zhang", "\u5169\u4f0a\u6230\u722d-\u767d\u8272\u624d\u60c5"),
+                track("track-2", "\u518d\u898b\u5973\u90ce", "artist-zhang", "\u5169\u4f0a\u6230\u722d-\u767d\u8272\u624d\u60c5")
         );
-
-        when(musicQueryApplicationService.searchTracks(eq(STRUCTURED_QUERY), anyInt())).thenReturn(List.of());
-
-        AgentPlan plan = new AgentPlan(
-                AgentIntent.RECOMMEND_PLAYLIST,
-                "Recommend songs by Zhang Yusheng including He.",
-                List.of(
-                        new PlanStep(1, PlanStepType.READ_CHAT_CONTEXT, Map.of("limit", 20)),
-                        new PlanStep(2, PlanStepType.READ_USER_PREFERENCES, Map.of()),
-                        new PlanStep(3, PlanStepType.READ_PLAYLIST_HISTORY, Map.of("limit", 10)),
-                        new PlanStep(4, PlanStepType.GENERATE_RECOMMENDATION_CANDIDATES, Map.of("query", "He of Tom Chang")),
-                        new PlanStep(5, PlanStepType.RANK_RECOMMENDATION_CANDIDATES, Map.of("query", "He of Tom Chang")),
-                        new PlanStep(6, PlanStepType.CREATE_RECOMMENDATION_PLAYLIST, Map.of("query", "He of Tom Chang")),
-                        new PlanStep(7, PlanStepType.PERSIST_CHAT_REPLY, Map.of())
-                )
-        );
+        when(recommendationSelectionService.buildSelection(any(PlanningContext.class)))
+                .thenReturn(new RecommendationSelection(
+                        new RecommendationSpec(
+                                "\u5f20\u96e8\u751f",
+                                "\u53d1\u6655",
+                                "\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5",
+                                12,
+                                true,
+                                true,
+                                true,
+                                true
+                        ),
+                        selectedTracks
+                ));
+        when(playlistApplicationService.createPlaylist(eq("demo-user"), any(CreatePlaylistRequest.class)))
+                .thenReturn(new PlaylistDto(
+                        "playlist-2",
+                        "Agent Recommendation - sample",
+                        1,
+                        LocalDateTime.now(),
+                        List.of(
+                                new PlaylistTrackDto("pt-1", "playlist-2", 0, selectedTracks.getFirst(), LocalDateTime.now()),
+                                new PlaylistTrackDto("pt-2", "playlist-2", 1, selectedTracks.get(1), LocalDateTime.now())
+                        )
+                ));
+        when(playbackApplicationService.playTrack(eq("demo-user"), eq("track-1"), eq("playlist-2"), eq(0), eq(null), any()))
+                .thenReturn(new PlaybackSessionDto(
+                        "session-1",
+                        "track-1",
+                        "playlist-2",
+                        0,
+                        0,
+                        true,
+                        com.agentmusic.agentmusic_backend.domain.PlaybackMode.SEQUENTIAL,
+                        null,
+                        LocalDateTime.now()
+                ));
 
         PlannerExecutionResult result = taskExecutor.execute(
-                plan,
-                new PlanningContext(
-                        new AgentChatRequest("demo-user", RECOMMENDATION_MESSAGE, false),
-                        List.of(),
-                        List.of()
-                )
+                playRecommendationPlan(),
+                planningContext(false)
         );
 
-        assertThat(result.replyMessage()).isEqualTo("No suitable tracks were found for the current recommendation request.");
-        verify(musicQueryApplicationService).searchTracks(eq(STRUCTURED_QUERY), anyInt());
+        verify(playbackApplicationService).playTrack(eq("demo-user"), eq("track-1"), eq("playlist-2"), eq(0), eq(null), any());
+        assertThat(result.replyMessage()).contains("started playback from \u767c\u6688");
     }
 
-    @Test
-    void recommendPlaylistShouldFallbackToDominantArtistWhenExplicitTitleQueryIsNoisy() {
-        taskExecutor = new DefaultTaskExecutor(
+    private DefaultTaskExecutor createExecutor() {
+        return new DefaultTaskExecutor(
                 musicQueryApplicationService,
                 playbackApplicationService,
                 playlistApplicationService,
-                new SearchQueryRefiner()
+                new SearchQueryRefiner(),
+                recommendationSelectionService
         );
+    }
 
-        String message = "\u63a8\u8350\u5f20\u96e8\u751f\u7684\u300a\u53d1\u6655\u300b\u4ee5\u53ca\u4ed6\u7684\u5176\u4ed6\u6b4c\u66f2";
-        List<TrackDto> noisyTracks = List.of(
-                track("noise-1", "Call Girl", "artist-daze"),
-                track("noise-2", "Sea Of Love", "artist-daze"),
-                track("noise-3", "Superhero", "artist-daze"),
-                track("noise-4", "Together Forever", "artist-daze"),
-                track("noise-5", "Cyber Pet", "artist-daze")
+    private PlanningContext planningContext(boolean playNow) {
+        return new PlanningContext(
+                new AgentChatRequest("demo-user", RECOMMENDATION_MESSAGE, playNow),
+                List.of(),
+                List.of()
         );
-        List<TrackDto> dominantArtistTracks = List.of(
-                track("zhang-1", TRACK_FISH, "artist-zhang"),
-                track("other-1", "\u4e09\u751f\u4e09\u4e16", "artist-other"),
-                track("zhang-2", TRACK_FEI, "artist-zhang"),
-                track("zhang-3", TRACK_DAHAI, "artist-zhang"),
-                track("zhang-4", TRACK_MISS, "artist-zhang"),
-                track("zhang-5", "\u6211\u7684\u672a\u6765\u4e0d\u662f\u68a6", "artist-zhang")
-        );
+    }
 
-        when(musicQueryApplicationService.searchTracks(argThat(query -> query != null && query.contains("track:" + TRACK_DIZZY)), anyInt()))
-                .thenReturn(noisyTracks);
-        when(musicQueryApplicationService.searchTracks(eq("artist:\u5f20\u96e8\u751f"), anyInt()))
-                .thenReturn(dominantArtistTracks);
-        when(playlistApplicationService.createPlaylist(eq("demo-user"), any(CreatePlaylistRequest.class)))
-                .thenAnswer(invocation -> {
-                    CreatePlaylistRequest request = invocation.getArgument(1);
-                    return new PlaylistDto(
-                            "playlist-2",
-                            request.name(),
-                            1,
-                            LocalDateTime.now(),
-                            request.tracks().stream()
-                                    .map(track -> new PlaylistTrackDto(
-                                            "pt-" + track.trackId(),
-                                            "playlist-2",
-                                            request.tracks().indexOf(track),
-                                            track,
-                                            LocalDateTime.now()
-                                    ))
-                                    .toList()
-                    );
-                });
-
-        AgentPlan plan = new AgentPlan(
+    private AgentPlan recommendationPlan() {
+        return new AgentPlan(
                 AgentIntent.RECOMMEND_PLAYLIST,
-                "Recommend Zhang Yusheng songs including dizzy.",
+                "Recommend songs from Zhang Yusheng's album.",
                 List.of(
                         new PlanStep(1, PlanStepType.READ_CHAT_CONTEXT, Map.of("limit", 20)),
                         new PlanStep(2, PlanStepType.READ_USER_PREFERENCES, Map.of()),
                         new PlanStep(3, PlanStepType.READ_PLAYLIST_HISTORY, Map.of("limit", 10)),
-                        new PlanStep(4, PlanStepType.GENERATE_RECOMMENDATION_CANDIDATES, Map.of("query", message)),
-                        new PlanStep(5, PlanStepType.RANK_RECOMMENDATION_CANDIDATES, Map.of("query", message)),
-                        new PlanStep(6, PlanStepType.CREATE_RECOMMENDATION_PLAYLIST, Map.of("query", message)),
+                        new PlanStep(4, PlanStepType.GENERATE_RECOMMENDATION_CANDIDATES, Map.of("query", RECOMMENDATION_MESSAGE)),
+                        new PlanStep(5, PlanStepType.RANK_RECOMMENDATION_CANDIDATES, Map.of("query", RECOMMENDATION_MESSAGE)),
+                        new PlanStep(6, PlanStepType.CREATE_RECOMMENDATION_PLAYLIST, Map.of("query", RECOMMENDATION_MESSAGE)),
                         new PlanStep(7, PlanStepType.PERSIST_CHAT_REPLY, Map.of())
                 )
         );
-
-        PlannerExecutionResult result = taskExecutor.execute(
-                plan,
-                new PlanningContext(
-                        new AgentChatRequest("demo-user", message, false),
-                        List.of(),
-                        List.of()
-                )
-        );
-
-        ArgumentCaptor<CreatePlaylistRequest> requestCaptor = ArgumentCaptor.forClass(CreatePlaylistRequest.class);
-        verify(playlistApplicationService).createPlaylist(eq("demo-user"), requestCaptor.capture());
-
-        assertThat(result.replyMessage()).contains("Created recommendation playlist");
-        assertThat(requestCaptor.getValue().tracks()).extracting(TrackDto::artistId)
-                .startsWith("artist-zhang", "artist-zhang", "artist-zhang", "artist-zhang", "artist-zhang");
-        assertThat(requestCaptor.getValue().tracks()).extracting(TrackDto::title)
-                .startsWith(TRACK_FISH, TRACK_FEI, TRACK_DAHAI, TRACK_MISS);
     }
 
-    @Test
-    void recommendPlaylistShouldTreatTraditionalAndSimplifiedTitleAsSameTrack() {
-        taskExecutor = new DefaultTaskExecutor(
-                musicQueryApplicationService,
-                playbackApplicationService,
-                playlistApplicationService,
-                new SearchQueryRefiner()
-        );
-
-        String message = "\u63a8\u8350\u5f20\u96e8\u751f\u4e13\u8f91\u300a\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5\u300b\u91cc\u7684\u300a\u53d1\u6655\u300b\u4ee5\u53ca\u4ed6\u7684\u5176\u4ed6\u6b4c\u66f2";
-        List<TrackDto> structuredResults = List.of(
-                track("zhang-dizzy", "\u767c\u6688", "artist-zhang", "\u5169\u4f0a\u6230\u722d-\u767d\u8272\u624d\u60c5"),
-                track("zhang-again", "\u518d\u898b\u5973\u90ce", "artist-zhang", "\u5169\u4f0a\u6230\u722d-\u767d\u8272\u624d\u60c5"),
-                track("zhang-back", "\u5f8c\u7a97", "artist-zhang", "\u5169\u4f0a\u6230\u722d-\u767d\u8272\u624d\u60c5")
-        );
-
-        when(musicQueryApplicationService.searchTracks(
-                eq("track:\u53d1\u6655 artist:\u5f20\u96e8\u751f album:\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5"),
-                anyInt()
-        )).thenReturn(structuredResults);
-        when(playlistApplicationService.createPlaylist(eq("demo-user"), any(CreatePlaylistRequest.class)))
-                .thenAnswer(invocation -> {
-                    CreatePlaylistRequest request = invocation.getArgument(1);
-                    return new PlaylistDto(
-                            "playlist-3",
-                            request.name(),
-                            1,
-                            LocalDateTime.now(),
-                            request.tracks().stream()
-                                    .map(track -> new PlaylistTrackDto(
-                                            "pt-" + track.trackId(),
-                                            "playlist-3",
-                                            request.tracks().indexOf(track),
-                                            track,
-                                            LocalDateTime.now()
-                                    ))
-                                    .toList()
-                    );
-                });
-
-        AgentPlan plan = new AgentPlan(
-                AgentIntent.RECOMMEND_PLAYLIST,
-                "Recommend songs from Zhang Yusheng's album and other songs.",
+    private AgentPlan playRecommendationPlan() {
+        return new AgentPlan(
+                AgentIntent.PLAY_RECOMMENDATION,
+                "Recommend and play songs from Zhang Yusheng's album.",
                 List.of(
                         new PlanStep(1, PlanStepType.READ_CHAT_CONTEXT, Map.of("limit", 20)),
                         new PlanStep(2, PlanStepType.READ_USER_PREFERENCES, Map.of()),
                         new PlanStep(3, PlanStepType.READ_PLAYLIST_HISTORY, Map.of("limit", 10)),
-                        new PlanStep(4, PlanStepType.GENERATE_RECOMMENDATION_CANDIDATES, Map.of("query", message)),
-                        new PlanStep(5, PlanStepType.RANK_RECOMMENDATION_CANDIDATES, Map.of("query", message)),
-                        new PlanStep(6, PlanStepType.CREATE_RECOMMENDATION_PLAYLIST, Map.of("query", message)),
+                        new PlanStep(4, PlanStepType.GENERATE_RECOMMENDATION_CANDIDATES, Map.of("query", RECOMMENDATION_MESSAGE)),
+                        new PlanStep(5, PlanStepType.RANK_RECOMMENDATION_CANDIDATES, Map.of("query", RECOMMENDATION_MESSAGE)),
+                        new PlanStep(6, PlanStepType.CREATE_RECOMMENDATION_PLAYLIST, Map.of("query", RECOMMENDATION_MESSAGE)),
                         new PlanStep(7, PlanStepType.PERSIST_CHAT_REPLY, Map.of())
                 )
         );
-
-        taskExecutor.execute(
-                plan,
-                new PlanningContext(
-                        new AgentChatRequest("demo-user", message, false),
-                        List.of(),
-                        List.of()
-                )
-        );
-
-        ArgumentCaptor<CreatePlaylistRequest> requestCaptor = ArgumentCaptor.forClass(CreatePlaylistRequest.class);
-        verify(playlistApplicationService).createPlaylist(eq("demo-user"), requestCaptor.capture());
-
-        assertThat(requestCaptor.getValue().tracks()).extracting(TrackDto::title)
-                .startsWith("\u767c\u6688", "\u518d\u898b\u5973\u90ce", "\u5f8c\u7a97");
-    }
-
-    private TrackDto track(String trackId, String title, String artistId) {
-        return track(trackId, title, artistId, "album");
     }
 
     private TrackDto track(String trackId, String title, String artistId, String albumName) {

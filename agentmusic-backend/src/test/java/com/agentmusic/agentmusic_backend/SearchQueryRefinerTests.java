@@ -63,4 +63,5 @@ class SearchQueryRefinerTests {
                 "track:\u53d1\u6655 artist:\u5f20\u96e8\u751f album:\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5"
         );
     }
+
 }

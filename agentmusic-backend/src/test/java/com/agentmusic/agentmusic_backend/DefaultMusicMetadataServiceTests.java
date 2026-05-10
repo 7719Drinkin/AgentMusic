@@ -124,6 +124,70 @@ class DefaultMusicMetadataServiceTests {
         verify(spotifyCatalogClient, never()).searchTracks(eq("\u6cb3"), eq("token"), eq(20));
     }
 
+    @Test
+    void searchTracksShouldAllowDeeperFetchForStructuredArtistOnlyQuery() {
+        DefaultMusicMetadataService service = createService();
+
+        when(spotifyBridgeAuthService.getValidAccessToken()).thenReturn(Optional.of("token"));
+        when(spotifyCatalogClient.searchTracks(eq("artist:\u5f20\u96e8\u751f"), eq("token"), eq(20)))
+                .thenReturn(List.of(
+                        track("track-artist-1", "\u4e00\u5929\u5230\u665a\u6e38\u6cf3\u7684\u9b5a", "artist-zhang", "\u4e00\u5929\u5230\u665a\u6e38\u6cf3\u7684\u9b5a"),
+                        track("track-artist-2", "\u53e3\u662f\u5fc3\u975e", "artist-zhang", "\u53e3\u662f\u5fc3\u975e")
+                ));
+        when(trackRepository.save(any(Track.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<Track> results = service.searchTracks("artist:\u5f20\u96e8\u751f", 20);
+
+        assertThat(results).extracting(Track::title)
+                .contains("\u4e00\u5929\u5230\u665a\u6e38\u6cf3\u7684\u9b5a", "\u53e3\u662f\u5fc3\u975e");
+        verify(spotifyCatalogClient).searchTracks(eq("artist:\u5f20\u96e8\u751f"), eq("token"), eq(20));
+        verify(spotifyCatalogClient, never()).searchTracks(eq("artist:\u5f20\u96e8\u751f"), eq("token"), eq(10));
+    }
+
+    @Test
+    void searchArtistsShouldFetchAndPersistSpotifyArtists() {
+        DefaultMusicMetadataService service = createService();
+
+        when(spotifyBridgeAuthService.getValidAccessToken()).thenReturn(Optional.of("token"));
+        when(spotifyCatalogClient.searchArtists(eq("\u5f20\u96e8\u751f"), eq("token"), eq(5)))
+                .thenReturn(List.of(artist("artist-zhang", "Zhang Yu Sheng")));
+        when(artistRepository.save(any(Artist.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<Artist> results = service.searchArtists("\u5f20\u96e8\u751f", 5);
+
+        assertThat(results).extracting(Artist::artistId).containsExactly("artist-zhang");
+        verify(spotifyCatalogClient).searchArtists(eq("\u5f20\u96e8\u751f"), eq("token"), eq(5));
+        verify(artistRepository).save(any(Artist.class));
+    }
+
+    @Test
+    void getArtistCatalogTracksShouldCombineTopTracksAndAlbumTracks() {
+        DefaultMusicMetadataService service = createService();
+
+        when(spotifyBridgeAuthService.getValidAccessToken()).thenReturn(Optional.of("token"));
+        when(spotifyCatalogClient.getArtistAlbumIds(eq("artist-zhang"), eq("token"), eq(20)))
+                .thenReturn(List.of("album-1", "album-2"));
+        when(spotifyCatalogClient.getAlbumTracks(eq("album-1"), eq("token"), eq(50)))
+                .thenReturn(List.of(
+                        track("track-top-1", "\u53e3\u662f\u5fc3\u975e", "artist-zhang", "\u53e3\u662f\u5fc3\u975e"),
+                        track("track-album-1", "\u5929\u5929\u60f3\u4f60", "artist-zhang", "\u5929\u5929\u60f3\u4f60"),
+                        track("track-noise-1", "20 Min", "artist-other", "Luv Is Rage 2")
+                ));
+        when(spotifyCatalogClient.getAlbumTracks(eq("album-2"), eq("token"), eq(50)))
+                .thenReturn(List.of(
+                        track("track-top-2", "\u5927\u6d77", "artist-zhang", "\u5927\u6d77"),
+                        track("track-album-2", "\u6211\u7684\u672a\u4f86\u4e0d\u662f\u5922", "artist-zhang", "\u6211\u7684\u672a\u4f86\u4e0d\u662f\u5922")
+                ));
+        when(trackRepository.save(any(Track.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<Track> results = service.getArtistCatalogTracks("artist-zhang", 10);
+
+        assertThat(results).extracting(Track::trackId)
+                .containsExactly("track-top-1", "track-top-2", "track-album-1", "track-album-2");
+        assertThat(results).extracting(Track::artistId).containsOnly("artist-zhang");
+        verify(spotifyCatalogClient).getArtistAlbumIds(eq("artist-zhang"), eq("token"), eq(20));
+    }
+
     private DefaultMusicMetadataService createService() {
         return new DefaultMusicMetadataService(
                 trackRepository,

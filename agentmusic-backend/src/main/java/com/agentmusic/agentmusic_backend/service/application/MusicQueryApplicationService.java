@@ -11,5 +11,11 @@ public interface MusicQueryApplicationService {
 
     Optional<ArtistDto> getArtist(String artistId);
 
+    List<ArtistDto> searchArtists(String query, int limit);
+
+    List<TrackDto> getArtistTopTracks(String artistId, int limit);
+
+    List<TrackDto> getArtistCatalogTracks(String artistId, int limit);
+
     List<TrackDto> searchTracks(String query, int limit);
 }

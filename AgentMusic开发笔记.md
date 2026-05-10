@@ -1,7 +1,7 @@
 ﻿# AgentMusic 开发笔记
 
-版本：M2.8
-更新日期：2026-04-29
+版本：M2.9
+更新日期：2026-05-10
 
 ## 1. 当前基线
 
@@ -149,6 +149,59 @@
 - 当前该主链接入已完成，真实 provider 路径在本地 runner 中已能进入 `LlmBackedTaskPlanner`。
 - 当前一次实际 runner 观察到的 fallback 原因是 provider `429 Too Many Requests`，不是 Harness 结构错误。
 
+### 3.1.3 推荐链职责重分配
+
+当前推荐链已完成一次职责重分配，不再是“LLM 只做意图识别，本地规则负责全部选歌”。
+
+当前分工是：
+
+1. `LLM` 负责：
+   - 推荐规格提炼：`RecommendationSpec`
+   - 候选集重排：`RecommendationRerank`
+2. `代码` 负责：
+   - Spotify 候选召回
+   - 同艺人 / 同专辑硬过滤
+   - 显式标题优先插入
+   - 最终可播放校验与去重
+
+当前推荐检索链已单独整理为：
+
+- `agentmusic-backend/docs/recommendation-search-chain.md`
+
+### 3.1.4 当前推荐检索流
+
+当前已经落地三条实体型推荐流：
+
+1. `artist-only`
+   - 先 `searchArtists(name)` 获取主 `artistId`
+   - 再基于 `artistId` 展开 artist albums 与 album tracks
+   - 不再依赖 plain-text `track search("张雨生")` 作为主召回
+
+2. `artist + track (+ album)`
+   - 优先结构化 Spotify query：
+     - `track:<title> artist:<artist> album:<album>`
+   - 再补同艺人 catalog 候选
+   - 最终显式标题优先，同专辑优先，同艺人其他歌曲后补
+
+3. `album-only`
+   - 当前已进入 `album-only hard scope`
+   - 若用户表达的是“专辑里的歌/歌曲”，则候选只允许来自目标专辑
+   - 若未明确要求“其他歌曲”，则不允许扩展到专辑外
+
+当前已验证：
+
+- `推荐20首张雨生的歌`
+  - 可稳定返回 `20` 首
+  - 不再混入其他歌手
+- `推荐张雨生专辑《两伊战争红色热情》里的《我最深爱的人伤我最深》以及张雨生的其他歌曲`
+  - 目标曲已稳定排到第 1 位
+  - 不再被同名异歌手污染
+- `推荐谭咏麟《世外桃源》专辑里的歌曲`
+  - 只返回该专辑自身曲目
+- `推荐张雨生专辑《两伊战争白色才情》里的歌`
+  - 与 `推荐张雨生《两伊战争白色才情》专辑里的歌曲`
+    已归一为同一个 `album-only` 结果
+
 ### 3.2 歌单页
 
 - 左侧推荐歌单点击后进入真实歌单页。
@@ -254,6 +307,26 @@
 2. Reactor Netty 默认 DNS resolver 无法稳定解析 `accounts.spotify.com` 与 Spotify API 域名。
 
 当前 Spotify 相关 WebClient 已改为使用系统 / JDK resolver。
+
+### 3.6 当前推荐准确度状态
+
+当前实体型推荐准确度已完成一轮实质收口：
+
+1. `artist-only`
+   - 已从“第一页 track search + 过滤”切到 `artistId -> artist catalog`
+2. `artist + track (+ album)`
+   - 已支持结构化 query 与同艺人强过滤
+3. `album-only`
+   - 已支持硬边界与等价语义归一化
+
+当前剩余未完成的高优先级准确度问题主要转为：
+
+- 主题型 / 场景型请求：
+  - 如 `90年代粤语歌`
+  - 尚未切出单独的 `theme-aware retrieval flow`
+- 推荐规格语义归一化：
+  - 当前仍有一部分 guardrail 在本地代码中
+  - 后续可升级为单独的 LLM semantic normalization harness
 
 ## 4. 持久化方向
 

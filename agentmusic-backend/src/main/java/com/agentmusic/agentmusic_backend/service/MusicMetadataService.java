@@ -18,5 +18,11 @@ public interface MusicMetadataService {
 
     Optional<Artist> findArtistOrFetch(String artistId);
 
+    java.util.List<Artist> searchArtists(String query, int limit);
+
+    java.util.List<Track> getArtistTopTracks(String artistId, int limit);
+
+    java.util.List<Track> getArtistCatalogTracks(String artistId, int limit);
+
     java.util.List<Track> searchTracks(String query, int limit);
 }
