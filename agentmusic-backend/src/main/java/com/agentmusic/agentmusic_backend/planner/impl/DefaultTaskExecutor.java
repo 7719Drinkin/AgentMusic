@@ -27,6 +27,31 @@ import org.springframework.util.StringUtils;
 @Component
 public class DefaultTaskExecutor implements TaskExecutor {
 
+    private static final String[][] CJK_VARIANT_FOLDS = {
+            {"發", "发"},
+            {"暈", "晕"},
+            {"戰", "战"},
+            {"爭", "争"},
+            {"兩", "两"},
+            {"後", "后"},
+            {"見", "见"},
+            {"帶", "带"},
+            {"魚", "鱼"},
+            {"來", "来"},
+            {"臺", "台"},
+            {"樂", "乐"},
+            {"專", "专"},
+            {"氣", "气"},
+            {"裡", "里"},
+            {"長", "长"},
+            {"創", "创"},
+            {"愛", "爱"},
+            {"夢", "梦"},
+            {"會", "会"},
+            {"聲", "声"},
+            {"過", "过"}
+    };
+
     private final MusicQueryApplicationService musicQueryApplicationService;
     private final PlaybackApplicationService playbackApplicationService;
     private final PlaylistApplicationService playlistApplicationService;
@@ -194,9 +219,7 @@ public class DefaultTaskExecutor implements TaskExecutor {
         if (StringUtils.hasText(searchQuery)) {
             candidateQueries.add(searchQuery.trim());
         }
-        if (StringUtils.hasText(originalMessage)) {
-            candidateQueries.add(originalMessage.trim());
-        }
+        candidateQueries.addAll(hints.structuredCandidates());
         candidateQueries.addAll(hints.candidates());
 
         Map<String, TrackDto> aggregatedTracks = new LinkedHashMap<>();
@@ -245,11 +268,21 @@ public class DefaultTaskExecutor implements TaskExecutor {
             return tracks.stream().limit(limit).toList();
         }
 
-        String primaryArtistId = exactTitleMatches.getFirst().artistId();
+        String preferredAlbum = hints.albumTerms().isEmpty() ? null : hints.albumTerms().getFirst();
+        List<TrackDto> prioritizedExactMatches = prioritizeByAlbum(exactTitleMatches, preferredAlbum);
+        String primaryArtistId = prioritizedExactMatches.getFirst().artistId();
         List<TrackDto> selected = new ArrayList<>();
         LinkedHashSet<String> seenTrackIds = new LinkedHashSet<>();
 
-        addIfAbsent(selected, seenTrackIds, exactTitleMatches.getFirst());
+        addIfAbsent(selected, seenTrackIds, prioritizedExactMatches.getFirst());
+
+        if (StringUtils.hasText(preferredAlbum)) {
+            tracks.stream()
+                    .filter(track -> primaryArtistId != null && primaryArtistId.equals(track.artistId()))
+                    .filter(track -> albumMatches(track.albumName(), preferredAlbum))
+                    .filter(track -> !titleMatches(track.title(), primaryTitle))
+                    .forEach(track -> addIfAbsent(selected, seenTrackIds, track));
+        }
 
         tracks.stream()
                 .filter(track -> primaryArtistId != null && primaryArtistId.equals(track.artistId()))
@@ -260,7 +293,7 @@ public class DefaultTaskExecutor implements TaskExecutor {
                 .filter(track -> !titleMatches(track.title(), primaryTitle))
                 .forEach(track -> addIfAbsent(selected, seenTrackIds, track));
 
-        exactTitleMatches.stream()
+        prioritizedExactMatches.stream()
                 .skip(1)
                 .forEach(track -> addIfAbsent(selected, seenTrackIds, track));
 
@@ -270,11 +303,24 @@ public class DefaultTaskExecutor implements TaskExecutor {
     }
 
     private List<TrackDto> selectContextFallbackTracks(SearchQueryRefiner.SearchQueryHints hints, int limit) {
-        if (hints.contextKeywords().isEmpty()) {
+        if (hints.artistTerms().isEmpty() && hints.contextKeywords().isEmpty() && hints.albumTerms().isEmpty()) {
             return List.of();
         }
 
-        String contextQuery = joinKeywords(hints.contextKeywords());
+        String contextQuery;
+        if (!hints.artistTerms().isEmpty() && !hints.albumTerms().isEmpty()) {
+            contextQuery = searchQueryRefiner.buildStructuredQuery(
+                    null,
+                    hints.artistTerms().getFirst(),
+                    hints.albumTerms().getFirst()
+            );
+        } else if (!hints.artistTerms().isEmpty()) {
+            contextQuery = searchQueryRefiner.buildStructuredQuery(null, hints.artistTerms().getFirst(), null);
+        } else if (!hints.albumTerms().isEmpty()) {
+            contextQuery = searchQueryRefiner.buildStructuredQuery(null, null, hints.albumTerms().getFirst());
+        } else {
+            contextQuery = joinKeywords(hints.contextKeywords());
+        }
         if (!StringUtils.hasText(contextQuery)) {
             return List.of();
         }
@@ -291,6 +337,14 @@ public class DefaultTaskExecutor implements TaskExecutor {
 
         List<TrackDto> selected = new ArrayList<>();
         LinkedHashSet<String> seenTrackIds = new LinkedHashSet<>();
+        String preferredAlbum = hints.albumTerms().isEmpty() ? null : hints.albumTerms().getFirst();
+
+        if (StringUtils.hasText(preferredAlbum)) {
+            contextTracks.stream()
+                    .filter(track -> dominantArtistId.equals(track.artistId()))
+                    .filter(track -> albumMatches(track.albumName(), preferredAlbum))
+                    .forEach(track -> addIfAbsent(selected, seenTrackIds, track));
+        }
 
         contextTracks.stream()
                 .filter(track -> dominantArtistId.equals(track.artistId()))
@@ -346,11 +400,38 @@ public class DefaultTaskExecutor implements TaskExecutor {
         return normalizedActual.equals(normalizedExpected) || normalizedActual.contains(normalizedExpected);
     }
 
+    private boolean albumMatches(String actualAlbum, String expectedAlbum) {
+        String normalizedActual = normalizeForMatching(actualAlbum);
+        String normalizedExpected = normalizeForMatching(expectedAlbum);
+        if (normalizedActual.isBlank() || normalizedExpected.isBlank()) {
+            return false;
+        }
+        return normalizedActual.equals(normalizedExpected) || normalizedActual.contains(normalizedExpected);
+    }
+
+    private List<TrackDto> prioritizeByAlbum(List<TrackDto> tracks, String preferredAlbum) {
+        if (!StringUtils.hasText(preferredAlbum)) {
+            return tracks;
+        }
+        List<TrackDto> prioritized = new ArrayList<>(tracks.size());
+        tracks.stream()
+                .filter(track -> albumMatches(track.albumName(), preferredAlbum))
+                .forEach(prioritized::add);
+        tracks.stream()
+                .filter(track -> !albumMatches(track.albumName(), preferredAlbum))
+                .forEach(prioritized::add);
+        return prioritized;
+    }
+
     private String normalizeForMatching(String value) {
         if (!StringUtils.hasText(value)) {
             return "";
         }
-        return value.toLowerCase(Locale.ROOT).replaceAll("[\\s\\p{Punct}]+", "");
+        String folded = value;
+        for (String[] pair : CJK_VARIANT_FOLDS) {
+            folded = folded.replace(pair[0], pair[1]);
+        }
+        return folded.toLowerCase(Locale.ROOT).replaceAll("[\\s\\p{Punct}]+", "");
     }
 
     private void addIfAbsent(List<TrackDto> selected, LinkedHashSet<String> seenTrackIds, TrackDto track) {

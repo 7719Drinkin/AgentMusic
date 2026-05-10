@@ -52,10 +52,16 @@ class DefaultMusicMetadataServiceTests {
         Track noise = track("track-noise-1", "\u5f20\u4e09\u7684\u6b4c", "artist-other", "8\u53c8\u4e8c\u5206\u4e4b\u4e00");
 
         when(spotifyBridgeAuthService.getValidAccessToken()).thenReturn(Optional.of("token"));
+        when(spotifyCatalogClient.searchTracks(eq("track:\u6cb3 artist:\u5f20\u96e8\u751f"), eq("token"), eq(8)))
+                .thenReturn(List.of(target, targetAlt, noise));
+        when(spotifyCatalogClient.searchTracks(eq("track:\u6cb3"), eq("token"), eq(8)))
+                .thenReturn(List.of(targetAlt, noise));
         when(spotifyCatalogClient.searchTracks(eq("\u5f20\u96e8\u751f \u6cb3"), eq("token"), eq(8)))
                 .thenReturn(List.of(target, targetAlt, noise));
         when(spotifyCatalogClient.searchTracks(eq("\u6cb3"), eq("token"), eq(8)))
                 .thenReturn(List.of(targetAlt, noise));
+        when(spotifyCatalogClient.searchTracks(eq("artist:\u5f20\u96e8\u751f"), eq("token"), eq(8)))
+                .thenReturn(List.of(artistTrack, target, noise));
         when(spotifyCatalogClient.searchTracks(eq("\u5f20\u96e8\u751f"), eq("token"), eq(8)))
                 .thenReturn(List.of(artistTrack, target, noise));
         when(trackRepository.save(any(Track.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -73,6 +79,33 @@ class DefaultMusicMetadataServiceTests {
                 .startsWith("\u6cb3", "\u6cb3", "\u5927\u6d77");
         assertThat(results).extracting(Track::artistId)
                 .startsWith("artist-zhang", "artist-zhang", "artist-zhang");
+    }
+
+    @Test
+    void searchTracksShouldPreserveStructuredSpotifyQuery() {
+        DefaultMusicMetadataService service = createService();
+
+        Track exact = track("track-dizzy-1", "\u53d1\u6655", "artist-zhang", "\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5");
+        when(spotifyBridgeAuthService.getValidAccessToken()).thenReturn(Optional.of("token"));
+        when(spotifyCatalogClient.searchTracks(
+                eq("track:\u53d1\u6655 artist:\u5f20\u96e8\u751f album:\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5"),
+                eq("token"),
+                eq(8)
+        )).thenReturn(List.of(exact));
+        when(trackRepository.save(any(Track.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<Track> results = service.searchTracks(
+                "track:\u53d1\u6655 artist:\u5f20\u96e8\u751f album:\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5",
+                5
+        );
+
+        assertThat(results).extracting(Track::title).containsExactly("\u53d1\u6655");
+        verify(spotifyCatalogClient).searchTracks(
+                eq("track:\u53d1\u6655 artist:\u5f20\u96e8\u751f album:\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5"),
+                eq("token"),
+                eq(8)
+        );
+        verify(spotifyCatalogClient, never()).searchTracks(eq("\u53d1\u6655"), eq("token"), eq(8));
     }
 
     @Test

@@ -10,8 +10,10 @@ import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -23,10 +25,16 @@ public class SpotifyWebApiCatalogClient implements SpotifyCatalogClient {
 
     private final WebClient webClient;
     private final Clock clock;
+    private final String searchMarket;
 
-    public SpotifyWebApiCatalogClient(WebClient.Builder webClientBuilder, Clock clock) {
+    public SpotifyWebApiCatalogClient(
+            WebClient.Builder webClientBuilder,
+            Clock clock,
+            @Value("${spotify.search.market:}") String searchMarket
+    ) {
         this.webClient = SpotifyWebClientFactory.create(webClientBuilder, API_BASE_URL);
         this.clock = clock;
+        this.searchMarket = searchMarket == null ? "" : searchMarket.trim();
     }
 
     @Override
@@ -69,6 +77,10 @@ public class SpotifyWebApiCatalogClient implements SpotifyCatalogClient {
                         .queryParam("q", query)
                         .queryParam("type", "track")
                         .queryParam("limit", limit)
+                        .queryParamIfPresent(
+                                "market",
+                                StringUtils.hasText(searchMarket) ? Optional.of(searchMarket) : Optional.empty()
+                        )
                         .build())
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()

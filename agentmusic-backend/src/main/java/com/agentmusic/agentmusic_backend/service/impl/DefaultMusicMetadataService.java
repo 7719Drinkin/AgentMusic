@@ -20,6 +20,31 @@ import org.springframework.stereotype.Service;
 @Service
 public class DefaultMusicMetadataService implements MusicMetadataService {
 
+    private static final String[][] CJK_VARIANT_FOLDS = {
+            {"發", "发"},
+            {"暈", "晕"},
+            {"戰", "战"},
+            {"爭", "争"},
+            {"兩", "两"},
+            {"後", "后"},
+            {"見", "见"},
+            {"帶", "带"},
+            {"魚", "鱼"},
+            {"來", "来"},
+            {"臺", "台"},
+            {"樂", "乐"},
+            {"專", "专"},
+            {"氣", "气"},
+            {"裡", "里"},
+            {"長", "长"},
+            {"創", "创"},
+            {"愛", "爱"},
+            {"夢", "梦"},
+            {"會", "会"},
+            {"聲", "声"},
+            {"過", "过"}
+    };
+
     private final TrackRepository trackRepository;
     private final ArtistRepository artistRepository;
     private final SpotifyCatalogClient spotifyCatalogClient;
@@ -132,8 +157,10 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
 
     @Override
     public List<Track> searchTracks(String query, int limit) {
+        boolean structuredQuery = searchQueryRefiner.isStructuredSpotifyQuery(query);
         SearchQueryRefiner.SearchQueryHints hints = searchQueryRefiner.analyze(query);
-        if (hints.candidates().isEmpty()) {
+        List<String> candidateQueries = structuredQuery ? List.of(query.trim()) : hints.candidates();
+        if (candidateQueries.isEmpty()) {
             return List.of();
         }
 
@@ -146,7 +173,7 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
         // Spotify search has been unstable for long CJK natural-language queries when the single-request page
         // size is too large. Keep each upstream candidate fetch in a conservative band, then merge locally.
         int perCandidateLimit = Math.min(Math.max(limit, 8), 10);
-        for (String candidate : hints.candidates()) {
+        for (String candidate : candidateQueries) {
             List<Track> spotifyTracks = spotifyCatalogClient.searchTracks(candidate, accessToken.get(), perCandidateLimit).stream()
                     .map(this::saveTrack)
                     .toList();
@@ -193,6 +220,30 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
             }
         }
 
+        for (String artistTerm : hints.artistTerms()) {
+            String normalizedArtistTerm = normalizeForMatching(artistTerm);
+            if (normalizedArtistTerm.isBlank()) {
+                continue;
+            }
+            if (normalizedArtist.equals(normalizedArtistTerm)) {
+                score += 120;
+            } else if (normalizedArtist.contains(normalizedArtistTerm)) {
+                score += 80;
+            }
+        }
+
+        for (String albumTerm : hints.albumTerms()) {
+            String normalizedAlbumTerm = normalizeForMatching(albumTerm);
+            if (normalizedAlbumTerm.isBlank()) {
+                continue;
+            }
+            if (normalizedAlbum.equals(normalizedAlbumTerm)) {
+                score += 100;
+            } else if (normalizedAlbum.contains(normalizedAlbumTerm)) {
+                score += 70;
+            }
+        }
+
         for (String keyword : hints.contextKeywords()) {
             String normalizedKeyword = normalizeForMatching(keyword);
             if (normalizedKeyword.isBlank()) {
@@ -226,7 +277,11 @@ public class DefaultMusicMetadataService implements MusicMetadataService {
         if (value == null || value.isBlank()) {
             return "";
         }
-        return value.toLowerCase(Locale.ROOT)
+        String folded = value;
+        for (String[] pair : CJK_VARIANT_FOLDS) {
+            folded = folded.replace(pair[0], pair[1]);
+        }
+        return folded.toLowerCase(Locale.ROOT)
                 .replaceAll("[\\s\\p{Punct}]+", "");
     }
 }
