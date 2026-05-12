@@ -1,7 +1,7 @@
 # Recommendation Search Chain
 
 版本：R1.0  
-更新日期：2026-05-10
+更新日期：2026-05-12
 
 ## 1. 目的
 
