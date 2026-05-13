@@ -43,6 +43,17 @@ class SimpleTaskPlannerTests {
                 List.of()
         ));
 
+        assertEquals(AgentIntent.PLAY_RECOMMENDATION, result.plan().intent());
+    }
+
+    @Test
+    void shouldClassifyChineseNoPlayRecommendationRequestAsRecommendOnly() {
+        var result = planner.createPlan(new PlanningContext(
+                new AgentChatRequest("demo-user", "推荐张雨生的《河》以及他的其他歌曲，不要播放", false),
+                List.of(),
+                List.of()
+        ));
+
         assertEquals(AgentIntent.RECOMMEND_PLAYLIST, result.plan().intent());
     }
 

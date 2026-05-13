@@ -31,8 +31,17 @@ public class AgentLlmPlanningHarness {
     private static final String LIMIT_ARGUMENT = "limit";
     private static final Pattern TITLE_PATTERN = Pattern.compile("《\\s*([^》]+?)\\s*》");
     private static final List<String> RECOMMENDATION_HINTS = List.of("推荐", "来点", "想听", "适合", "歌单", "mix");
-    private static final List<String> PLAY_HINTS = List.of("播放", "开始播放", "直接播放", "现在播放", "play", "resume");
-    private static final List<String> NO_PLAY_HINTS = List.of("不要播放", "先不要播放", "先别播", "稍后播放");
+    private static final List<String> NO_PLAY_HINTS = List.of(
+            "不要播放",
+            "先不要播放",
+            "先别播",
+            "稍后播放",
+            "recommend only",
+            "do not play",
+            "don't play",
+            "no autoplay",
+            "without playback"
+    );
 
     private static final Map<AgentIntent, List<PlanStepType>> STEP_TEMPLATES = createStepTemplates();
 
@@ -121,8 +130,8 @@ public class AgentLlmPlanningHarness {
                 13. If latestUserMessage asks for a different topic than history, do not continue the older topic.
 
                 Intent selection rules:
-                - If the user asks for recommended songs, a generated playlist, or music that fits a mood / scene / genre, use RECOMMEND_PLAYLIST or PLAY_RECOMMENDATION.
-                - If that same recommendation request also asks to play now, play directly, or implies immediate playback, you must use PLAY_RECOMMENDATION.
+                - If the user asks for recommended songs, a generated playlist, or music that fits a mood / scene / genre, default to PLAY_RECOMMENDATION.
+                - Use RECOMMEND_PLAYLIST only when latestUserMessage explicitly says not to play, such as "不要播放", "先别播", "稍后播放", or "recommend only".
                 - Use COMPOSITE_REQUEST only when the user wants to search explicit tracks first and then control playback in the same request.
                 - Never use COMPOSITE_REQUEST for recommendation generation.
 
@@ -141,7 +150,7 @@ public class AgentLlmPlanningHarness {
                   "schemaVersion": "%s",
                   "intent": "PLAY_RECOMMENDATION",
                   "summary": "Build a recommendation playlist first, then start playback.",
-                  "reasoning": "The user asked for recommendation plus immediate playback.",
+                  "reasoning": "Recommendation requests default to immediate playback unless the user says not to play.",
                   "confidence": 90,
                   "steps": [
                     {"type": "READ_CHAT_CONTEXT", "arguments": {"limit": 20}},
@@ -327,7 +336,6 @@ public class AgentLlmPlanningHarness {
         }
 
         boolean recommendationRequest = containsAny(latestMessage, RECOMMENDATION_HINTS);
-        boolean explicitPlayRequest = containsAny(latestMessage, PLAY_HINTS);
         boolean noPlayRequest = containsAny(latestMessage, NO_PLAY_HINTS);
 
         if (recommendationRequest && (intent == AgentIntent.TRACK_LOOKUP || intent == AgentIntent.ARTIST_LOOKUP)) {
@@ -336,11 +344,11 @@ public class AgentLlmPlanningHarness {
         if (recommendationRequest && (intent == AgentIntent.UNKNOWN || intent == AgentIntent.CHAT_ONLY)) {
             throw new IllegalArgumentException("Recommendation requests must not be classified as UNKNOWN or CHAT_ONLY.");
         }
-        if (recommendationRequest && explicitPlayRequest && !noPlayRequest && intent != AgentIntent.PLAY_RECOMMENDATION) {
-            throw new IllegalArgumentException("Recommendation requests with explicit playback must use PLAY_RECOMMENDATION.");
+        if (recommendationRequest && !noPlayRequest && intent != AgentIntent.PLAY_RECOMMENDATION) {
+            throw new IllegalArgumentException("Recommendation requests default to PLAY_RECOMMENDATION unless latestUserMessage explicitly says not to play.");
         }
-        if (recommendationRequest && (!explicitPlayRequest || noPlayRequest) && intent == AgentIntent.PLAY_RECOMMENDATION) {
-            throw new IllegalArgumentException("Recommendation requests without playback must not use PLAY_RECOMMENDATION.");
+        if (recommendationRequest && noPlayRequest && intent == AgentIntent.PLAY_RECOMMENDATION) {
+            throw new IllegalArgumentException("Recommendation requests that explicitly say not to play must not use PLAY_RECOMMENDATION.");
         }
     }
 

@@ -219,4 +219,124 @@ class DefaultPlaybackApplicationServiceTests {
         assertEquals(1, result.currentTrackIndex());
         verifyNoInteractions(bridgePlaybackControlService);
     }
+
+    @Test
+    void syncBridgeStateShouldRebindToNewestPlaylistWhenRemoteTrackChanges() {
+        PlaybackSessionDto previous = new PlaybackSessionDto(
+                "session-5",
+                "old-track",
+                "old-playlist",
+                3,
+                12000,
+                true,
+                PlaybackMode.SEQUENTIAL,
+                "device-1",
+                LocalDateTime.now()
+        );
+        PlaybackSessionDto synced = new PlaybackSessionDto(
+                "session-5",
+                "shared-track",
+                "old-playlist",
+                3,
+                1500,
+                true,
+                PlaybackMode.SEQUENTIAL,
+                "device-1",
+                LocalDateTime.now()
+        );
+        PlaybackSessionDto reconciled = new PlaybackSessionDto(
+                "session-5",
+                "shared-track",
+                "new-playlist",
+                0,
+                1500,
+                true,
+                PlaybackMode.SEQUENTIAL,
+                "device-1",
+                LocalDateTime.now()
+        );
+        PlaylistDto newPlaylist = playlist(
+                "new-playlist",
+                new PlaylistTrackDto("pt-new", "new-playlist", 0,
+                        new TrackDto("shared-track", "Song A", "artist-1", "album", "album-1", 180000, null, null),
+                        LocalDateTime.now())
+        );
+        PlaylistDto oldPlaylist = playlist(
+                "old-playlist",
+                new PlaylistTrackDto("pt-old", "old-playlist", 3,
+                        new TrackDto("shared-track", "Song A", "artist-1", "album", "album-1", 180000, null, null),
+                        LocalDateTime.now())
+        );
+
+        when(playbackSessionService.getActiveSession("demo-user")).thenReturn(Optional.of(previous));
+        when(bridgePlaybackControlService.syncPlaybackState("demo-user")).thenReturn(synced);
+        when(playlistService.getRecentPlaylists("demo-user", 10)).thenReturn(List.of(newPlaylist, oldPlaylist));
+        when(playbackSessionService.saveSession(
+                eq("demo-user"),
+                eq("session-5"),
+                eq("shared-track"),
+                eq("new-playlist"),
+                eq(0),
+                eq(1500),
+                eq(true),
+                eq(PlaybackMode.SEQUENTIAL),
+                eq("device-1")
+        )).thenReturn(reconciled);
+
+        Optional<PlaybackSessionDto> result = playbackApplicationService.syncBridgeState("demo-user");
+
+        assertEquals("new-playlist", result.orElseThrow().currentPlaylistId());
+        assertEquals(0, result.orElseThrow().currentTrackIndex());
+    }
+
+    @Test
+    void syncBridgeStateShouldKeepPlaylistWhenRemoteTrackStillMatchesPreviousSession() {
+        PlaybackSessionDto previous = new PlaybackSessionDto(
+                "session-6",
+                "track-1",
+                "playlist-1",
+                1,
+                12000,
+                true,
+                PlaybackMode.SEQUENTIAL,
+                "device-1",
+                LocalDateTime.now()
+        );
+        PlaybackSessionDto synced = new PlaybackSessionDto(
+                "session-6",
+                "track-1",
+                "playlist-1",
+                1,
+                1500,
+                true,
+                PlaybackMode.SEQUENTIAL,
+                "device-1",
+                LocalDateTime.now()
+        );
+        PlaylistDto playlist = playlist(
+                "playlist-1",
+                new PlaylistTrackDto("pt-1", "playlist-1", 1,
+                        new TrackDto("track-1", "Song A", "artist-1", "album", "album-1", 180000, null, null),
+                        LocalDateTime.now())
+        );
+
+        when(playbackSessionService.getActiveSession("demo-user")).thenReturn(Optional.of(previous));
+        when(bridgePlaybackControlService.syncPlaybackState("demo-user")).thenReturn(synced);
+        when(playlistService.getPlaylistById("playlist-1")).thenReturn(Optional.of(playlist));
+
+        Optional<PlaybackSessionDto> result = playbackApplicationService.syncBridgeState("demo-user");
+
+        assertEquals("playlist-1", result.orElseThrow().currentPlaylistId());
+        assertEquals(1, result.orElseThrow().currentTrackIndex());
+    }
+
+    private PlaylistDto playlist(String playlistId, PlaylistTrackDto... tracks) {
+        return new PlaylistDto(
+                playlistId,
+                "推荐歌单",
+                1,
+                LocalDateTime.now(),
+                List.of(tracks)
+        );
+    }
 }

@@ -93,16 +93,20 @@ public class SimpleTaskPlanner implements TaskPlanner {
                 "不要播放",
                 "先别播",
                 "稍后播放",
-                "recommend only"
+                "recommend only",
+                "do not play",
+                "don't play",
+                "no autoplay",
+                "without playback"
         );
 
         if (mentionsHistory) {
             return AgentIntent.PLAYLIST_HISTORY_ACCESS;
         }
-        if (mentionsRecommendation && (recommendOnly || !mentionsPlay)) {
+        if (mentionsRecommendation && recommendOnly) {
             return AgentIntent.RECOMMEND_PLAYLIST;
         }
-        if (mentionsRecommendation && mentionsPlay) {
+        if (mentionsRecommendation) {
             return AgentIntent.PLAY_RECOMMENDATION;
         }
         if (mentionsPlay && (mentionsSearch || mentionsArtist || mentionsPlaylist) && !mentionsPause) {

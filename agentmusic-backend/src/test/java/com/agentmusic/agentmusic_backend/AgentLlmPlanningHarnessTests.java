@@ -114,7 +114,7 @@ class AgentLlmPlanningHarnessTests {
         String responseJson = """
                 {
                   "schemaVersion": "agentmusic.plan.v1",
-                  "intent": "RECOMMEND_PLAYLIST",
+                  "intent": "PLAY_RECOMMENDATION",
                   "summary": "Recommend songs by Zhang Yusheng including He.",
                   "reasoning": "The user asked for songs by Zhang Yusheng and mentioned a specific title.",
                   "confidence": 90,
@@ -125,12 +125,75 @@ class AgentLlmPlanningHarnessTests {
                     {"type": "GENERATE_RECOMMENDATION_CANDIDATES", "arguments": {"query": "Zhang Yusheng He"}},
                     {"type": "RANK_RECOMMENDATION_CANDIDATES", "arguments": {"query": "Zhang Yusheng He"}},
                     {"type": "CREATE_RECOMMENDATION_PLAYLIST", "arguments": {"query": "Zhang Yusheng He"}},
+                    {"type": "UPDATE_PLAYBACK_STATE", "arguments": {"query": "Zhang Yusheng He"}},
                     {"type": "PERSIST_CHAT_REPLY", "arguments": {}}
                   ]
                 }
                 """;
 
         assertThrows(IllegalArgumentException.class, () -> harness.parseAndValidate(responseJson, context));
+    }
+
+    @Test
+    void parseAndValidateRejectsDefaultRecommendationWithoutAutoplay() {
+        PlanningContext context = new PlanningContext(
+                new AgentChatRequest("demo-user", RECOMMENDATION_MESSAGE, false),
+                List.of(),
+                List.of()
+        );
+
+        String responseJson = """
+                {
+                  "schemaVersion": "agentmusic.plan.v1",
+                  "intent": "RECOMMEND_PLAYLIST",
+                  "summary": "Recommend songs by Zhang Yusheng including He.",
+                  "reasoning": "The user asked for a recommendation.",
+                  "confidence": 90,
+                  "steps": [
+                    {"type": "READ_CHAT_CONTEXT", "arguments": {"limit": 20}},
+                    {"type": "READ_USER_PREFERENCES", "arguments": {}},
+                    {"type": "READ_PLAYLIST_HISTORY", "arguments": {"limit": 10}},
+                    {"type": "GENERATE_RECOMMENDATION_CANDIDATES", "arguments": {"query": "\u7ed9\u6211\u63a8\u8350\u5f20\u96e8\u751f\u7684\u300a\u6cb3\u300b\u4ee5\u53ca\u4ed6\u7684\u5176\u4ed6\u6b4c\u66f2"}},
+                    {"type": "RANK_RECOMMENDATION_CANDIDATES", "arguments": {"query": "\u7ed9\u6211\u63a8\u8350\u5f20\u96e8\u751f\u7684\u300a\u6cb3\u300b\u4ee5\u53ca\u4ed6\u7684\u5176\u4ed6\u6b4c\u66f2"}},
+                    {"type": "CREATE_RECOMMENDATION_PLAYLIST", "arguments": {"query": "\u7ed9\u6211\u63a8\u8350\u5f20\u96e8\u751f\u7684\u300a\u6cb3\u300b\u4ee5\u53ca\u4ed6\u7684\u5176\u4ed6\u6b4c\u66f2"}},
+                    {"type": "PERSIST_CHAT_REPLY", "arguments": {}}
+                  ]
+                }
+                """;
+
+        assertThrows(IllegalArgumentException.class, () -> harness.parseAndValidate(responseJson, context));
+    }
+
+    @Test
+    void parseAndValidateAcceptsNoPlayRecommendationPlan() {
+        PlanningContext context = new PlanningContext(
+                new AgentChatRequest("demo-user", RECOMMENDATION_MESSAGE + "\uff0c\u4e0d\u8981\u64ad\u653e", false),
+                List.of(),
+                List.of()
+        );
+
+        String responseJson = """
+                {
+                  "schemaVersion": "agentmusic.plan.v1",
+                  "intent": "RECOMMEND_PLAYLIST",
+                  "summary": "Create a recommendation playlist without playback.",
+                  "reasoning": "The user explicitly asked not to play.",
+                  "confidence": 90,
+                  "steps": [
+                    {"type": "READ_CHAT_CONTEXT", "arguments": {"limit": 20}},
+                    {"type": "READ_USER_PREFERENCES", "arguments": {}},
+                    {"type": "READ_PLAYLIST_HISTORY", "arguments": {"limit": 10}},
+                    {"type": "GENERATE_RECOMMENDATION_CANDIDATES", "arguments": {"query": "\u7ed9\u6211\u63a8\u8350\u5f20\u96e8\u751f\u7684\u300a\u6cb3\u300b\u4ee5\u53ca\u4ed6\u7684\u5176\u4ed6\u6b4c\u66f2\uff0c\u4e0d\u8981\u64ad\u653e"}},
+                    {"type": "RANK_RECOMMENDATION_CANDIDATES", "arguments": {"query": "\u7ed9\u6211\u63a8\u8350\u5f20\u96e8\u751f\u7684\u300a\u6cb3\u300b\u4ee5\u53ca\u4ed6\u7684\u5176\u4ed6\u6b4c\u66f2\uff0c\u4e0d\u8981\u64ad\u653e"}},
+                    {"type": "CREATE_RECOMMENDATION_PLAYLIST", "arguments": {"query": "\u7ed9\u6211\u63a8\u8350\u5f20\u96e8\u751f\u7684\u300a\u6cb3\u300b\u4ee5\u53ca\u4ed6\u7684\u5176\u4ed6\u6b4c\u66f2\uff0c\u4e0d\u8981\u64ad\u653e"}},
+                    {"type": "PERSIST_CHAT_REPLY", "arguments": {}}
+                  ]
+                }
+                """;
+
+        var result = harness.parseAndValidate(responseJson, context);
+
+        assertEquals(AgentIntent.RECOMMEND_PLAYLIST, result.plan().intent());
     }
 
     @Test

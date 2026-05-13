@@ -29,6 +29,9 @@ const PLAYBACK_REFRESH_EVENT = 'agentmusic:playback-session-updated'
 const QUEUE_NEXT_REQUEST_EVENT = 'agentmusic:queue-next-request'
 const QUEUE_PLAY_REQUEST_EVENT = 'agentmusic:queue-play-request'
 const REMOTE_SYNC_INTERVAL_MS = 1500
+const AUTO_ADVANCE_END_THRESHOLD_MS = 2000
+const AUTO_ADVANCE_BUFFER_MS = 350
+const MAX_AUTO_ADVANCE_DELAY_MS = 2147483647
 
 function resolvePlaybackError(error, fallbackMessage) {
   return getErrorMessage(error, fallbackMessage)
@@ -59,6 +62,7 @@ function Footer(props) {
   const size = useWindowSize()
   const footerRef = useRef(null)
   const audioRef = useRef(null)
+  const autoAdvanceTrackRef = useRef(null)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(1)
@@ -313,6 +317,53 @@ function Footer(props) {
       audioRef.current?.removeEventListener('ended', handleEnded)
     }
   }, [canSkipTrack, shouldUseLocalPreview, handleNext])
+
+  useEffect(() => {
+    autoAdvanceTrackRef.current = null
+  }, [props.trackData.trackId])
+
+  useEffect(() => {
+    const trackId = props.trackData.trackId
+    const durationMs = props.trackData.durationMs || 0
+    if (shouldUseLocalPreview || !trackId || !canSkipTrack || durationMs <= 0 || isPlaybackBusy) {
+      return undefined
+    }
+
+    const positionMs = Math.max(
+      props.currentPositionMs || 0,
+      Math.round(currentTime * 1000) || 0,
+    )
+    const remainingMs = durationMs - positionMs
+    const isNearEnd = remainingMs <= AUTO_ADVANCE_END_THRESHOLD_MS
+    if (!props.isPlaying && !isNearEnd) {
+      return undefined
+    }
+
+    const delayMs = props.isPlaying
+      ? Math.max(AUTO_ADVANCE_BUFFER_MS, remainingMs + AUTO_ADVANCE_BUFFER_MS)
+      : AUTO_ADVANCE_BUFFER_MS
+    const timeoutId = window.setTimeout(() => {
+      if (autoAdvanceTrackRef.current === trackId) {
+        return
+      }
+      autoAdvanceTrackRef.current = trackId
+      handleNext()
+    }, Math.min(delayMs, MAX_AUTO_ADVANCE_DELAY_MS))
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [
+    canSkipTrack,
+    currentTime,
+    handleNext,
+    isPlaybackBusy,
+    props.currentPositionMs,
+    props.isPlaying,
+    props.trackData.durationMs,
+    props.trackData.trackId,
+    shouldUseLocalPreview,
+  ])
 
   useEffect(() => {
     if (!props.isPlaying || !props.trackData.trackId || isPlaybackBusy) {

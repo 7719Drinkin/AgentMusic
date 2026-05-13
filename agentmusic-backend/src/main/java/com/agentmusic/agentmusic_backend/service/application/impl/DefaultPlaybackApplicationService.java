@@ -164,8 +164,10 @@ public class DefaultPlaybackApplicationService implements PlaybackApplicationSer
 
     @Override
     public Optional<PlaybackSessionDto> syncBridgeState(String userId) {
+        PlaybackSessionDto previous = playbackSessionService.getActiveSession(userId).orElse(null);
         try {
-            return Optional.ofNullable(bridgePlaybackControlService.syncPlaybackState(userId));
+            return Optional.ofNullable(bridgePlaybackControlService.syncPlaybackState(userId))
+                    .map(session -> reconcilePlaylistContext(userId, previous, session));
         } catch (RuntimeException ignored) {
             return playbackSessionService.getActiveSession(userId);
         }
@@ -221,6 +223,95 @@ public class DefaultPlaybackApplicationService implements PlaybackApplicationSer
                 deviceId == null ? current.deviceId() : deviceId,
                 current.playbackMode()
         );
+    }
+
+    private PlaybackSessionDto reconcilePlaylistContext(
+            String userId,
+            PlaybackSessionDto previous,
+            PlaybackSessionDto synced
+    ) {
+        if (synced == null || synced.currentTrackId() == null) {
+            return synced;
+        }
+
+        if (previous != null
+                && synced.currentTrackId().equals(previous.currentTrackId())
+                && playlistContainsTrack(previous.currentPlaylistId(), synced.currentTrackId())) {
+            return saveSyncedSession(
+                    userId,
+                    synced,
+                    previous.currentPlaylistId(),
+                    resolveTrackIndex(previous.currentPlaylistId(), synced.currentTrackId()).orElse(previous.currentTrackIndex())
+            );
+        }
+
+        PlaylistMatch recentMatch = findRecentPlaylistMatch(userId, synced.currentTrackId());
+        if (recentMatch != null) {
+            return saveSyncedSession(userId, synced, recentMatch.playlistId(), recentMatch.trackIndex());
+        }
+
+        if (synced.currentPlaylistId() != null || synced.currentTrackIndex() != null) {
+            return saveSyncedSession(userId, synced, null, null);
+        }
+        return synced;
+    }
+
+    private boolean playlistContainsTrack(String playlistId, String trackId) {
+        return resolveTrackIndex(playlistId, trackId).isPresent();
+    }
+
+    private Optional<Integer> resolveTrackIndex(String playlistId, String trackId) {
+        if (playlistId == null || trackId == null) {
+            return Optional.empty();
+        }
+
+        return playlistService.getPlaylistById(playlistId)
+                .flatMap(playlist -> playlist.tracks().stream()
+                        .filter(playlistTrack -> playlistTrack.track() != null)
+                        .filter(playlistTrack -> trackId.equals(playlistTrack.track().trackId()))
+                        .map(PlaylistTrackDto::position)
+                        .findFirst());
+    }
+
+    private PlaylistMatch findRecentPlaylistMatch(String userId, String trackId) {
+        if (trackId == null) {
+            return null;
+        }
+
+        return playlistService.getRecentPlaylists(userId, 10).stream()
+                .flatMap(playlist -> playlist.tracks().stream()
+                        .filter(playlistTrack -> playlistTrack.track() != null)
+                        .filter(playlistTrack -> trackId.equals(playlistTrack.track().trackId()))
+                        .map(playlistTrack -> new PlaylistMatch(playlist.id(), playlistTrack.position())))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private PlaybackSessionDto saveSyncedSession(
+            String userId,
+            PlaybackSessionDto synced,
+            String playlistId,
+            Integer trackIndex
+    ) {
+        if (java.util.Objects.equals(synced.currentPlaylistId(), playlistId)
+                && java.util.Objects.equals(synced.currentTrackIndex(), trackIndex)) {
+            return synced;
+        }
+
+        return playbackSessionService.saveSession(
+                userId,
+                synced.sessionId(),
+                synced.currentTrackId(),
+                playlistId,
+                trackIndex,
+                synced.currentPositionMs(),
+                synced.isPlaying(),
+                synced.playbackMode(),
+                synced.deviceId()
+        );
+    }
+
+    private record PlaylistMatch(String playlistId, Integer trackIndex) {
     }
 
     private int resolveCurrentTrackIndex(PlaybackSessionDto current, List<PlaylistTrackDto> tracks) {
