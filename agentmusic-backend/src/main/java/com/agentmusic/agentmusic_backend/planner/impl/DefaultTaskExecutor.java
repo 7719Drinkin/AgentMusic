@@ -1,6 +1,7 @@
 package com.agentmusic.agentmusic_backend.planner.impl;
 
 import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
+import com.agentmusic.agentmusic_backend.web.dto.ArtistDto;
 import com.agentmusic.agentmusic_backend.web.dto.CreatePlaylistRequest;
 import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
 import com.agentmusic.agentmusic_backend.web.dto.PlaylistDto;
@@ -85,6 +86,10 @@ public class DefaultTaskExecutor implements TaskExecutor {
                 String query = resolveQuery(plan, message, PlanStepType.LOOKUP_TRACK);
                 yield new PlannerExecutionResult(plan, executeTrackLookup(query));
             }
+            case ARTIST_LOOKUP -> {
+                String query = resolveQuery(plan, message, PlanStepType.LOOKUP_ARTIST);
+                yield new PlannerExecutionResult(plan, executeArtistLookup(query));
+            }
             case RECOMMEND_PLAYLIST -> executeRecommendation(plan, planningContext, false);
             case PLAY_RECOMMENDATION -> executeRecommendation(plan, planningContext, true);
             case PLAYLIST_HISTORY_ACCESS -> new PlannerExecutionResult(plan, executePlaylistHistoryAccess(userId));
@@ -109,6 +114,35 @@ public class DefaultTaskExecutor implements TaskExecutor {
 
         TrackDto selected = tracks.getFirst();
         return "Found matching tracks. Top result is " + selected.title() + ".";
+    }
+
+    private String executeArtistLookup(String query) {
+        List<ArtistDto> artists = musicQueryApplicationService.searchArtists(query, 5);
+        if (artists.isEmpty()) {
+            return "No matching artist was found for the current request.";
+        }
+
+        ArtistDto selected = artists.getFirst();
+        StringBuilder builder = new StringBuilder("Found matching artists. Top result is ")
+                .append(selected.name());
+        if (selected.followers() != null) {
+            builder.append(" with ").append(selected.followers()).append(" Spotify followers");
+        }
+        if (StringUtils.hasText(selected.bio())) {
+            builder.append(". Bio: ").append(selected.bio().trim());
+        }
+
+        List<String> otherMatches = artists.stream()
+                .skip(1)
+                .limit(3)
+                .map(ArtistDto::name)
+                .filter(StringUtils::hasText)
+                .toList();
+        if (!otherMatches.isEmpty()) {
+            builder.append(". Other matches: ").append(String.join(", ", otherMatches));
+        }
+        builder.append(".");
+        return builder.toString();
     }
 
     private String executePlaybackControl(String userId, String message) {

@@ -9,10 +9,11 @@ import com.agentmusic.agentmusic_backend.planner.TaskExecutor;
 import com.agentmusic.agentmusic_backend.planner.TaskPlanner;
 import com.agentmusic.agentmusic_backend.planner.TaskPlanningResult;
 import com.agentmusic.agentmusic_backend.planner.impl.LlmBackedTaskPlanner;
-import com.agentmusic.agentmusic_backend.service.application.AgentApplicationService;
 import com.agentmusic.agentmusic_backend.service.BackendRuntimeFacade;
 import com.agentmusic.agentmusic_backend.service.ChatMemoryService;
 import com.agentmusic.agentmusic_backend.service.LiveChatReplyService;
+import com.agentmusic.agentmusic_backend.service.application.AgentApplicationService;
+import com.agentmusic.agentmusic_backend.service.application.AgentChatStreamListener;
 import com.agentmusic.agentmusic_backend.web.dto.AgentChatRequest;
 import com.agentmusic.agentmusic_backend.web.dto.AgentChatResponse;
 import com.agentmusic.agentmusic_backend.web.dto.ChatMessageDto;
@@ -49,6 +50,16 @@ public class DefaultAgentApplicationService implements AgentApplicationService {
 
     @Override
     public AgentChatResponse chat(AgentChatRequest request) {
+        return chat(request, AgentChatStreamListener.noop());
+    }
+
+    @Override
+    public AgentChatResponse chat(AgentChatRequest request, AgentChatStreamListener streamListener) {
+        AgentChatStreamListener listener = streamListener == null
+                ? AgentChatStreamListener.noop()
+                : streamListener;
+        listener.onStatus("已收到消息，正在读取对话上下文...");
+
         ChatMessageDto userMessage = chatMemoryService.appendMessage(
                 request.userId(),
                 ChatRole.USER,
@@ -65,6 +76,7 @@ public class DefaultAgentApplicationService implements AgentApplicationService {
                 .filter(StringUtils::hasText)
                 .toList();
 
+        listener.onStatus("正在让 Kimi 理解当前请求...");
         PlanningContext planningContext = new PlanningContext(
                 request,
                 recentHistory,
@@ -72,7 +84,8 @@ public class DefaultAgentApplicationService implements AgentApplicationService {
         );
         TaskPlanningResult planningResult = taskPlanner.createPlan(planningContext);
         AgentPlan plan = planningResult.plan();
-        PlannerExecutionResult executionResult = executePlan(plan, planningContext, recentHistory);
+        listener.onStatus(resolvePlanStatus(plan));
+        PlannerExecutionResult executionResult = executePlan(plan, planningContext, recentHistory, listener);
 
         Map<String, Object> replyMetadata = new HashMap<>();
         var runtimeStatus = liveChatReplyService.getRuntimeStatus();
@@ -112,18 +125,45 @@ public class DefaultAgentApplicationService implements AgentApplicationService {
     private PlannerExecutionResult executePlan(
             AgentPlan plan,
             PlanningContext planningContext,
-            List<ChatMessageDto> recentHistory
+            List<ChatMessageDto> recentHistory,
+            AgentChatStreamListener streamListener
     ) {
         if (plan.intent() != AgentIntent.CHAT_ONLY && plan.intent() != AgentIntent.UNKNOWN) {
-            return taskExecutor.execute(plan, planningContext);
+            streamListener.onStatus("正在检索音乐内容并执行推荐任务...");
+            PlannerExecutionResult executionResult = taskExecutor.execute(plan, planningContext);
+            streamListener.onStatus("正在让 Kimi 组织最终回复...");
+            return liveChatReplyService.generateStreamingNarration(
+                            executionResult.plan(),
+                            planningContext,
+                            executionResult.replyMessage(),
+                            streamListener::onReplyDelta
+                    )
+                    .map(reply -> new PlannerExecutionResult(executionResult.plan(), reply))
+                    .orElse(executionResult);
         }
 
-        return liveChatReplyService.generateReply(
+        streamListener.onStatus("正在连接 Kimi 生成回复...");
+        return liveChatReplyService.generateStreamingReply(
                         recentHistory,
-                        planningContext.request().message()
+                        planningContext.request().message(),
+                        streamListener::onReplyDelta
                 )
                 .map(reply -> new PlannerExecutionResult(plan, reply))
-                .orElseGet(() -> taskExecutor.execute(plan, planningContext));
+                .orElseGet(() -> {
+                    streamListener.onStatus("Kimi 流式回复不可用，正在使用本地兜底回复...");
+                    return taskExecutor.execute(plan, planningContext);
+                });
+    }
+
+    private String resolvePlanStatus(AgentPlan plan) {
+        return switch (plan.intent()) {
+            case CHAT_ONLY, UNKNOWN -> "已识别为对话请求，准备流式回复...";
+            case RECOMMEND_PLAYLIST, PLAY_RECOMMENDATION -> "已识别为推荐请求，正在准备候选歌曲...";
+            case PLAYBACK_CONTROL -> "已识别为播放控制请求，正在确认设备和播放状态...";
+            case TRACK_LOOKUP, ARTIST_LOOKUP -> "已识别为音乐查询请求，正在检索 Spotify...";
+            case PLAYLIST_HISTORY_ACCESS -> "已识别为歌单历史请求，正在读取最近推荐...";
+            case COMPOSITE_REQUEST -> "已识别为复合请求，正在拆解执行步骤...";
+        };
     }
 
     private String resolveReplyStage(AgentPlan plan, TaskPlanningResult planningResult) {

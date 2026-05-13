@@ -1,16 +1,23 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { fetchAgentHistory, sendAgentChatMessage } from '../api/agent'
+import { fetchAgentHistory, sendAgentChatMessageStream } from '../api/agent'
 import { getErrorMessage } from '../api/http'
 import { Sound } from '../component/icons'
 import Topnav from '../component/topnav/topnav'
-import { CHAT_SUGGESTIONS, EMPTY_STATE_PROMPTS } from '../data/agent-ui'
 import styles from './chat.module.css'
 
 const DEMO_USER_ID = 'demo-user'
+const INPUT_PLACEHOLDER = '想听什么？例如：推荐张雨生《发晕》，或来点90年代粤语歌'
+const STREAM_CHAR_DELAY_MS = 10
 
 function resolveChatError(error, fallbackMessage) {
   return getErrorMessage(error, fallbackMessage)
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
 }
 
 function ChatPage() {
@@ -18,12 +25,13 @@ function ChatPage() {
   const [messages, setMessages] = useState([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(true)
   const [isSending, setIsSending] = useState(false)
+  const [isStreamingReply, setIsStreamingReply] = useState(false)
+  const [streamStatus, setStreamStatus] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const textareaRef = useRef(null)
   const streamRef = useRef(null)
 
   const hasMessages = messages.length > 0
-  const ghostPrompt = hasMessages ? CHAT_SUGGESTIONS[0] : EMPTY_STATE_PROMPTS[0]
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current
@@ -94,17 +102,64 @@ function ChatPage() {
     setMessages((current) => [...current, optimisticUserMessage])
     setInput('')
     setIsSending(true)
+    setStreamStatus('正在发送消息...')
     setErrorMessage('')
 
     try {
-      const response = await sendAgentChatMessage({
+      const streamingReplyId = `local-agent-stream-${Date.now()}`
+      let hasStreamedReply = false
+      let deltaDrain = Promise.resolve()
+      const response = await sendAgentChatMessageStream({
         userId: DEMO_USER_ID,
         message: trimmed,
         voiceInput: false,
+      }, {
+        onStatus: (message) => {
+          if (message) {
+            setStreamStatus(message)
+          }
+        },
+        onDelta: (delta) => {
+          if (!delta) {
+            return
+          }
+
+          if (!hasStreamedReply) {
+            hasStreamedReply = true
+            setIsStreamingReply(true)
+            setMessages((current) => [
+              ...current,
+              {
+                id: streamingReplyId,
+                role: 'AGENT',
+                message: '',
+                isStreaming: true,
+              },
+            ])
+          }
+
+          deltaDrain = deltaDrain.then(() => appendStreamDelta(streamingReplyId, delta))
+        },
       })
 
       const reply = normalizeMessage(response.reply)
-      setMessages((current) => [...current, reply])
+      if (hasStreamedReply) {
+        await deltaDrain
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === streamingReplyId
+              ? {
+                  ...reply,
+                  isStreaming: false,
+                }
+              : message
+          )
+        )
+        setIsStreamingReply(false)
+      } else {
+        await streamAgentReply(reply)
+      }
+      setStreamStatus('')
 
       if (Array.isArray(response.recommendedPlaylists) && response.recommendedPlaylists.length > 0) {
         window.dispatchEvent(new CustomEvent('agentmusic:playlists-updated'))
@@ -114,6 +169,7 @@ function ChatPage() {
         window.dispatchEvent(new CustomEvent('agentmusic:playback-session-updated'))
       }
     } catch (error) {
+      setIsStreamingReply(false)
       const message = resolveChatError(error, 'Failed to send the message.')
       setMessages((current) => [
         ...current,
@@ -126,31 +182,72 @@ function ChatPage() {
       setErrorMessage(message)
     } finally {
       setIsSending(false)
+      setStreamStatus('')
     }
   }
 
   const handleKeyDown = (event) => {
-    if ((event.key === 'Tab' || (event.key === 'Enter' && !event.shiftKey)) && !input.trim()) {
-      event.preventDefault()
-      acceptGhostPrompt()
-      return
-    }
-
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       submitMessage(input)
     }
   }
 
-  const acceptGhostPrompt = () => {
-    if (isSending || input.trim() || !ghostPrompt) {
-      return
+  const appendStreamDelta = async (streamingId, delta) => {
+    for (const character of Array.from(delta)) {
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === streamingId
+            ? {
+                ...message,
+                message: `${message.message}${character}`,
+              }
+            : message
+        )
+      )
+      await wait(STREAM_CHAR_DELAY_MS)
+    }
+  }
+
+  const streamAgentReply = async (reply) => {
+    const fullMessage = reply.message ?? ''
+    const streamingId = `${reply.id}-streaming`
+    setIsStreamingReply(true)
+    setMessages((current) => [
+      ...current,
+      {
+        ...reply,
+        id: streamingId,
+        message: '',
+        isStreaming: true,
+      },
+    ])
+
+    for (const character of Array.from(fullMessage)) {
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === streamingId
+            ? {
+                ...message,
+                message: `${message.message}${character}`,
+              }
+            : message
+        )
+      )
+      await wait(STREAM_CHAR_DELAY_MS)
     }
 
-    setInput(ghostPrompt)
-    requestAnimationFrame(() => {
-      textareaRef.current?.focus()
-    })
+    setMessages((current) =>
+      current.map((message) =>
+        message.id === streamingId
+          ? {
+              ...reply,
+              isStreaming: false,
+            }
+          : message
+      )
+    )
+    setIsStreamingReply(false)
   }
 
   return (
@@ -187,8 +284,6 @@ function ChatPage() {
                 onInputChange={setInput}
                 onKeyDown={handleKeyDown}
                 onSubmit={submitMessage}
-                onAcceptGhostPrompt={acceptGhostPrompt}
-                ghostPrompt={ghostPrompt}
                 centered
                 disabled={isSending}
               />
@@ -240,13 +335,16 @@ function ChatPage() {
                         isAgent ? styles.AgentBubble : styles.UserBubble
                       }`.trim()}
                     >
-                      <p>{item.message}</p>
+                      <p>
+                        {item.message}
+                        {item.isStreaming ? <span className={styles.StreamCursor} aria-hidden="true" /> : null}
+                      </p>
                     </div>
                   </article>
                 )
               })}
 
-              {isSending ? (
+              {isSending && !isStreamingReply ? (
                 <article
                   className={`${styles.MessageRow} ${styles.AgentRow}`.trim()}
                   data-testid="chat-message-pending"
@@ -255,7 +353,7 @@ function ChatPage() {
                     <span className={styles.MessageRole}>Agent</span>
                   </div>
                   <div className={`${styles.MessageBubble} ${styles.AgentBubble} ${styles.PendingBubble}`.trim()}>
-                    <p>Agent is thinking...</p>
+                    <p>{streamStatus || '正在理解你的需求并整理推荐...'}</p>
                   </div>
                 </article>
               ) : null}
@@ -270,8 +368,6 @@ function ChatPage() {
                 onInputChange={setInput}
                 onKeyDown={handleKeyDown}
                 onSubmit={submitMessage}
-                onAcceptGhostPrompt={acceptGhostPrompt}
-                ghostPrompt={ghostPrompt}
                 disabled={isSending}
               />
             </div>
@@ -288,8 +384,6 @@ function Composer({
   onInputChange,
   onKeyDown,
   onSubmit,
-  onAcceptGhostPrompt,
-  ghostPrompt,
   centered = false,
   disabled = false,
 }) {
@@ -301,17 +395,6 @@ function Composer({
     <div className={wrapperClassName}>
       <div className={styles.InputShell}>
         <div className={styles.InputStage}>
-          {!input && !disabled ? (
-            <button
-              className={styles.GhostPrompt}
-              type="button"
-              onClick={onAcceptGhostPrompt}
-              onFocus={onAcceptGhostPrompt}
-            >
-              <span className={styles.GhostPromptText}>{ghostPrompt}</span>
-              <span className={styles.GhostPromptHint}>Tab or Enter to accept</span>
-            </button>
-          ) : null}
         <textarea
           ref={textareaRef}
           className={styles.ChatInput}
@@ -319,26 +402,40 @@ function Composer({
           value={input}
           onChange={(event) => onInputChange(event.target.value)}
           onKeyDown={onKeyDown}
-          placeholder=""
+          placeholder={INPUT_PLACEHOLDER}
           disabled={disabled}
-          tabIndex={input ? 0 : -1}
         />
         </div>
         <div className={styles.InputActions}>
-          <TooltipIconButton tooltip="Voice input" disabled={disabled}>
+          <TooltipIconButton tooltip="语音输入" disabled={disabled}>
             <Sound />
           </TooltipIconButton>
           <TooltipIconButton
-            tooltip={disabled ? 'Sending' : 'Send'}
+            tooltip={disabled ? '发送中' : '发送'}
             filled
             disabled={disabled}
             onClick={() => onSubmit(input)}
           >
-            <span className={styles.SendArrow}>-&gt;</span>
+            <PaperPlaneIcon />
           </TooltipIconButton>
         </div>
       </div>
     </div>
+  )
+}
+
+function PaperPlaneIcon() {
+  return (
+    <svg className={styles.SendIcon} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        d="M5.2 19.1 19.8 4.5 14.4 21l-3.2-7.1L4 10.7l15.8-6.2"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.9"
+      />
+    </svg>
   )
 }
 
@@ -362,6 +459,7 @@ function normalizeMessage(message) {
     role: typeof message.role === 'string' ? message.role : 'AGENT',
     message: message.message,
     createdAt: message.createdAt ?? null,
+    isStreaming: message.isStreaming ?? false,
   }
 }
 

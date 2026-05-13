@@ -9,6 +9,9 @@ public interface AgentApplicationService {
 
     AgentChatResponse chat(AgentChatRequest request);
 
+    default AgentChatResponse chat(AgentChatRequest request, AgentChatStreamListener streamListener) {
+        return chat(request);
+    }
+
     List<ChatMessageDto> getRecentHistory(String userId, int limit);
 }
-

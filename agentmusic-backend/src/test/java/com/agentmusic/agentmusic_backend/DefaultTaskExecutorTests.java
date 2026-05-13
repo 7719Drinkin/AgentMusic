@@ -21,6 +21,7 @@ import com.agentmusic.agentmusic_backend.service.application.PlaybackApplication
 import com.agentmusic.agentmusic_backend.service.application.PlaylistApplicationService;
 import com.agentmusic.agentmusic_backend.service.impl.SearchQueryRefiner;
 import com.agentmusic.agentmusic_backend.web.dto.AgentChatRequest;
+import com.agentmusic.agentmusic_backend.web.dto.ArtistDto;
 import com.agentmusic.agentmusic_backend.web.dto.CreatePlaylistRequest;
 import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
 import com.agentmusic.agentmusic_backend.web.dto.PlaylistDto;
@@ -161,6 +162,33 @@ class DefaultTaskExecutorTests {
         assertThat(result.replyMessage()).contains("started playback from \u767c\u6688");
     }
 
+    @Test
+    void artistLookupShouldSearchArtistsFromPlanQuery() {
+        DefaultTaskExecutor taskExecutor = createExecutor();
+        when(musicQueryApplicationService.searchArtists(eq("\u5f20\u96e8\u751f"), eq(5)))
+                .thenReturn(List.of(new ArtistDto(
+                        "artist-1",
+                        "\u5f20\u96e8\u751f",
+                        "Taiwanese singer-songwriter.",
+                        null,
+                        12345
+                )));
+
+        PlannerExecutionResult result = taskExecutor.execute(
+                artistLookupPlan(),
+                new PlanningContext(
+                        new AgentChatRequest("demo-user", "\u8bf7\u4ecb\u7ecd\u4e00\u4e0b\u5f20\u96e8\u751f", false),
+                        List.of(),
+                        List.of()
+                )
+        );
+
+        verify(musicQueryApplicationService).searchArtists(eq("\u5f20\u96e8\u751f"), eq(5));
+        assertThat(result.replyMessage())
+                .contains("Found matching artists")
+                .contains("\u5f20\u96e8\u751f");
+    }
+
     private DefaultTaskExecutor createExecutor() {
         return new DefaultTaskExecutor(
                 musicQueryApplicationService,
@@ -207,6 +235,18 @@ class DefaultTaskExecutorTests {
                         new PlanStep(5, PlanStepType.RANK_RECOMMENDATION_CANDIDATES, Map.of("query", RECOMMENDATION_MESSAGE)),
                         new PlanStep(6, PlanStepType.CREATE_RECOMMENDATION_PLAYLIST, Map.of("query", RECOMMENDATION_MESSAGE)),
                         new PlanStep(7, PlanStepType.PERSIST_CHAT_REPLY, Map.of())
+                )
+        );
+    }
+
+    private AgentPlan artistLookupPlan() {
+        return new AgentPlan(
+                AgentIntent.ARTIST_LOOKUP,
+                "Look up Zhang Yusheng.",
+                List.of(
+                        new PlanStep(1, PlanStepType.READ_CHAT_CONTEXT, Map.of("limit", 20)),
+                        new PlanStep(2, PlanStepType.LOOKUP_ARTIST, Map.of("query", "\u5f20\u96e8\u751f")),
+                        new PlanStep(3, PlanStepType.PERSIST_CHAT_REPLY, Map.of())
                 )
         );
     }

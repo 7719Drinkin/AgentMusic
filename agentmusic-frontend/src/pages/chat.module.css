@@ -7,6 +7,7 @@
   color: #fff;
   display: flex;
   flex-direction: column;
+  font-family: "Aptos", "HarmonyOS Sans SC", "Microsoft YaHei UI", sans-serif;
 }
 
 .Bg {
@@ -31,7 +32,7 @@
   width: min(100%, 1240px);
   flex: 1 1 auto;
   margin: 0 auto;
-  padding: 10px 16px 14px;
+  padding: 0 16px 14px;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -39,7 +40,7 @@
 
 .EmptyFrame,
 .ChatFrame {
-  border-radius: 30px;
+  border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.055);
   background:
     radial-gradient(circle at top right, rgba(29, 185, 84, 0.08), transparent 24%),
@@ -211,12 +212,16 @@
 .MessageBubble {
   max-width: min(920px, 92%);
   padding: 12px 14px;
-  border-radius: 18px;
+  border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.05);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
 }
 
 .MessageBubble p {
+  display: block;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
+  overflow: visible;
   margin: 0;
   color: #fff;
   font-size: 13px;
@@ -255,7 +260,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px 18px 14px;
+  padding: 12px 18px 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -269,42 +274,24 @@
 
 .InputShell {
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 24px;
-  background: rgba(10, 10, 10, 0.42);
-  padding: 10px 12px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
+    rgba(10, 10, 10, 0.56);
+  padding: 9px 10px;
   backdrop-filter: blur(14px);
+  transition: border-color 0.2s cubic-bezier(.2, .8, .2, 1), box-shadow 0.2s cubic-bezier(.2, .8, .2, 1);
+}
+
+.InputShell:focus-within {
+  border-color: rgba(74, 144, 255, 0.42);
+  box-shadow:
+    0 0 0 3px rgba(74, 144, 255, 0.09),
+    0 18px 32px rgba(0, 0, 0, 0.2);
 }
 
 .InputStage {
   position: relative;
-}
-
-.GhostPrompt {
-  position: absolute;
-  inset: 0;
-  border: none;
-  background: transparent;
-  padding: 0;
-  text-align: left;
-  cursor: text;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  justify-content: flex-start;
-}
-
-.GhostPromptText {
-  color: rgba(255, 255, 255, 0.34);
-  font-size: 13px;
-  line-height: 1.48;
-}
-
-.GhostPromptHint {
-  color: rgba(255, 255, 255, 0.18);
-  font-size: 10px;
-  line-height: 1.2;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .ChatInput {
@@ -329,7 +316,7 @@
 }
 
 .ChatInput::placeholder {
-  color: rgba(255, 255, 255, 0.42);
+  color: rgba(210, 218, 225, 0.42);
 }
 
 .InputActions {
@@ -342,8 +329,8 @@
 .IconButton {
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -351,7 +338,7 @@
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
   cursor: pointer;
-  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+  transition: transform 0.2s cubic-bezier(.2, .8, .2, 1), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .IconButton:disabled {
@@ -365,25 +352,51 @@
 }
 
 .IconButton:hover {
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.02);
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.14);
 }
 
 .FilledIconButton {
-  background: #1db954;
-  color: #07150d;
+  background: linear-gradient(135deg, #2ee86f, #1db954);
+  color: #06130b;
   border-color: transparent;
+  box-shadow: 0 10px 22px rgba(29, 185, 84, 0.22);
 }
 
 .FilledIconButton:hover {
   background: #22cc5e;
+  box-shadow: 0 14px 28px rgba(29, 185, 84, 0.3);
 }
 
-.SendArrow {
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1;
+.FilledIconButton:hover .SendIcon {
+  transform: translate(1px, -1px) rotate(4deg);
+}
+
+.SendIcon {
+  width: 17px;
+  height: 17px;
+  transition: transform 0.2s cubic-bezier(.2, .8, .2, 1);
+}
+
+.StreamCursor {
+  display: inline-block;
+  width: 7px;
+  height: 15px;
+  margin-left: 4px;
+  border-radius: 999px;
+  vertical-align: -2px;
+  background: #71a7ff;
+  animation: streamCursorBlink 0.9s steps(2, start) infinite;
+}
+
+@keyframes streamCursorBlink {
+  0%, 45% {
+    opacity: 1;
+  }
+  46%, 100% {
+    opacity: 0.18;
+  }
 }
 
 .Tooltip {
@@ -466,7 +479,7 @@
 
   .EmptyFrame,
   .ChatFrame {
-    border-radius: 22px;
+    border-radius: 16px;
   }
 
   .EmptyHero,

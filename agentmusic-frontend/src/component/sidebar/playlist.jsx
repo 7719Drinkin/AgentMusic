@@ -67,9 +67,6 @@ function Playlist() {
     <div className={styles.Playlist}>
       <div className={styles.PlaylistHeader}>
         <TitleS>Recommended playlists</TitleS>
-        <TextRegularM className={styles.PlaylistIntro}>
-          Latest recommendation sets generated from Agent sessions.
-        </TextRegularM>
       </div>
 
       <div className={styles.PlaylistList} data-testid="sidebar-playlist-list">

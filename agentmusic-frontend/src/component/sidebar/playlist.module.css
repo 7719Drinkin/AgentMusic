@@ -38,7 +38,7 @@
     padding: 9px;
     border: 1px solid rgba(255,255,255,.06);
     background: rgba(255,255,255,.03);
-    border-radius: 17px;
+    border-radius: 12px;
     cursor: pointer;
     text-align: left;
     box-sizing: border-box;
@@ -62,7 +62,7 @@
 .PlaylistCardFallback{
     width: 48px;
     height: 48px;
-    border-radius: 14px;
+    border-radius: 10px;
     flex: 0 0 auto;
 }
 
