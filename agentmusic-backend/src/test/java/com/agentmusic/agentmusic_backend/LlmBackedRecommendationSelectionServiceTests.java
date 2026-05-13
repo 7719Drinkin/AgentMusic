@@ -3,6 +3,7 @@ package com.agentmusic.agentmusic_backend;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -192,6 +193,119 @@ class LlmBackedRecommendationSelectionServiceTests {
         assertThat(selection.tracks()).hasSize(10);
         assertThat(selection.tracks()).extracting(TrackDto::artistId).containsOnly("artist-alan");
         assertThat(selection.tracks()).extracting(TrackDto::albumName).containsOnly("\u4e16\u5916\u6843\u6e90");
+    }
+
+    @Test
+    void buildSelectionShouldUseThemeAwareQueriesForBroadRequests() {
+        LlmBackedRecommendationSelectionService service = createService(false);
+        String message = "\u7ed9\u6211\u6765\u70b990\u5e74\u4ee3\u7684\u7ca4\u8bed\u6b4c";
+
+        when(musicQueryApplicationService.searchTracks(anyString(), anyInt())).thenReturn(List.of());
+        when(musicQueryApplicationService.searchTracks(
+                argThat(query -> query != null && query.contains("90s") && query.contains("cantopop")),
+                anyInt()
+        ))
+                .thenReturn(List.of(
+                        track("track-1", "\u8bb2\u4e0d\u51fa\u518d\u89c1", "artist-a", "\u7ecf\u5178\u7ca4\u8bed"),
+                        track("track-2", "\u4e00\u751f\u4f55\u6c42", "artist-b", "\u7ecf\u5178\u7ca4\u8bed")
+                ));
+        when(musicQueryApplicationService.getArtist("artist-a"))
+                .thenReturn(Optional.of(new ArtistDto("artist-a", "歌手A", null, null, null)));
+        when(musicQueryApplicationService.getArtist("artist-b"))
+                .thenReturn(Optional.of(new ArtistDto("artist-b", "歌手B", null, null, null)));
+
+        RecommendationSelection selection = service.buildSelection(new PlanningContext(
+                new AgentChatRequest("demo-user", message, false),
+                List.of(),
+                List.of()
+        ));
+
+        assertThat(selection.spec().requestMode()).isEqualTo(RecommendationRequestMode.THEME_AWARE);
+        assertThat(selection.spec().language()).isEqualTo("cantonese");
+        assertThat(selection.spec().era()).isEqualTo("1990s");
+        assertThat(selection.spec().genre()).isEqualTo("cantopop");
+        assertThat(selection.tracks()).extracting(TrackDto::title)
+                .containsExactlyInAnyOrder("\u8bb2\u4e0d\u51fa\u518d\u89c1", "\u4e00\u751f\u4f55\u6c42");
+        verify(musicQueryApplicationService, org.mockito.Mockito.atLeastOnce()).searchTracks(
+                argThat(query -> query != null && query.contains("90s") && query.contains("cantopop")),
+                anyInt()
+        );
+    }
+
+    @Test
+    void buildSelectionShouldUseThemeSeedArtistCatalogWhenThemeSearchIsEmpty() {
+        LlmBackedRecommendationSelectionService service = createService(false);
+        String message = "\u7ed9\u6211\u6765\u70b990\u5e74\u4ee3\u7684\u7ca4\u8bed\u6b4c";
+
+        when(musicQueryApplicationService.searchTracks(anyString(), anyInt())).thenReturn(List.of());
+        when(musicQueryApplicationService.searchArtists(eq("\u5f20\u5b66\u53cb"), eq(5)))
+                .thenReturn(List.of(new ArtistDto("artist-jacky", "张学友", null, null, null)));
+        when(musicQueryApplicationService.getArtistCatalogTracks(eq("artist-jacky"), anyInt()))
+                .thenReturn(List.of(
+                        track("track-jacky-1", "\u543b\u522b", "artist-jacky", "\u543b\u522b"),
+                        track("track-jacky-2", "\u6bcf\u5929\u7231\u4f60\u591a\u4e00\u4e9b", "artist-jacky", "\u771f\u60c5\u6d41\u9732")
+                ));
+
+        RecommendationSelection selection = service.buildSelection(new PlanningContext(
+                new AgentChatRequest("demo-user", message, false),
+                List.of(),
+                List.of()
+        ));
+
+        assertThat(selection.spec().requestMode()).isEqualTo(RecommendationRequestMode.THEME_AWARE);
+        assertThat(selection.spec().seedArtists()).contains("\u5f20\u5b66\u53cb");
+        assertThat(selection.tracks()).extracting(TrackDto::title)
+                .containsExactly("\u543b\u522b", "\u6bcf\u5929\u7231\u4f60\u591a\u4e00\u4e9b");
+        verify(musicQueryApplicationService).searchArtists(eq("\u5f20\u5b66\u53cb"), eq(5));
+        verify(musicQueryApplicationService).getArtistCatalogTracks(eq("artist-jacky"), anyInt());
+    }
+
+    @Test
+    void buildSelectionShouldAvoidThemeDuplicateTitlesAndLiveVariantsWhenAlternativesExist() {
+        LlmBackedRecommendationSelectionService service = createService(false);
+        String message = "\u7ed9\u6211\u6765\u70b990\u5e74\u4ee3\u7684\u7ca4\u8bed\u6b4c";
+
+        when(musicQueryApplicationService.searchTracks(anyString(), anyInt()))
+                .thenReturn(List.of(
+                        track("track-1", "\u5343\u5343\u95cb\u6b4c", "artist-a", "Chinese Pop 90s"),
+                        track("track-2", "\u5343\u5343\u95cb\u6b4c", "artist-b", "\u5343\u5343\u95cb\u6b4c"),
+                        track("track-3", "\u4e00\u751f\u4f55\u6c42", "artist-c", "\u7ecf\u5178\u7ca4\u8bed"),
+                        track("track-4", "\u671d\u8056 - Live", "artist-d", "\u6f14\u5531\u6703 Live"),
+                        track("track-5", "\u73b0\u4ee3\u7231\u60c5\u6545\u4e8b", "artist-e", "\u7ecf\u5178\u7ca4\u8bed"),
+                        track("track-6", "\u53cb\u60c5\u5c81\u6708", "artist-f", "\u7ecf\u5178\u7ca4\u8bed"),
+                        track("track-7", "\u76f8\u9022\u4f55\u5fc5\u66fe\u76f8\u8bc6", "artist-g", "\u7ecf\u5178\u7ca4\u8bed"),
+                        track("track-8", "\u5bb9\u6613\u53d7\u4f24\u7684\u5973\u4eba", "artist-h", "\u7ecf\u5178\u7ca4\u8bed"),
+                        track("track-9", "\u8bb2\u4e0d\u51fa\u518d\u89c1", "artist-i", "\u7ecf\u5178\u7ca4\u8bed"),
+                        track("track-10", "\u6bcf\u5929\u7231\u4f60\u591a\u4e00\u4e9b", "artist-j", "\u7ecf\u5178\u7ca4\u8bed"),
+                        track("track-11", "\u6211\u6068\u6211\u75f4\u5fc3", "artist-k", "\u7ecf\u5178\u7ca4\u8bed"),
+                        track("track-12", "\u7ea2\u65e5", "artist-l", "\u7ecf\u5178\u7ca4\u8bed"),
+                        track("track-13", "\u98ce\u7ee7\u7eed\u5439", "artist-m", "\u7ecf\u5178\u7ca4\u8bed"),
+                        track("track-14", "\u504f\u504f\u559c\u6b22\u4f60", "artist-n", "\u7ecf\u5178\u7ca4\u8bed"),
+                        track("track-15", "Love The 90's", "artist-o", "Love The 90's"),
+                        track("track-16", "Intro", "artist-p", "\u7ecf\u5178\u7ca4\u8bed")
+                ));
+        when(musicQueryApplicationService.getArtist(anyString()))
+                .thenAnswer(invocation -> Optional.of(new ArtistDto(
+                        invocation.getArgument(0),
+                        invocation.getArgument(0),
+                        null,
+                        null,
+                        null
+                )));
+
+        RecommendationSelection selection = service.buildSelection(new PlanningContext(
+                new AgentChatRequest("demo-user", message, false),
+                List.of(),
+                List.of()
+        ));
+
+        assertThat(selection.spec().requestMode()).isEqualTo(RecommendationRequestMode.THEME_AWARE);
+        assertThat(selection.tracks()).hasSize(selection.spec().desiredTrackCount());
+        assertThat(selection.tracks()).extracting(TrackDto::title)
+                .doesNotContain("\u671d\u8056 - Live", "Love The 90's", "Intro");
+        assertThat(selection.tracks().stream()
+                .filter(track -> "\u5343\u5343\u95cb\u6b4c".equals(track.title()))
+                .count()).isEqualTo(1);
     }
 
     @Test

@@ -1,7 +1,7 @@
 ﻿# AgentMusic 任务清单
 
-版本：T2.5
-更新日期：2026-05-12
+版本：T2.6
+更新日期：2026-05-13
 
 本文档用于跟踪当前版本的任务优先级、已完成工作和下一步实施顺序。
 
@@ -35,6 +35,10 @@
 - 推荐链已完成职责重分配：
   - `LLM` 负责 `RecommendationSpec` 提炼与候选 rerank
   - `代码` 负责 Spotify 候选召回、硬过滤与最终入歌单校验
+- 推荐语义归一化已切到 LLM 主导：
+  - `RecommendationSpec.requestMode`
+  - 独立请求默认忽略旧上下文
+  - 代码侧仅保留窄范围 repair / guardrail
 - `artist-only` 请求已切到：
   - `artist name -> artistId -> artist albums -> album tracks`
 - `artist + track (+ album)` 请求已支持：
@@ -216,11 +220,19 @@
   - `artist + track (+ album)`
   - `album-only`
   的真实运行链路和职责边界
-- 下一步：
-  - 补 `theme-aware retrieval flow`
-  - 例如：
-    - `给我来点90年代的粤语歌`
-    - `来点适合雨天通勤的中文歌`
+- 已补首版 `theme-aware retrieval flow`：
+  - `给我来点90年代的粤语歌`
+  - `来点适合雨天通勤的中文歌`
+  当前可生成主题型歌单，并已加入 `language / era / genre / mood / scene / seedArtists` 语义字段
+- 主题型召回已补 seed artist catalog 扩展：
+  - LLM 或兜底规则给出代表性艺人
+  - 后端先解析 `artistId`
+  - 再展开每个 seed artist 的小规模 catalog
+  - Spotify theme search 作为补充召回
+- 当前结论：
+  - 实体型推荐链路已明显稳定
+  - 主题型推荐已进入专用链路，但仍缺 release-year / language metadata，质量还需要继续调优
+  - 主题型结果已补轻量清洗：同名曲优先去重，标题语种置信不足的候选延后，Live / 演唱会版本和 `Intro` 类非歌曲段落在有替代候选时降权
 
 ### Priority 2
 
@@ -229,11 +241,12 @@
 - 歌单页与当前播放栏的进一步视觉细化。
   - 本轮已完成歌单页 hero 状态 pill、说明文案清理、当前播放栏上下文条与 `Up next` 说明补强。
   - 本轮已继续完成歌单页乱码文案清理、设备面板 `current session tracked` 头部信息和无 hover 场景下的当前播放栏头部按钮可见性修复。
-- 推荐规格语义归一化 Harness：
-  - 当前仍有一部分等价表达 guardrail 写在本地代码里
-  - 后续可改成：
-    - `LLM semantic normalization`
-    - `deterministic validation / repair`
+- recommendation spec / rerank 运行态可观测性：
+  - 当前回包只稳定暴露 `planningSource`
+  - 后续可继续补：
+    - semantic normalization source
+    - rerank source
+    - repair / guardrail 命中情况
 
 ### Priority 3
 
@@ -244,9 +257,9 @@
 
 ## 3. 当前建议执行顺序
 
-1. 继续处理 LLM provider 稳定性与 `planningFallbackReason` 可观测性。
-2. 实现 `theme-aware retrieval flow`，覆盖年代 / 语种 / 场景型请求。
-3. 将推荐语义归一化逐步迁移到单独的 LLM Harness，并保留 deterministic guardrail。
+1. 继续调优 `theme-aware retrieval flow` 的候选证据、召回质量与本地过滤。
+2. 继续处理 LLM provider 稳定性与 `planningFallbackReason` 可观测性。
+3. 补 recommendation spec / rerank 的运行态可观测性。
 4. 再继续播放器和歌单页的细节增强。
 
 当前说明：

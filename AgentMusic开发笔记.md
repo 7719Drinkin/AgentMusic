@@ -1,7 +1,7 @@
 ﻿# AgentMusic 开发笔记
 
-版本：M2.9
-更新日期：2026-05-12
+版本：M3.0
+更新日期：2026-05-13
 
 ## 1. 当前基线
 
@@ -168,7 +168,43 @@
 
 - `agentmusic-backend/docs/recommendation-search-chain.md`
 
-### 3.1.4 当前推荐检索流
+### 3.1.4 推荐语义归一化
+
+当前推荐链已把“语义归一化”前移到 LLM 主导，而不再主要依赖本地字符串规则。
+
+当前运行方式是：
+
+1. LLM 输出 `RecommendationSpec`
+2. `RecommendationSpec` 显式带：
+   - `requestMode`
+   - `artist`
+   - `track`
+   - `album`
+   - `desiredTrackCount`
+   - `wantAdditionalTracks`
+3. 代码侧只保留窄范围 guardrail：
+   - 填补明显缺失的 `artist / track / album`
+   - 清理 `track == album` 这类自相矛盾结构
+   - 将非常明确的 album-only 误分类修回 `ALBUM_ONLY`
+   - 保持 `ARTIST_ONLY` / `ALBUM_ONLY` 的硬边界
+
+当前还新增了一个重要约束：
+
+- 对于独立请求，旧上下文默认不再注入 recommendation spec 提炼。
+- 只有出现：
+  - `继续`
+  - `再来`
+  - `更多`
+  - `类似`
+  - `again`
+  - `more`
+  - `similar`
+  - `continue`
+  这类明显指代表达时，才允许引用最近对话和最近推荐摘要。
+
+这样做的目的是避免上一轮专辑 / 艺人信息污染当前独立请求。
+
+### 3.1.5 当前推荐检索流
 
 当前已经落地三条实体型推荐流：
 
@@ -201,6 +237,28 @@
 - `推荐张雨生专辑《两伊战争白色才情》里的歌`
   - 与 `推荐张雨生《两伊战争白色才情》专辑里的歌曲`
     已归一为同一个 `album-only` 结果
+
+### 3.1.6 当前推荐主题流
+
+当前 `RecommendationRequestMode` 已支持：
+
+- `THEME_AWARE`
+
+该模式用于：
+
+- `给我来点90年代的粤语歌`
+- `来点适合雨天通勤的中文歌`
+
+当前状态：
+
+- 语义归一化契约已支持 `THEME_AWARE`
+- 检索流已落地首版实现
+- 当前成熟度仍低于：
+  - `artist-only`
+  - `artist + track (+ album)`
+  - `album-only`
+
+后续应将主题型请求从实体型链路中彻底拆出，形成独立召回和 rerank 流。
 
 ### 3.2 歌单页
 
@@ -539,11 +597,16 @@
 - 所有真实播放上下文共享同一个 Spotify 账号和设备集合。
 - 这是当前版本的重大架构缺陷，但不阻塞课程设计阶段的单实例演示。
 
-### 5.2 当前 Agent 仍不是完整在线 LLM Agent
+### 5.2 当前 Agent 的 LLM 接入状态
 
-- 当前推荐主链可运行。
-- 但整体仍以 planner + executor 为主。
-- 真实在线 LLM 还未成为主闭环必需部分。
+- 当前推荐主链已接入真实 LLM：
+  - `planner.llm` 负责聊天意图规划。
+  - `LlmBackedRecommendationSelectionService` 负责推荐语义归一化与候选重排。
+  - 后端保留 deterministic guardrail，负责 Spotify 候选召回、硬边界过滤、显式曲目优先和最终截断。
+- 当前仍不是完整流式在线 Agent：
+  - 聊天回复还不是流式输出。
+  - 多轮工具调用与自主执行链路仍未完整展开。
+  - 推荐质量仍依赖 Spotify 候选池质量和本地 metadata 丰富度。
 
 ## 6. 当前待完成任务
 
@@ -576,7 +639,7 @@
 
 1. 歌词。
 2. 流式聊天输出。
-3. 真实 LLM 完整接管聊天主链。
+3. 流式聊天输出和更完整的在线 Agent 工具执行链。
 4. 多用户独立 Spotify 账号绑定。
 
 ## 7. 本轮结论

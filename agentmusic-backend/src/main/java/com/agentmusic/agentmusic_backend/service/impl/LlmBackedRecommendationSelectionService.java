@@ -47,6 +47,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
     private static final int MAX_EXPLICIT_TRACK_COUNT = 30;
     private static final int DEFAULT_SEARCH_LIMIT = 12;
     private static final int MAX_CANDIDATES = 40;
+    private static final int MAX_THEME_CANDIDATES = 60;
     private static final Pattern DIGIT_TRACK_COUNT_PATTERN = Pattern.compile("(\\d{1,2})\\s*[\\u9996\\u6536]");
     private static final Pattern CHINESE_TRACK_COUNT_PATTERN = Pattern.compile("([\\u4e00\\u4e8c\\u4e09\\u56db\\u4e94\\u516d\\u4e03\\u516b\\u4e5d\\u5341\\u4e24]{1,3})\\s*[\\u9996\\u6536]");
     private static final Pattern ARTIST_ONLY_COUNT_REQUEST_PATTERN = Pattern.compile(
@@ -119,14 +120,15 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 enforceExplicitTrackCount(resolveRecommendationSpec(planningContext, fallbackSpec), message),
                 fallbackHints
         );
-        List<RecommendationCandidate> candidates = retrieveCandidates(spec, message);
+        ThemeAwareProfile themeProfile = deriveThemeAwareProfile(spec, message, fallbackHints);
+        List<RecommendationCandidate> candidates = retrieveCandidates(spec, message, fallbackHints, themeProfile);
         if (candidates.isEmpty()) {
             return new RecommendationSelection(spec, List.of());
         }
 
         Map<String, Integer> llmPreferenceOrder = resolveLlmPreferenceOrder(planningContext, spec, candidates);
-        List<RecommendationCandidate> orderedCandidates = buildOrderedCandidates(spec, candidates, llmPreferenceOrder);
-        List<RecommendationCandidate> hardScopedCandidates = applyHardScopes(spec, orderedCandidates);
+        List<RecommendationCandidate> orderedCandidates = buildOrderedCandidates(spec, candidates, llmPreferenceOrder, themeProfile);
+        List<RecommendationCandidate> hardScopedCandidates = applyHardScopes(spec, orderedCandidates, themeProfile);
         List<TrackDto> selectedTracks = hardScopedCandidates.stream()
                 .limit(spec.desiredTrackCount())
                 .map(RecommendationCandidate::track)
@@ -140,9 +142,16 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
             return spec;
         }
         return new RecommendationSpec(
+                spec.requestMode(),
                 spec.artist(),
                 spec.track(),
                 spec.album(),
+                spec.language(),
+                spec.era(),
+                spec.genre(),
+                spec.mood(),
+                spec.scene(),
+                spec.seedArtists(),
                 Math.max(1, Math.min(MAX_EXPLICIT_TRACK_COUNT, explicitTrackCount)),
                 spec.wantAdditionalTracks(),
                 spec.mustIncludeExplicitTrack(),
@@ -245,8 +254,12 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         }
     }
 
-    private List<RecommendationCandidate> retrieveCandidates(RecommendationSpec spec, String message) {
-        SearchQueryRefiner.SearchQueryHints fallbackHints = searchQueryRefiner.analyze(message);
+    private List<RecommendationCandidate> retrieveCandidates(
+            RecommendationSpec spec,
+            String message,
+            SearchQueryRefiner.SearchQueryHints fallbackHints,
+            ThemeAwareProfile themeProfile
+    ) {
         boolean strictArtistOnlyMode = isStrictArtistOnlyMode(spec);
         if (strictArtistOnlyMode) {
             List<RecommendationCandidate> artistCatalogCandidates = retrieveArtistCatalogCandidates(spec, fallbackHints);
@@ -264,6 +277,12 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
             List<RecommendationCandidate> entityCandidates = retrieveEntityConstrainedCandidates(spec, fallbackHints);
             if (!entityCandidates.isEmpty()) {
                 return entityCandidates;
+            }
+        }
+        if (isThemeAwareMode(spec)) {
+            List<RecommendationCandidate> themeCandidates = retrieveThemeAwareCandidates(spec, message, fallbackHints, themeProfile);
+            if (!themeCandidates.isEmpty()) {
+                return themeCandidates;
             }
         }
 
@@ -294,6 +313,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                                 track.artistId(),
                                 resolveArtistName(track.artistId(), artistNameCache),
                                 track.albumName(),
+                                1,
                                 track
                         )
                 );
@@ -307,6 +327,88 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
             return candidates;
         }
         return filterStrictArtistCandidates(candidates, spec.artist());
+    }
+
+    private List<RecommendationCandidate> retrieveThemeAwareCandidates(
+            RecommendationSpec spec,
+            String message,
+            SearchQueryRefiner.SearchQueryHints fallbackHints,
+            ThemeAwareProfile themeProfile
+    ) {
+        LinkedHashSet<String> queries = buildThemeAwareQueries(message, fallbackHints, themeProfile);
+        if (queries.isEmpty() && themeProfile.seedArtists().isEmpty()) {
+            return List.of();
+        }
+
+        LinkedHashMap<String, RecommendationCandidate> aggregated = new LinkedHashMap<>();
+        Map<String, Integer> retrievalHits = new LinkedHashMap<>();
+        Map<String, String> artistNameCache = new LinkedHashMap<>();
+        int perSeedArtistLimit = Math.max(3, Math.min(6, spec.desiredTrackCount() / Math.max(1, Math.min(6, themeProfile.seedArtists().size())) + 2));
+        for (String seedArtist : themeProfile.seedArtists()) {
+            Optional<ArtistDto> resolvedArtist = resolvePrimaryArtist(seedArtist, List.of());
+            if (resolvedArtist.isEmpty()) {
+                continue;
+            }
+            for (TrackDto track : musicQueryApplicationService.getArtistCatalogTracks(resolvedArtist.get().artistId(), perSeedArtistLimit)) {
+                if (track == null || !StringUtils.hasText(track.trackId())) {
+                    continue;
+                }
+                if (!resolvedArtist.get().artistId().equals(track.artistId())) {
+                    continue;
+                }
+                retrievalHits.merge(track.trackId(), 2, Integer::sum);
+                aggregated.putIfAbsent(
+                        track.trackId(),
+                        new RecommendationCandidate(
+                                track.trackId(),
+                                track.title(),
+                                track.artistId(),
+                                resolvedArtist.get().name(),
+                                track.albumName(),
+                                0,
+                                track
+                        )
+                );
+            }
+        }
+
+        int searchLimit = Math.min(MAX_EXPLICIT_TRACK_COUNT, Math.max(spec.desiredTrackCount() + 8, 18));
+        for (String query : queries) {
+            List<TrackDto> results = musicQueryApplicationService.searchTracks(query, searchLimit);
+            for (TrackDto track : results) {
+                if (track == null || !StringUtils.hasText(track.trackId())) {
+                    continue;
+                }
+                retrievalHits.merge(track.trackId(), 1, Integer::sum);
+                aggregated.putIfAbsent(
+                        track.trackId(),
+                        new RecommendationCandidate(
+                                track.trackId(),
+                                track.title(),
+                                track.artistId(),
+                                resolveArtistName(track.artistId(), artistNameCache),
+                                track.albumName(),
+                                0,
+                                track
+                        )
+                );
+            }
+            if (aggregated.size() >= MAX_THEME_CANDIDATES) {
+                break;
+            }
+        }
+        return aggregated.values().stream()
+                .map(candidate -> new RecommendationCandidate(
+                        candidate.trackId(),
+                        candidate.title(),
+                        candidate.artistId(),
+                        candidate.artistName(),
+                        candidate.albumName(),
+                        retrievalHits.getOrDefault(candidate.trackId(), 1),
+                        candidate.track()
+                ))
+                .limit(MAX_THEME_CANDIDATES)
+                .toList();
     }
 
     private List<RecommendationCandidate> retrieveArtistCatalogCandidates(
@@ -335,6 +437,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                         track.artistId(),
                         resolvedArtist.get().name(),
                         track.albumName(),
+                        1,
                         track
                 ))
                 .toList();
@@ -369,6 +472,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                                 track.artistId(),
                                 resolvedArtist.map(ArtistDto::name).orElse(""),
                                 track.albumName(),
+                                1,
                                 track
                         )
                 );
@@ -394,6 +498,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                                 track.artistId(),
                                 resolvedArtist.get().name(),
                                 track.albumName(),
+                                1,
                                 track
                         )
                 );
@@ -435,6 +540,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                                 track.artistId(),
                                 resolvedArtist.get().name(),
                                 track.albumName(),
+                                1,
                                 track
                         )
                 );
@@ -461,6 +567,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                             track.artistId(),
                             resolvedArtist.get().name(),
                             track.albumName(),
+                            1,
                             track
                     )
             );
@@ -491,6 +598,13 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 && (StringUtils.hasText(spec.artist()) || StringUtils.hasText(spec.album()) || StringUtils.hasText(spec.track()));
     }
 
+    private boolean isThemeAwareMode(RecommendationSpec spec) {
+        return spec.requestMode() == RecommendationRequestMode.THEME_AWARE
+                && !StringUtils.hasText(spec.artist())
+                && !StringUtils.hasText(spec.track())
+                && !StringUtils.hasText(spec.album());
+    }
+
     private void addStructuredQueries(Set<String> queries, RecommendationSpec spec) {
         addQuery(queries, searchQueryRefiner.buildStructuredQuery(spec.track(), spec.artist(), spec.album()));
         addQuery(queries, searchQueryRefiner.buildStructuredQuery(spec.track(), spec.artist(), null));
@@ -512,6 +626,346 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         }
     }
 
+    private ThemeAwareProfile deriveThemeAwareProfile(
+            RecommendationSpec spec,
+            String message,
+            SearchQueryRefiner.SearchQueryHints fallbackHints
+    ) {
+        String normalized = message == null ? "" : message.toLowerCase(Locale.ROOT);
+        String language = choosePreferredValue(spec.language(), detectThemeLanguage(normalized));
+        String era = choosePreferredValue(spec.era(), detectThemeEra(normalized));
+        String genre = choosePreferredValue(spec.genre(), detectThemeGenre(normalized, language));
+        String mood = choosePreferredValue(spec.mood(), detectThemeMood(normalized));
+        String scene = choosePreferredValue(spec.scene(), detectThemeScene(normalized));
+        List<String> contextKeywords = fallbackHints == null ? List.of() : fallbackHints.contextKeywords();
+        List<String> seedArtists = spec.seedArtists().isEmpty()
+                ? defaultThemeSeedArtists(language, era, genre)
+                : spec.seedArtists();
+        return new ThemeAwareProfile(language, era, genre, mood, scene, contextKeywords, seedArtists);
+    }
+
+    private LinkedHashSet<String> buildThemeAwareQueries(
+            String message,
+            SearchQueryRefiner.SearchQueryHints fallbackHints,
+            ThemeAwareProfile themeProfile
+    ) {
+        LinkedHashSet<String> queries = new LinkedHashSet<>();
+        addQuery(queries, message);
+        fallbackHints.candidates().stream().limit(3).forEach(candidate -> addQuery(queries, candidate));
+
+        String localizedLanguage = localizedLanguageToken(themeProfile.language());
+        String englishLanguage = englishLanguageToken(themeProfile.language());
+        String localizedEra = localizedEraToken(themeProfile.era());
+        String englishEra = englishEraToken(themeProfile.era());
+        String localizedGenre = localizedGenreToken(themeProfile.genre());
+        String englishGenre = englishGenreToken(themeProfile.genre());
+        String localizedMood = localizedMoodToken(themeProfile.mood());
+        String englishMood = englishMoodToken(themeProfile.mood());
+        String localizedScene = localizedSceneToken(themeProfile.scene());
+        String englishScene = englishSceneToken(themeProfile.scene());
+
+        addQuery(queries, joinThemeTokens(localizedEra, localizedLanguage, localizedGenre, localizedMood, localizedScene));
+        addQuery(queries, joinThemeTokens(englishEra, englishLanguage, englishGenre, englishMood, englishScene));
+        addQuery(queries, joinThemeTokens(localizedEra, localizedLanguage, localizedGenre, "\u7ecf\u5178"));
+        addQuery(queries, joinThemeTokens(englishEra, englishLanguage, englishGenre, "hits"));
+        addQuery(queries, joinThemeTokens(localizedScene, localizedMood, localizedLanguage, localizedGenre));
+        addQuery(queries, joinThemeTokens(englishScene, englishMood, englishLanguage, englishGenre));
+
+        if (StringUtils.hasText(englishLanguage) || StringUtils.hasText(englishGenre)) {
+            addQuery(queries, joinThemeTokens(englishLanguage, englishGenre, englishEra, "classics"));
+        }
+        if (StringUtils.hasText(localizedLanguage) || StringUtils.hasText(localizedGenre)) {
+            addQuery(queries, joinThemeTokens(localizedLanguage, localizedGenre, localizedEra, "\u7ecf\u5178"));
+        }
+        if (!themeProfile.contextKeywords().isEmpty()) {
+            addQuery(queries, joinThemeTokens(String.join(" ", themeProfile.contextKeywords()), localizedLanguage, localizedEra));
+        }
+        return queries;
+    }
+
+    private String detectThemeLanguage(String normalizedMessage) {
+        if (containsAny(normalizedMessage, "\u7ca4\u8bed", "\u7cb5\u8a9e", "cantonese", "cantopop")) {
+            return "cantonese";
+        }
+        if (containsAny(normalizedMessage, "\u56fd\u8bed", "\u534e\u8bed", "\u4e2d\u6587", "mandarin", "mandopop")) {
+            return "mandarin";
+        }
+        if (containsAny(normalizedMessage, "\u82f1\u6587", "english")) {
+            return "english";
+        }
+        if (containsAny(normalizedMessage, "\u65e5\u8bed", "\u65e5\u8a9e", "japanese", "j-pop", "jpop")) {
+            return "japanese";
+        }
+        if (containsAny(normalizedMessage, "\u97e9\u8bed", "\u97d3\u8a9e", "korean", "k-pop", "kpop")) {
+            return "korean";
+        }
+        return null;
+    }
+
+    private String detectThemeEra(String normalizedMessage) {
+        if (containsAny(normalizedMessage, "80\u5e74\u4ee3", "80s", "1980s")) {
+            return "1980s";
+        }
+        if (containsAny(normalizedMessage, "90\u5e74\u4ee3", "90s", "1990s")) {
+            return "1990s";
+        }
+        if (containsAny(normalizedMessage, "00\u5e74\u4ee3", "2000s")) {
+            return "2000s";
+        }
+        if (containsAny(normalizedMessage, "10\u5e74\u4ee3", "2010s")) {
+            return "2010s";
+        }
+        if (containsAny(normalizedMessage, "20\u5e74\u4ee3", "2020s")) {
+            return "2020s";
+        }
+        return null;
+    }
+
+    private String detectThemeGenre(String normalizedMessage, String language) {
+        if ("cantonese".equals(language)) {
+            return "cantopop";
+        }
+        if ("mandarin".equals(language)) {
+            return "mandopop";
+        }
+        if (containsAny(normalizedMessage, "\u6c11\u8c23", "folk")) {
+            return "folk";
+        }
+        if (containsAny(normalizedMessage, "\u6447\u6eda", "rock")) {
+            return "rock";
+        }
+        if (containsAny(normalizedMessage, "\u6d41\u884c", "pop")) {
+            return "pop";
+        }
+        if (containsAny(normalizedMessage, "\u6292\u60c5", "ballad")) {
+            return "ballad";
+        }
+        return null;
+    }
+
+    private String detectThemeMood(String normalizedMessage) {
+        if (containsAny(normalizedMessage, "\u96e8\u5929", "rain", "rainy")) {
+            return "rainy";
+        }
+        if (containsAny(normalizedMessage, "\u5b89\u9759", "\u8212\u7de9", "\u8212\u670d", "calm", "relax", "relaxing")) {
+            return "calm";
+        }
+        if (containsAny(normalizedMessage, "\u708e\u70ed", "\u70ed\u8840", "energetic", "upbeat")) {
+            return "energetic";
+        }
+        return null;
+    }
+
+    private String detectThemeScene(String normalizedMessage) {
+        if (containsAny(normalizedMessage, "\u901a\u52e4", "commute", "commuting")) {
+            return "commute";
+        }
+        if (containsAny(normalizedMessage, "\u6df1\u591c", "\u591c\u665a", "\u665a\u4e0a", "late night", "night")) {
+            return "late-night";
+        }
+        if (containsAny(normalizedMessage, "\u96e8\u5929", "rain", "rainy")) {
+            return "rainy";
+        }
+        return null;
+    }
+
+    private String localizedLanguageToken(String language) {
+        return switch (safeLower(language)) {
+            case "cantonese" -> "\u7ca4\u8bed";
+            case "mandarin" -> "\u4e2d\u6587";
+            case "english" -> "\u82f1\u6587";
+            case "japanese" -> "\u65e5\u8bed";
+            case "korean" -> "\u97e9\u8bed";
+            default -> null;
+        };
+    }
+
+    private String englishLanguageToken(String language) {
+        return switch (safeLower(language)) {
+            case "cantonese" -> "cantopop";
+            case "mandarin" -> "mandopop";
+            case "english" -> "english pop";
+            case "japanese" -> "j-pop";
+            case "korean" -> "k-pop";
+            default -> null;
+        };
+    }
+
+    private String localizedEraToken(String era) {
+        return switch (safeLower(era)) {
+            case "1980s" -> "80\u5e74\u4ee3";
+            case "1990s" -> "90\u5e74\u4ee3";
+            case "2000s" -> "2000\u5e74\u4ee3";
+            case "2010s" -> "2010\u5e74\u4ee3";
+            case "2020s" -> "2020\u5e74\u4ee3";
+            default -> null;
+        };
+    }
+
+    private String englishEraToken(String era) {
+        return switch (safeLower(era)) {
+            case "1980s" -> "80s";
+            case "1990s" -> "90s";
+            case "2000s" -> "2000s";
+            case "2010s" -> "2010s";
+            case "2020s" -> "2020s";
+            default -> null;
+        };
+    }
+
+    private String localizedGenreToken(String genre) {
+        return switch (safeLower(genre)) {
+            case "cantopop" -> "\u7ca4\u8bed\u6d41\u884c";
+            case "mandopop" -> "\u534e\u8bed\u6d41\u884c";
+            case "folk" -> "\u6c11\u8c23";
+            case "rock" -> "\u6447\u6eda";
+            case "ballad" -> "\u6292\u60c5";
+            case "pop" -> "\u6d41\u884c";
+            default -> null;
+        };
+    }
+
+    private String englishGenreToken(String genre) {
+        return switch (safeLower(genre)) {
+            case "cantopop" -> "cantopop";
+            case "mandopop" -> "mandopop";
+            case "folk" -> "folk";
+            case "rock" -> "rock";
+            case "ballad" -> "ballad";
+            case "pop" -> "pop";
+            default -> null;
+        };
+    }
+
+    private String localizedMoodToken(String mood) {
+        return switch (safeLower(mood)) {
+            case "rainy" -> "\u96e8\u5929";
+            case "calm" -> "\u8212\u7de9";
+            case "energetic" -> "\u70ed\u8840";
+            default -> null;
+        };
+    }
+
+    private String englishMoodToken(String mood) {
+        return switch (safeLower(mood)) {
+            case "rainy" -> "rainy";
+            case "calm" -> "calm";
+            case "energetic" -> "energetic";
+            default -> null;
+        };
+    }
+
+    private String localizedSceneToken(String scene) {
+        return switch (safeLower(scene)) {
+            case "commute" -> "\u901a\u52e4";
+            case "late-night" -> "\u6df1\u591c";
+            case "rainy" -> "\u96e8\u5929";
+            default -> null;
+        };
+    }
+
+    private String englishSceneToken(String scene) {
+        return switch (safeLower(scene)) {
+            case "commute" -> "commute";
+            case "late-night" -> "late night";
+            case "rainy" -> "rainy";
+            default -> null;
+        };
+    }
+
+    private String joinThemeTokens(String... tokens) {
+        LinkedHashSet<String> merged = new LinkedHashSet<>();
+        for (String token : tokens) {
+            if (StringUtils.hasText(token)) {
+                merged.add(token.trim());
+            }
+        }
+        return String.join(" ", merged);
+    }
+
+    private List<String> defaultThemeSeedArtists(String language, String era, String genre) {
+        String normalizedLanguage = safeLower(language);
+        String normalizedEra = safeLower(era);
+        String normalizedGenre = safeLower(genre);
+        if ("cantonese".equals(normalizedLanguage)
+                || "cantopop".equals(normalizedGenre)) {
+            if ("1990s".equals(normalizedEra) || !StringUtils.hasText(normalizedEra)) {
+                return List.of(
+                        "\u5f20\u5b66\u53cb",
+                        "\u9648\u6167\u5a34",
+                        "\u738b\u83f2",
+                        "\u5218\u5fb7\u534e",
+                        "\u9ece\u660e",
+                        "\u90ed\u5bcc\u57ce",
+                        "\u674e\u514b\u52e4",
+                        "\u90d1\u79c0\u6587"
+                );
+            }
+        }
+        if ("mandarin".equals(normalizedLanguage) || "mandopop".equals(normalizedGenre)) {
+            return List.of(
+                    "\u5468\u6770\u4f26",
+                    "\u5f20\u60e0\u59b9",
+                    "\u738b\u529b\u5b8f",
+                    "\u6797\u4fca\u6770",
+                    "\u8521\u4f9d\u6797",
+                    "\u9648\u5955\u8fc5"
+            );
+        }
+        return List.of();
+    }
+
+    private String safeLower(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private boolean containsAny(String normalizedMessage, String... needles) {
+        for (String needle : needles) {
+            if (normalizedMessage.contains(needle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String extractDecadeChinese(String normalizedMessage) {
+        if (containsAny(normalizedMessage, "80\u5e74\u4ee3", "80s", "1980s")) {
+            return "80\u5e74\u4ee3";
+        }
+        if (containsAny(normalizedMessage, "90\u5e74\u4ee3", "90s", "1990s")) {
+            return "90\u5e74\u4ee3";
+        }
+        if (containsAny(normalizedMessage, "00\u5e74\u4ee3", "2000s")) {
+            return "2000\u5e74\u4ee3";
+        }
+        if (containsAny(normalizedMessage, "10\u5e74\u4ee3", "2010s")) {
+            return "2010\u5e74\u4ee3";
+        }
+        if (containsAny(normalizedMessage, "20\u5e74\u4ee3", "2020s")) {
+            return "2020\u5e74\u4ee3";
+        }
+        return null;
+    }
+
+    private String extractDecadeEnglish(String normalizedMessage) {
+        if (containsAny(normalizedMessage, "80\u5e74\u4ee3", "80s", "1980s")) {
+            return "80s";
+        }
+        if (containsAny(normalizedMessage, "90\u5e74\u4ee3", "90s", "1990s")) {
+            return "90s";
+        }
+        if (containsAny(normalizedMessage, "00\u5e74\u4ee3", "2000s")) {
+            return "2000s";
+        }
+        if (containsAny(normalizedMessage, "10\u5e74\u4ee3", "2010s")) {
+            return "2010s";
+        }
+        if (containsAny(normalizedMessage, "20\u5e74\u4ee3", "2020s")) {
+            return "2020s";
+        }
+        return null;
+    }
+
     private Optional<ArtistDto> resolvePrimaryArtist(String primaryArtist, List<String> fallbackArtistTerms) {
         LinkedHashSet<String> artistQueries = new LinkedHashSet<>();
         addQuery(artistQueries, primaryArtist);
@@ -525,7 +979,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         String expectedArtist = artistQueries.getFirst();
         for (String artistQuery : artistQueries) {
             List<ArtistDto> artists = musicQueryApplicationService.searchArtists(artistQuery, 5);
-            if (artists.isEmpty()) {
+            if (artists == null || artists.isEmpty()) {
                 continue;
             }
             ArtistDto bestMatch = artists.stream()
@@ -626,6 +1080,11 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         String artist = choosePreferredValue(spec.artist(), hints.artistTerms().isEmpty() ? null : hints.artistTerms().getFirst());
         String track = choosePreferredValue(spec.track(), hints.explicitTitles().isEmpty() ? null : hints.explicitTitles().getFirst());
         String album = choosePreferredValue(spec.album(), hints.albumTerms().isEmpty() ? null : hints.albumTerms().getFirst());
+        String language = spec.language();
+        String era = spec.era();
+        String genre = spec.genre();
+        String mood = spec.mood();
+        String scene = spec.scene();
         if (StringUtils.hasText(track) && StringUtils.hasText(album) && normalizeForMatching(track).equals(normalizeForMatching(album))) {
             track = null;
         }
@@ -662,6 +1121,14 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
             mustIncludeExplicitTrack = StringUtils.hasText(track);
             preferSameArtist = StringUtils.hasText(artist);
             preferSameAlbum = StringUtils.hasText(album);
+        } else if (requestMode == RecommendationRequestMode.THEME_AWARE) {
+            artist = null;
+            track = null;
+            album = null;
+            wantAdditionalTracks = false;
+            mustIncludeExplicitTrack = false;
+            preferSameArtist = false;
+            preferSameAlbum = false;
         }
 
         return new RecommendationSpec(
@@ -669,6 +1136,12 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 artist,
                 track,
                 album,
+                language,
+                era,
+                genre,
+                mood,
+                scene,
+                spec.seedArtists(),
                 spec.desiredTrackCount(),
                 wantAdditionalTracks,
                 mustIncludeExplicitTrack,
@@ -686,6 +1159,23 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         }
         String track = hints.explicitTitles().isEmpty() ? null : hints.explicitTitles().getFirst();
         String album = hints.albumTerms().isEmpty() ? null : hints.albumTerms().getFirst();
+        ThemeAwareProfile themeProfile = deriveThemeAwareProfile(new RecommendationSpec(
+                RecommendationRequestMode.THEME_AWARE,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(),
+                desiredTrackCount,
+                false,
+                false,
+                false,
+                false
+        ), message, hints);
         RecommendationRequestMode requestMode = RecommendationRequestMode.infer(artist, track, album, hints.wantsAdditionalTracks());
 
         return new RecommendationSpec(
@@ -693,6 +1183,12 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 artist,
                 track,
                 album,
+                requestMode == RecommendationRequestMode.THEME_AWARE ? themeProfile.language() : null,
+                requestMode == RecommendationRequestMode.THEME_AWARE ? themeProfile.era() : null,
+                requestMode == RecommendationRequestMode.THEME_AWARE ? themeProfile.genre() : null,
+                requestMode == RecommendationRequestMode.THEME_AWARE ? themeProfile.mood() : null,
+                requestMode == RecommendationRequestMode.THEME_AWARE ? themeProfile.scene() : null,
+                requestMode == RecommendationRequestMode.THEME_AWARE ? themeProfile.seedArtists() : List.of(),
                 desiredTrackCount,
                 hints.wantsAdditionalTracks(),
                 StringUtils.hasText(track),
@@ -726,6 +1222,14 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         String artist = choosePreferredValue(response == null ? null : response.artist(), fallbackSpec.artist());
         String track = choosePreferredValue(response == null ? null : response.track(), fallbackSpec.track());
         String album = choosePreferredValue(response == null ? null : response.album(), fallbackSpec.album());
+        String language = choosePreferredValue(response == null ? null : response.language(), fallbackSpec.language());
+        String era = choosePreferredValue(response == null ? null : response.era(), fallbackSpec.era());
+        String genre = choosePreferredValue(response == null ? null : response.genre(), fallbackSpec.genre());
+        String mood = choosePreferredValue(response == null ? null : response.mood(), fallbackSpec.mood());
+        String scene = choosePreferredValue(response == null ? null : response.scene(), fallbackSpec.scene());
+        List<String> seedArtists = response == null || response.seedArtists() == null || response.seedArtists().isEmpty()
+                ? fallbackSpec.seedArtists()
+                : response.seedArtists();
         boolean mustIncludeExplicitTrack = StringUtils.hasText(track)
                 && (response == null || response.mustIncludeExplicitTrack() == null
                 ? fallbackSpec.mustIncludeExplicitTrack()
@@ -747,6 +1251,12 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 artist,
                 track,
                 album,
+                language,
+                era,
+                genre,
+                mood,
+                scene,
+                seedArtists,
                 desiredTrackCount,
                 wantAdditionalTracks,
                 mustIncludeExplicitTrack,
@@ -840,14 +1350,15 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
     private List<RecommendationCandidate> buildOrderedCandidates(
             RecommendationSpec spec,
             List<RecommendationCandidate> candidates,
-            Map<String, Integer> llmPreferenceOrder
+            Map<String, Integer> llmPreferenceOrder,
+            ThemeAwareProfile themeProfile
     ) {
         List<RecommendationCandidate> ranked = new ArrayList<>(candidates);
         ranked.sort(Comparator
                 .comparingInt((RecommendationCandidate candidate) -> bucketFor(candidate, spec))
                 .reversed()
                 .thenComparingInt(candidate -> llmPreferenceOrder.getOrDefault(candidate.trackId(), Integer.MAX_VALUE))
-                .thenComparing(Comparator.comparingInt((RecommendationCandidate candidate) -> deterministicScore(candidate, spec)).reversed())
+                .thenComparing(Comparator.comparingInt((RecommendationCandidate candidate) -> deterministicScore(candidate, spec, themeProfile)).reversed())
                 .thenComparing(RecommendationCandidate::title, String.CASE_INSENSITIVE_ORDER));
 
         RecommendationCandidate explicitCandidate = findBestExplicitCandidate(spec, ranked);
@@ -872,7 +1383,8 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
 
     private List<RecommendationCandidate> applyHardScopes(
             RecommendationSpec spec,
-            List<RecommendationCandidate> orderedCandidates
+            List<RecommendationCandidate> orderedCandidates,
+            ThemeAwareProfile themeProfile
     ) {
         if (isAlbumOnlyMode(spec)) {
             List<RecommendationCandidate> albumScoped = orderedCandidates.stream()
@@ -895,7 +1407,103 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                     .filter(candidate -> dominantAlbumArtistId.equals(candidate.artistId()))
                     .toList();
         }
+        if (isThemeAwareMode(spec)) {
+            return applyThemeDiversity(orderedCandidates, spec.desiredTrackCount(), themeProfile);
+        }
         return orderedCandidates;
+    }
+
+    private List<RecommendationCandidate> applyThemeDiversity(
+            List<RecommendationCandidate> orderedCandidates,
+            int desiredTrackCount,
+            ThemeAwareProfile themeProfile
+    ) {
+        if (orderedCandidates.isEmpty()) {
+            return orderedCandidates;
+        }
+        int maxPerArtist = desiredTrackCount >= 12 ? 2 : 1;
+        Map<String, Integer> artistCounts = new LinkedHashMap<>();
+        Set<String> selectedTitleKeys = new LinkedHashSet<>();
+        List<RecommendationCandidate> selected = new ArrayList<>();
+        List<RecommendationCandidate> artistOverflow = new ArrayList<>();
+        List<RecommendationCandidate> qualityOverflow = new ArrayList<>();
+        List<RecommendationCandidate> duplicateTitleOverflow = new ArrayList<>();
+
+        for (RecommendationCandidate candidate : orderedCandidates) {
+            String artistKey = StringUtils.hasText(candidate.artistId()) ? candidate.artistId() : candidate.artistName();
+            String titleKey = normalizeForMatching(candidate.title());
+            if (StringUtils.hasText(titleKey) && selectedTitleKeys.contains(titleKey)) {
+                duplicateTitleOverflow.add(candidate);
+                continue;
+            }
+            if (isLowConfidenceThemeCandidate(candidate, themeProfile)) {
+                qualityOverflow.add(candidate);
+                continue;
+            }
+            int currentCount = artistCounts.getOrDefault(artistKey, 0);
+            if (StringUtils.hasText(artistKey) && currentCount >= maxPerArtist) {
+                artistOverflow.add(candidate);
+                continue;
+            }
+            selected.add(candidate);
+            if (StringUtils.hasText(titleKey)) {
+                selectedTitleKeys.add(titleKey);
+            }
+            if (StringUtils.hasText(artistKey)) {
+                artistCounts.put(artistKey, currentCount + 1);
+            }
+        }
+
+        if (selected.size() >= desiredTrackCount) {
+            return selected;
+        }
+
+        for (RecommendationCandidate candidate : artistOverflow) {
+            addThemeOverflowCandidate(candidate, selected, duplicateTitleOverflow, selectedTitleKeys);
+            if (selected.size() >= desiredTrackCount) {
+                break;
+            }
+        }
+
+        if (selected.size() >= desiredTrackCount) {
+            return selected;
+        }
+
+        for (RecommendationCandidate candidate : qualityOverflow) {
+            addThemeOverflowCandidate(candidate, selected, duplicateTitleOverflow, selectedTitleKeys);
+            if (selected.size() >= desiredTrackCount) {
+                break;
+            }
+        }
+
+        if (selected.size() >= desiredTrackCount) {
+            return selected;
+        }
+
+        for (RecommendationCandidate candidate : duplicateTitleOverflow) {
+            selected.add(candidate);
+            if (selected.size() >= orderedCandidates.size()) {
+                break;
+            }
+        }
+        return selected;
+    }
+
+    private void addThemeOverflowCandidate(
+            RecommendationCandidate candidate,
+            List<RecommendationCandidate> selected,
+            List<RecommendationCandidate> duplicateTitleOverflow,
+            Set<String> selectedTitleKeys
+    ) {
+        String titleKey = normalizeForMatching(candidate.title());
+        if (StringUtils.hasText(titleKey) && selectedTitleKeys.contains(titleKey)) {
+            duplicateTitleOverflow.add(candidate);
+            return;
+        }
+        selected.add(candidate);
+        if (StringUtils.hasText(titleKey)) {
+            selectedTitleKeys.add(titleKey);
+        }
     }
 
     private RecommendationCandidate findBestExplicitCandidate(
@@ -946,7 +1554,11 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         return 0;
     }
 
-    private int deterministicScore(RecommendationCandidate candidate, RecommendationSpec spec) {
+    private int deterministicScore(
+            RecommendationCandidate candidate,
+            RecommendationSpec spec,
+            ThemeAwareProfile themeProfile
+    ) {
         int score = 0;
         if (StringUtils.hasText(spec.track()) && titleMatches(candidate.title(), spec.track())) {
             score += 500;
@@ -964,7 +1576,98 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         if (spec.wantAdditionalTracks() && StringUtils.hasText(spec.artist()) && artistMatches(candidate, spec.artist())) {
             score += 40;
         }
+        if (isThemeAwareMode(spec)) {
+            score += scoreThemeAwareCandidate(candidate, themeProfile);
+        }
         return score;
+    }
+
+    private int scoreThemeAwareCandidate(
+            RecommendationCandidate candidate,
+            ThemeAwareProfile themeProfile
+    ) {
+        int score = candidate.retrievalHits() * 80;
+        String title = candidate.title() == null ? "" : candidate.title();
+        String album = candidate.albumName() == null ? "" : candidate.albumName();
+        String artist = candidate.artistName() == null ? "" : candidate.artistName();
+        String normalizedTitle = normalizeForMatching(title);
+        String normalizedAlbum = normalizeForMatching(album);
+        String normalizedArtist = normalizeForMatching(artist);
+
+        if (themeProfile != null) {
+            for (String keyword : themeProfile.contextKeywords()) {
+                String normalizedKeyword = normalizeForMatching(keyword);
+                if (normalizedKeyword.isBlank()) {
+                    continue;
+                }
+                if (normalizedTitle.contains(normalizedKeyword)) {
+                    score += 28;
+                } else if (normalizedAlbum.contains(normalizedKeyword)) {
+                    score += 20;
+                } else if (normalizedArtist.contains(normalizedKeyword)) {
+                    score += 12;
+                }
+            }
+            String language = safeLower(themeProfile.language());
+            if ("cantonese".equals(language) || "mandarin".equals(language)) {
+                if (containsCjk(title) || containsCjk(album) || containsCjk(artist)) {
+                    score += 35;
+                } else {
+                    score -= 25;
+                }
+            } else if ("english".equals(language) && !(containsCjk(title) || containsCjk(album) || containsCjk(artist))) {
+                score += 18;
+            }
+            if ("1990s".equalsIgnoreCase(themeProfile.era())) {
+                if (title.contains("90") || album.contains("90") || album.toLowerCase(Locale.ROOT).contains("classic")) {
+                    score += 14;
+                }
+            }
+            if (isLiveOrConcertVariant(title, album)) {
+                score -= 45;
+            }
+        }
+        return score;
+    }
+
+    private boolean containsCjk(String value) {
+        return StringUtils.hasText(value) && value.codePoints().anyMatch(codePoint -> Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.HAN);
+    }
+
+    private boolean isLiveOrConcertVariant(String title, String album) {
+        String combined = safeLower((title == null ? "" : title) + " " + (album == null ? "" : album));
+        return containsAny(combined, " live", "- live", "(live", "concert", "\u6f14\u5531\u4f1a", "\u6f14\u5531\u6703", "\u73fe\u5834", "\u73b0\u573a", "\u62c9\u95ca");
+    }
+
+    private boolean isLowConfidenceThemeCandidate(
+            RecommendationCandidate candidate,
+            ThemeAwareProfile themeProfile
+    ) {
+        if (candidate == null) {
+            return true;
+        }
+        if (isGenericNonSongSegment(candidate.title())) {
+            return true;
+        }
+        if (isLiveOrConcertVariant(candidate.title(), candidate.albumName())) {
+            return true;
+        }
+        if (themeProfile == null) {
+            return false;
+        }
+        String language = safeLower(themeProfile.language());
+        if (!"cantonese".equals(language) && !"mandarin".equals(language)) {
+            return false;
+        }
+        return !containsCjk(candidate.title());
+    }
+
+    private boolean isGenericNonSongSegment(String title) {
+        String normalized = normalizeForMatching(title);
+        return normalized.equals("intro")
+                || normalized.equals("outro")
+                || normalized.equals("interlude")
+                || normalized.equals("skit");
     }
 
     private boolean titleMatches(String actualTitle, String expectedTitle) {
@@ -1066,6 +1769,14 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 13. If the user asks for "other songs", set wantAdditionalTracks=true.
                 14. If the user specifies a number of songs, copy that number exactly into desiredTrackCount.
                 15. If the user does not specify a number, choose a desiredTrackCount between 10 and 15.
+                16. For THEME_AWARE, fill theme fields when they are explicit:
+                    - language: cantonese | mandarin | english | japanese | korean
+                    - era: 1980s | 1990s | 2000s | 2010s | 2020s
+                    - genre: cantopop | mandopop | pop | rock | folk | ballad
+                    - mood: rainy | calm | energetic
+                    - scene: commute | late-night | rainy
+                17. For THEME_AWARE, include 4 to 8 seedArtists when helpful. Use artists strongly associated with the requested language, era, genre, mood, or scene.
+                18. If a field is not clearly present in the latest user message, leave it null.
 
                 Return JSON with exactly these fields:
                 {
@@ -1073,6 +1784,12 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                   "artist": string|null,
                   "track": string|null,
                   "album": string|null,
+                  "language": string|null,
+                  "era": string|null,
+                  "genre": string|null,
+                  "mood": string|null,
+                  "scene": string|null,
+                  "seedArtists": [string, ...],
                   "desiredTrackCount": integer,
                   "wantAdditionalTracks": boolean,
                   "mustIncludeExplicitTrack": boolean,
@@ -1159,7 +1876,10 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 4. If the spec includes an explicit album, prefer tracks from that album before the artist's other tracks.
                 5. If requestMode is ALBUM_ONLY, do not rank tracks outside the target album above album tracks.
                 6. If requestMode is ARTIST_ONLY, prefer breadth across the target artist's catalog and avoid unrelated artists.
-                7. Keep the result aligned with the latest user message, not older context.
+                7. If requestMode is THEME_AWARE, prefer tracks that best match the requested language, era, scene, mood, and genre while keeping artist diversity.
+                8. For theme-aware Chinese requests such as Cantonese or Mandarin, avoid clearly unrelated Latin-only outliers when better Han-script candidates exist.
+                9. Prefer candidates with higher retrievalHits when several tracks are otherwise similar.
+                10. Keep the result aligned with the latest user message, not older context.
 
                 Return JSON with exactly this shape:
                 {
@@ -1188,7 +1908,8 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                     .append("\"trackId\":\"").append(candidate.trackId()).append("\",")
                     .append("\"title\":\"").append(escapeForPrompt(candidate.title())).append("\",")
                     .append("\"artistName\":\"").append(escapeForPrompt(candidate.artistName())).append("\",")
-                    .append("\"albumName\":\"").append(escapeForPrompt(candidate.albumName())).append("\"")
+                    .append("\"albumName\":\"").append(escapeForPrompt(candidate.albumName())).append("\",")
+                    .append("\"retrievalHits\":").append(candidate.retrievalHits())
                     .append("}\n");
         }
         return builder.toString();
@@ -1297,6 +2018,12 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
             String artist,
             String track,
             String album,
+            String language,
+            String era,
+            String genre,
+            String mood,
+            String scene,
+            List<String> seedArtists,
             Integer desiredTrackCount,
             Boolean wantAdditionalTracks,
             Boolean mustIncludeExplicitTrack,
@@ -1314,7 +2041,19 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
             String artistId,
             String artistName,
             String albumName,
+            int retrievalHits,
             TrackDto track
+    ) {
+    }
+
+    private record ThemeAwareProfile(
+            String language,
+            String era,
+            String genre,
+            String mood,
+            String scene,
+            List<String> contextKeywords,
+            List<String> seedArtists
     ) {
     }
 }
