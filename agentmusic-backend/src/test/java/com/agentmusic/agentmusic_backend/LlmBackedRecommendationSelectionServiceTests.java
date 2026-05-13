@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.agentmusic.agentmusic_backend.config.AgentChatProperties;
 import com.agentmusic.agentmusic_backend.config.OpenAiProperties;
 import com.agentmusic.agentmusic_backend.planner.PlanningContext;
+import com.agentmusic.agentmusic_backend.service.RecommendationRequestMode;
 import com.agentmusic.agentmusic_backend.service.RecommendationSelection;
 import com.agentmusic.agentmusic_backend.service.RecommendationSpec;
 import com.agentmusic.agentmusic_backend.service.application.MusicQueryApplicationService;
@@ -194,10 +195,11 @@ class LlmBackedRecommendationSelectionServiceTests {
     }
 
     @Test
-    void normalizeResolvedSpecShouldTreatEquivalentAlbumPhrasesAsAlbumOnly() {
+    void repairResolvedSpecShouldHonorAlbumOnlyRequestModeForEquivalentPhrases() {
         LlmBackedRecommendationSelectionService service = createService(false);
         SearchQueryRefiner refiner = new SearchQueryRefiner();
         RecommendationSpec llmSpec = new RecommendationSpec(
+                RecommendationRequestMode.ALBUM_ONLY,
                 "\u5f20\u96e8\u751f",
                 "\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5",
                 null,
@@ -208,24 +210,24 @@ class LlmBackedRecommendationSelectionServiceTests {
                 false
         );
 
-        RecommendationSpec normalizedPrefix = invokeNormalizeResolvedSpec(
+        RecommendationSpec normalizedPrefix = invokeRepairResolvedSpec(
                 service,
                 llmSpec,
-                refiner.analyze("\u63a8\u8350\u5f20\u96e8\u751f\u4e13\u8f91\u300a\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5\u300b\u91cc\u7684\u6b4c"),
-                "\u63a8\u8350\u5f20\u96e8\u751f\u4e13\u8f91\u300a\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5\u300b\u91cc\u7684\u6b4c"
+                refiner.analyze("\u63a8\u8350\u5f20\u96e8\u751f\u4e13\u8f91\u300a\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5\u300b\u91cc\u7684\u6b4c")
         );
-        RecommendationSpec normalizedSuffix = invokeNormalizeResolvedSpec(
+        RecommendationSpec normalizedSuffix = invokeRepairResolvedSpec(
                 service,
                 llmSpec,
-                refiner.analyze("\u63a8\u8350\u5f20\u96e8\u751f\u300a\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5\u300b\u4e13\u8f91\u91cc\u7684\u6b4c\u66f2"),
-                "\u63a8\u8350\u5f20\u96e8\u751f\u300a\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5\u300b\u4e13\u8f91\u91cc\u7684\u6b4c\u66f2"
+                refiner.analyze("\u63a8\u8350\u5f20\u96e8\u751f\u300a\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5\u300b\u4e13\u8f91\u91cc\u7684\u6b4c\u66f2")
         );
 
+        assertThat(normalizedPrefix.requestMode()).isEqualTo(RecommendationRequestMode.ALBUM_ONLY);
         assertThat(normalizedPrefix.track()).isNull();
         assertThat(normalizedPrefix.album()).isEqualTo("\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5");
         assertThat(normalizedPrefix.wantAdditionalTracks()).isFalse();
         assertThat(normalizedPrefix.preferSameAlbum()).isTrue();
 
+        assertThat(normalizedSuffix.requestMode()).isEqualTo(RecommendationRequestMode.ALBUM_ONLY);
         assertThat(normalizedSuffix.track()).isNull();
         assertThat(normalizedSuffix.album()).isEqualTo("\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5");
         assertThat(normalizedSuffix.wantAdditionalTracks()).isFalse();
@@ -233,10 +235,40 @@ class LlmBackedRecommendationSelectionServiceTests {
     }
 
     @Test
-    void normalizeResolvedSpecShouldPreserveExplicitTrackInsideAlbumScope() {
+    void repairResolvedSpecShouldCoerceMisclassifiedAlbumOnlyPromptBackToAlbumOnly() {
         LlmBackedRecommendationSelectionService service = createService(false);
         SearchQueryRefiner refiner = new SearchQueryRefiner();
         RecommendationSpec llmSpec = new RecommendationSpec(
+                RecommendationRequestMode.ENTITY_CONSTRAINED,
+                "\u5f20\u96e8\u751f",
+                null,
+                "\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5",
+                12,
+                true,
+                false,
+                true,
+                true
+        );
+
+        RecommendationSpec normalized = invokeRepairResolvedSpec(
+                service,
+                llmSpec,
+                refiner.analyze("\u63a8\u8350\u5f20\u96e8\u751f\u4e13\u8f91\u300a\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5\u300b\u91cc\u7684\u6b4c")
+        );
+
+        assertThat(normalized.requestMode()).isEqualTo(RecommendationRequestMode.ALBUM_ONLY);
+        assertThat(normalized.track()).isNull();
+        assertThat(normalized.album()).isEqualTo("\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5");
+        assertThat(normalized.wantAdditionalTracks()).isFalse();
+        assertThat(normalized.preferSameAlbum()).isTrue();
+    }
+
+    @Test
+    void repairResolvedSpecShouldPreserveExplicitTrackInsideEntityConstrainedScope() {
+        LlmBackedRecommendationSelectionService service = createService(false);
+        SearchQueryRefiner refiner = new SearchQueryRefiner();
+        RecommendationSpec llmSpec = new RecommendationSpec(
+                RecommendationRequestMode.ENTITY_CONSTRAINED,
                 "\u5f20\u96e8\u751f",
                 "\u53d1\u6655",
                 "\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5",
@@ -247,16 +279,47 @@ class LlmBackedRecommendationSelectionServiceTests {
                 true
         );
 
-        RecommendationSpec normalized = invokeNormalizeResolvedSpec(
+        RecommendationSpec normalized = invokeRepairResolvedSpec(
                 service,
                 llmSpec,
-                refiner.analyze("\u63a8\u8350\u5f20\u96e8\u751f\u4e13\u8f91\u300a\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5\u300b\u91cc\u7684\u300a\u53d1\u6655\u300b\u4ee5\u53ca\u4ed6\u7684\u5176\u4ed6\u6b4c\u66f2"),
-                "\u63a8\u8350\u5f20\u96e8\u751f\u4e13\u8f91\u300a\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5\u300b\u91cc\u7684\u300a\u53d1\u6655\u300b\u4ee5\u53ca\u4ed6\u7684\u5176\u4ed6\u6b4c\u66f2"
+                refiner.analyze("\u63a8\u8350\u5f20\u96e8\u751f\u4e13\u8f91\u300a\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5\u300b\u91cc\u7684\u300a\u53d1\u6655\u300b\u4ee5\u53ca\u4ed6\u7684\u5176\u4ed6\u6b4c\u66f2")
         );
 
+        assertThat(normalized.requestMode()).isEqualTo(RecommendationRequestMode.ENTITY_CONSTRAINED);
         assertThat(normalized.track()).isEqualTo("\u53d1\u6655");
         assertThat(normalized.album()).isEqualTo("\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5");
         assertThat(normalized.wantAdditionalTracks()).isTrue();
+    }
+
+    @Test
+    void repairResolvedSpecShouldClearTrackAndAlbumForArtistOnlyMode() {
+        LlmBackedRecommendationSelectionService service = createService(false);
+        SearchQueryRefiner refiner = new SearchQueryRefiner();
+        RecommendationSpec llmSpec = new RecommendationSpec(
+                RecommendationRequestMode.ARTIST_ONLY,
+                "\u5f20\u96e8\u751f",
+                "\u53d1\u6655",
+                "\u4e24\u4f0a\u6218\u4e89\u767d\u8272\u624d\u60c5",
+                20,
+                false,
+                true,
+                true,
+                true
+        );
+
+        RecommendationSpec normalized = invokeRepairResolvedSpec(
+                service,
+                llmSpec,
+                refiner.analyze("\u63a8\u835020\u9996\u5f20\u96e8\u751f\u7684\u6b4c")
+        );
+
+        assertThat(normalized.requestMode()).isEqualTo(RecommendationRequestMode.ARTIST_ONLY);
+        assertThat(normalized.artist()).isEqualTo("\u5f20\u96e8\u751f");
+        assertThat(normalized.track()).isNull();
+        assertThat(normalized.album()).isNull();
+        assertThat(normalized.wantAdditionalTracks()).isTrue();
+        assertThat(normalized.preferSameArtist()).isTrue();
+        assertThat(normalized.preferSameAlbum()).isFalse();
     }
 
     private LlmBackedRecommendationSelectionService createService(boolean liveLlmEnabled) {
@@ -268,21 +331,19 @@ class LlmBackedRecommendationSelectionServiceTests {
         );
     }
 
-    private RecommendationSpec invokeNormalizeResolvedSpec(
+    private RecommendationSpec invokeRepairResolvedSpec(
             LlmBackedRecommendationSelectionService service,
             RecommendationSpec spec,
-            SearchQueryRefiner.SearchQueryHints hints,
-            String message
+            SearchQueryRefiner.SearchQueryHints hints
     ) {
         try {
             Method method = LlmBackedRecommendationSelectionService.class.getDeclaredMethod(
-                    "normalizeResolvedSpec",
+                    "repairResolvedSpec",
                     RecommendationSpec.class,
-                    SearchQueryRefiner.SearchQueryHints.class,
-                    String.class
+                    SearchQueryRefiner.SearchQueryHints.class
             );
             method.setAccessible(true);
-            return (RecommendationSpec) method.invoke(service, spec, hints, message);
+            return (RecommendationSpec) method.invoke(service, spec, hints);
         } catch (NoSuchMethodException | IllegalAccessException exception) {
             throw new AssertionError(exception);
         } catch (InvocationTargetException exception) {

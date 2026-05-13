@@ -3,6 +3,7 @@ package com.agentmusic.agentmusic_backend.service.impl;
 import com.agentmusic.agentmusic_backend.config.AgentChatProperties;
 import com.agentmusic.agentmusic_backend.config.OpenAiProperties;
 import com.agentmusic.agentmusic_backend.planner.PlanningContext;
+import com.agentmusic.agentmusic_backend.service.RecommendationRequestMode;
 import com.agentmusic.agentmusic_backend.service.RecommendationSelection;
 import com.agentmusic.agentmusic_backend.service.RecommendationSelectionService;
 import com.agentmusic.agentmusic_backend.service.RecommendationSpec;
@@ -46,18 +47,12 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
     private static final int MAX_EXPLICIT_TRACK_COUNT = 30;
     private static final int DEFAULT_SEARCH_LIMIT = 12;
     private static final int MAX_CANDIDATES = 40;
+    private static final Pattern DIGIT_TRACK_COUNT_PATTERN = Pattern.compile("(\\d{1,2})\\s*[\\u9996\\u6536]");
+    private static final Pattern CHINESE_TRACK_COUNT_PATTERN = Pattern.compile("([\\u4e00\\u4e8c\\u4e09\\u56db\\u4e94\\u516d\\u4e03\\u516b\\u4e5d\\u5341\\u4e24]{1,3})\\s*[\\u9996\\u6536]");
     private static final Pattern ARTIST_ONLY_COUNT_REQUEST_PATTERN = Pattern.compile(
-            "(?:推荐|来点|给我推荐)?\\s*(?:\\d{1,2}|[一二三四五六七八九十两兩]{1,3})\\s*[首收]\\s*([\\p{IsHan}A-Za-z0-9·路'\\-\\s]{1,40}?)(?:的)?(?:歌曲|歌|作品)(?=\\s|$|[，。,.!！?？])",
-            Pattern.CASE_INSENSITIVE
-    );
-    private static final Pattern DIGIT_TRACK_COUNT_PATTERN = Pattern.compile("(\\d{1,2})\\s*[首收]\\b?");
-    private static final Pattern CHINESE_TRACK_COUNT_PATTERN = Pattern.compile("([一二三四五六七八九十两兩]{1,3})\\s*[首收]\\b?");
-    private static final Pattern ARTIST_ONLY_COUNT_REQUEST_PATTERN_V2 = Pattern.compile(
             "(?:\\u63a8\\u8350|\\u6765\\u70b9|\\u7ed9\\u6211\\u63a8\\u8350)?\\s*(?:\\d{1,2}|[\\u4e00\\u4e8c\\u4e09\\u56db\\u4e94\\u516d\\u4e03\\u516b\\u4e5d\\u5341\\u4e24]{1,3})\\s*[\\u9996\\u6536]\\s*([\\p{IsHan}A-Za-z0-9\\-\\s]{1,40}?)(?:\\u7684)?(?:\\u6b4c\\u66f2|\\u6b4c|\\u4f5c\\u54c1)?(?=\\s|$|[\\uff0c\\u3002,.!\\uff1f\\uff01])",
             Pattern.CASE_INSENSITIVE
     );
-    private static final Pattern DIGIT_TRACK_COUNT_PATTERN_V2 = Pattern.compile("(\\d{1,2})\\s*[\\u9996\\u6536]");
-    private static final Pattern CHINESE_TRACK_COUNT_PATTERN_V2 = Pattern.compile("([\\u4e00\\u4e8c\\u4e09\\u56db\\u4e94\\u516d\\u4e03\\u516b\\u4e5d\\u5341\\u4e24]{1,3})\\s*[\\u9996\\u6536]");
     private static final String[][] CJK_VARIANT_FOLDS = {
             {"發", "发"},
             {"暈", "晕"},
@@ -120,10 +115,9 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         String message = planningContext.request().message() == null ? "" : planningContext.request().message();
         SearchQueryRefiner.SearchQueryHints fallbackHints = searchQueryRefiner.analyze(message);
         RecommendationSpec fallbackSpec = buildFallbackSpec(message, fallbackHints);
-        RecommendationSpec spec = normalizeResolvedSpec(
+        RecommendationSpec spec = repairResolvedSpec(
                 enforceExplicitTrackCount(resolveRecommendationSpec(planningContext, fallbackSpec), message),
-                fallbackHints,
-                message
+                fallbackHints
         );
         List<RecommendationCandidate> candidates = retrieveCandidates(spec, message);
         if (candidates.isEmpty()) {
@@ -260,6 +254,12 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 return artistCatalogCandidates;
             }
         }
+        if (isAlbumOnlyMode(spec)) {
+            List<RecommendationCandidate> albumCandidates = retrieveAlbumScopedCandidates(spec, fallbackHints);
+            if (!albumCandidates.isEmpty()) {
+                return albumCandidates;
+            }
+        }
         if (isEntityConstrainedMode(spec)) {
             List<RecommendationCandidate> entityCandidates = retrieveEntityConstrainedCandidates(spec, fallbackHints);
             if (!entityCandidates.isEmpty()) {
@@ -340,6 +340,68 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 .toList();
     }
 
+    private List<RecommendationCandidate> retrieveAlbumScopedCandidates(
+            RecommendationSpec spec,
+            SearchQueryRefiner.SearchQueryHints fallbackHints
+    ) {
+        LinkedHashMap<String, RecommendationCandidate> aggregated = new LinkedHashMap<>();
+        Optional<ArtistDto> resolvedArtist = resolvePrimaryArtist(spec.artist(), fallbackHints.artistTerms());
+        LinkedHashSet<String> queries = new LinkedHashSet<>();
+        addStructuredQueries(queries, spec);
+        queries.addAll(fallbackHints.structuredCandidates());
+        queries.addAll(fallbackHints.candidates());
+
+        int searchLimit = Math.max(DEFAULT_SEARCH_LIMIT, Math.min(MAX_EXPLICIT_TRACK_COUNT, spec.desiredTrackCount() + 6));
+        for (String query : queries) {
+            List<TrackDto> results = musicQueryApplicationService.searchTracks(query, searchLimit);
+            for (TrackDto track : results) {
+                if (track == null || !StringUtils.hasText(track.trackId())) {
+                    continue;
+                }
+                if (resolvedArtist.isPresent() && !resolvedArtist.get().artistId().equals(track.artistId())) {
+                    continue;
+                }
+                aggregated.putIfAbsent(
+                        track.trackId(),
+                        new RecommendationCandidate(
+                                track.trackId(),
+                                track.title(),
+                                track.artistId(),
+                                resolvedArtist.map(ArtistDto::name).orElse(""),
+                                track.albumName(),
+                                track
+                        )
+                );
+            }
+        }
+        if (aggregated.isEmpty() && resolvedArtist.isPresent()) {
+            int catalogLimit = Math.min(MAX_CANDIDATES, Math.max(spec.desiredTrackCount() * 2, 24));
+            for (TrackDto track : musicQueryApplicationService.getArtistCatalogTracks(resolvedArtist.get().artistId(), catalogLimit)) {
+                if (track == null || !StringUtils.hasText(track.trackId())) {
+                    continue;
+                }
+                if (!resolvedArtist.get().artistId().equals(track.artistId())) {
+                    continue;
+                }
+                if (!albumMatches(track.albumName(), spec.album())) {
+                    continue;
+                }
+                aggregated.putIfAbsent(
+                        track.trackId(),
+                        new RecommendationCandidate(
+                                track.trackId(),
+                                track.title(),
+                                track.artistId(),
+                                resolvedArtist.get().name(),
+                                track.albumName(),
+                                track
+                        )
+                );
+            }
+        }
+        return List.copyOf(aggregated.values());
+    }
+
     private List<RecommendationCandidate> retrieveEntityConstrainedCandidates(
             RecommendationSpec spec,
             SearchQueryRefiner.SearchQueryHints fallbackHints
@@ -415,15 +477,18 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
     }
 
     private boolean isStrictArtistOnlyMode(RecommendationSpec spec) {
-        return StringUtils.hasText(spec.artist())
-                && !StringUtils.hasText(spec.track())
-                && !StringUtils.hasText(spec.album())
-                && spec.preferSameArtist();
+        return spec.requestMode() == RecommendationRequestMode.ARTIST_ONLY
+                && StringUtils.hasText(spec.artist());
+    }
+
+    private boolean isAlbumOnlyMode(RecommendationSpec spec) {
+        return spec.requestMode() == RecommendationRequestMode.ALBUM_ONLY
+                && StringUtils.hasText(spec.album());
     }
 
     private boolean isEntityConstrainedMode(RecommendationSpec spec) {
-        return StringUtils.hasText(spec.artist())
-                && (StringUtils.hasText(spec.track()) || StringUtils.hasText(spec.album()));
+        return spec.requestMode() == RecommendationRequestMode.ENTITY_CONSTRAINED
+                && (StringUtils.hasText(spec.artist()) || StringUtils.hasText(spec.album()) || StringUtils.hasText(spec.track()));
     }
 
     private void addStructuredQueries(Set<String> queries, RecommendationSpec spec) {
@@ -554,47 +619,77 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         );
     }
 
-    private RecommendationSpec normalizeResolvedSpec(
+    private RecommendationSpec repairResolvedSpec(
             RecommendationSpec spec,
-            SearchQueryRefiner.SearchQueryHints hints,
-            String message
+            SearchQueryRefiner.SearchQueryHints hints
     ) {
-        if (!isAlbumScopedRequest(hints, message)) {
-            return spec;
-        }
-
-        String album = choosePreferredValue(spec.album(), hints.albumTerms().isEmpty() ? null : hints.albumTerms().getFirst());
         String artist = choosePreferredValue(spec.artist(), hints.artistTerms().isEmpty() ? null : hints.artistTerms().getFirst());
-        boolean hasExplicitTrackInRequest = !hints.explicitTitles().isEmpty();
-        String track = hasExplicitTrackInRequest ? spec.track() : null;
-        if (hasExplicitTrackInRequest && !StringUtils.hasText(track)) {
-            track = hints.explicitTitles().getFirst();
-        }
+        String track = choosePreferredValue(spec.track(), hints.explicitTitles().isEmpty() ? null : hints.explicitTitles().getFirst());
+        String album = choosePreferredValue(spec.album(), hints.albumTerms().isEmpty() ? null : hints.albumTerms().getFirst());
         if (StringUtils.hasText(track) && StringUtils.hasText(album) && normalizeForMatching(track).equals(normalizeForMatching(album))) {
             track = null;
         }
 
-        boolean wantAdditionalTracks = hints.wantsAdditionalTracks() && spec.wantAdditionalTracks();
+        RecommendationRequestMode requestMode = spec.requestMode() == null
+                ? RecommendationRequestMode.infer(artist, track, album, spec.wantAdditionalTracks())
+                : spec.requestMode();
+        boolean albumOnlyEvidence = StringUtils.hasText(album)
+                && hints.explicitTitles().isEmpty()
+                && !hints.wantsAdditionalTracks();
+        if (albumOnlyEvidence && !StringUtils.hasText(track)) {
+            requestMode = RecommendationRequestMode.ALBUM_ONLY;
+        }
+
+        boolean wantAdditionalTracks = spec.wantAdditionalTracks();
+        boolean mustIncludeExplicitTrack = spec.mustIncludeExplicitTrack() && StringUtils.hasText(track);
+        boolean preferSameArtist = spec.preferSameArtist() && StringUtils.hasText(artist);
+        boolean preferSameAlbum = spec.preferSameAlbum() && StringUtils.hasText(album);
+
+        if (requestMode == RecommendationRequestMode.ARTIST_ONLY) {
+            track = null;
+            album = null;
+            wantAdditionalTracks = true;
+            mustIncludeExplicitTrack = false;
+            preferSameArtist = StringUtils.hasText(artist);
+            preferSameAlbum = false;
+        } else if (requestMode == RecommendationRequestMode.ALBUM_ONLY) {
+            track = null;
+            wantAdditionalTracks = false;
+            mustIncludeExplicitTrack = false;
+            preferSameAlbum = StringUtils.hasText(album);
+            preferSameArtist = StringUtils.hasText(artist);
+        } else if (requestMode == RecommendationRequestMode.ENTITY_CONSTRAINED) {
+            mustIncludeExplicitTrack = StringUtils.hasText(track);
+            preferSameArtist = StringUtils.hasText(artist);
+            preferSameAlbum = StringUtils.hasText(album);
+        }
+
         return new RecommendationSpec(
+                requestMode,
                 artist,
                 track,
                 album,
                 spec.desiredTrackCount(),
                 wantAdditionalTracks,
-                StringUtils.hasText(track) && spec.mustIncludeExplicitTrack(),
-                StringUtils.hasText(artist) && spec.preferSameArtist(),
-                StringUtils.hasText(album)
+                mustIncludeExplicitTrack,
+                preferSameArtist,
+                preferSameAlbum
         );
     }
 
     private RecommendationSpec buildFallbackSpec(String message, SearchQueryRefiner.SearchQueryHints hints) {
         Integer explicitTrackCount = extractExplicitTrackCount(message);
         int desiredTrackCount = resolveDesiredTrackCount(null, explicitTrackCount);
-        String artist = hints.artistTerms().isEmpty() ? extractArtistOnlyFallback(message) : hints.artistTerms().getFirst();
+        String artist = hints.artistTerms().isEmpty() ? null : hints.artistTerms().getFirst();
+        if (!StringUtils.hasText(artist)) {
+            artist = extractArtistOnlyFallback(message);
+        }
         String track = hints.explicitTitles().isEmpty() ? null : hints.explicitTitles().getFirst();
         String album = hints.albumTerms().isEmpty() ? null : hints.albumTerms().getFirst();
+        RecommendationRequestMode requestMode = RecommendationRequestMode.infer(artist, track, album, hints.wantsAdditionalTracks());
 
         return new RecommendationSpec(
+                requestMode,
                 artist,
                 track,
                 album,
@@ -606,42 +701,17 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         );
     }
 
-    private boolean isAlbumScopedRequest(SearchQueryRefiner.SearchQueryHints hints, String message) {
-        if (hints == null || hints.albumTerms().isEmpty() || !StringUtils.hasText(message)) {
-            return false;
-        }
-        String normalized = normalizeForMatching(message);
-        if (!normalized.contains("专辑") && !normalized.contains("album")) {
-            return false;
-        }
-        if (hints.wantsAdditionalTracks()) {
-            return false;
-        }
-        return normalized.contains("里的歌")
-                || normalized.contains("里的歌曲")
-                || normalized.contains("专辑里的歌")
-                || normalized.contains("专辑里的歌曲")
-                || normalized.contains("专辑中的歌")
-                || normalized.contains("专辑中")
-                || normalized.contains("收录")
-                || normalized.contains("包含");
-    }
-
     private String extractArtistOnlyFallback(String message) {
         if (!StringUtils.hasText(message)) {
             return null;
         }
-        Matcher matcher = ARTIST_ONLY_COUNT_REQUEST_PATTERN_V2.matcher(message.trim());
+        Matcher matcher = ARTIST_ONLY_COUNT_REQUEST_PATTERN.matcher(message.trim());
         if (!matcher.find()) {
             return null;
         }
         String artist = matcher.group(1);
-        if (!StringUtils.hasText(artist)) {
-            return null;
-        }
-        return artist.trim();
+        return StringUtils.hasText(artist) ? artist.trim() : null;
     }
-
     private RecommendationSpec mergeSpecWithFallback(
             RecommendationSpecResponse response,
             RecommendationSpec fallbackSpec,
@@ -649,18 +719,13 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
     ) {
         Integer explicitTrackCount = extractExplicitTrackCount(message);
         int desiredTrackCount = resolveDesiredTrackCount(response == null ? null : response.desiredTrackCount(), explicitTrackCount);
-        boolean fallbackArtistOnlyMode = StringUtils.hasText(fallbackSpec.artist())
-                && !StringUtils.hasText(fallbackSpec.track())
-                && !StringUtils.hasText(fallbackSpec.album());
-        String artist = fallbackArtistOnlyMode
-                ? fallbackSpec.artist()
-                : choosePreferredValue(response == null ? null : response.artist(), fallbackSpec.artist());
-        String track = fallbackArtistOnlyMode
-                ? null
-                : choosePreferredValue(response == null ? null : response.track(), fallbackSpec.track());
-        String album = fallbackArtistOnlyMode
-                ? null
-                : choosePreferredValue(response == null ? null : response.album(), fallbackSpec.album());
+        RecommendationRequestMode requestMode = chooseRequestMode(
+                response == null ? null : response.requestMode(),
+                fallbackSpec.requestMode()
+        );
+        String artist = choosePreferredValue(response == null ? null : response.artist(), fallbackSpec.artist());
+        String track = choosePreferredValue(response == null ? null : response.track(), fallbackSpec.track());
+        String album = choosePreferredValue(response == null ? null : response.album(), fallbackSpec.album());
         boolean mustIncludeExplicitTrack = StringUtils.hasText(track)
                 && (response == null || response.mustIncludeExplicitTrack() == null
                 ? fallbackSpec.mustIncludeExplicitTrack()
@@ -678,6 +743,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 : response.wantAdditionalTracks();
 
         return new RecommendationSpec(
+                requestMode,
                 artist,
                 track,
                 album,
@@ -687,6 +753,14 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 preferSameArtist,
                 preferSameAlbum
         );
+    }
+
+    private RecommendationRequestMode chooseRequestMode(
+            String externalRequestMode,
+            RecommendationRequestMode fallbackRequestMode
+    ) {
+        RecommendationRequestMode requestMode = RecommendationRequestMode.fromExternalValue(externalRequestMode);
+        return requestMode == null ? fallbackRequestMode : requestMode;
     }
 
     private String choosePreferredValue(String primary, String fallback) {
@@ -713,11 +787,11 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         if (!StringUtils.hasText(message)) {
             return null;
         }
-        Matcher digitMatcher = DIGIT_TRACK_COUNT_PATTERN_V2.matcher(message);
+        Matcher digitMatcher = DIGIT_TRACK_COUNT_PATTERN.matcher(message);
         if (digitMatcher.find()) {
             return Integer.parseInt(digitMatcher.group(1));
         }
-        Matcher chineseMatcher = CHINESE_TRACK_COUNT_PATTERN_V2.matcher(message);
+        Matcher chineseMatcher = CHINESE_TRACK_COUNT_PATTERN.matcher(message);
         if (chineseMatcher.find()) {
             return parseChineseNumberStable(chineseMatcher.group(1));
         }
@@ -759,45 +833,6 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
             case "\u4e03" -> 7;
             case "\u516b" -> 8;
             case "\u4e5d" -> 9;
-            default -> parseChineseNumber(value);
-        };
-    }
-
-    private Integer parseChineseNumber(String value) {
-        if (!StringUtils.hasText(value)) {
-            return null;
-        }
-        return switch (value) {
-            case "十" -> 10;
-            case "十一" -> 11;
-            case "十二" -> 12;
-            case "十三" -> 13;
-            case "十四" -> 14;
-            case "十五" -> 15;
-            case "十六" -> 16;
-            case "十七" -> 17;
-            case "十八" -> 18;
-            case "十九" -> 19;
-            case "二十" -> 20;
-            case "二十一" -> 21;
-            case "二十二" -> 22;
-            case "二十三" -> 23;
-            case "二十四" -> 24;
-            case "二十五" -> 25;
-            case "二十六" -> 26;
-            case "二十七" -> 27;
-            case "二十八" -> 28;
-            case "二十九" -> 29;
-            case "三十" -> 30;
-            case "一" -> 1;
-            case "二", "两", "兩" -> 2;
-            case "三" -> 3;
-            case "四" -> 4;
-            case "五" -> 5;
-            case "六" -> 6;
-            case "七" -> 7;
-            case "八" -> 8;
-            case "九" -> 9;
             default -> null;
         };
     }
@@ -839,7 +874,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
             RecommendationSpec spec,
             List<RecommendationCandidate> orderedCandidates
     ) {
-        if (isStrictAlbumOnlyMode(spec)) {
+        if (isAlbumOnlyMode(spec)) {
             List<RecommendationCandidate> albumScoped = orderedCandidates.stream()
                     .filter(candidate -> albumMatches(candidate.albumName(), spec.album()))
                     .toList();
@@ -969,12 +1004,6 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         return normalizedActual.equals(normalizedExpected) || normalizedActual.contains(normalizedExpected);
     }
 
-    private boolean isStrictAlbumOnlyMode(RecommendationSpec spec) {
-        return StringUtils.hasText(spec.album())
-                && !StringUtils.hasText(spec.track())
-                && !spec.wantAdditionalTracks();
-    }
-
     private String normalizeForMatching(String value) {
         if (!StringUtils.hasText(value)) {
             return "";
@@ -1016,15 +1045,31 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 Rules:
                 1. Preserve explicit artist, track title, and album names in the same language/script as the user request.
                 2. Do not translate Chinese song titles, artist names, or album names into English.
-                3. If the user explicitly names a track, set mustIncludeExplicitTrack=true.
-                4. If the user explicitly names an album, set preferSameAlbum=true.
-                5. If the user explicitly names an artist, set preferSameArtist=true.
-                6. If the user asks for "other songs", set wantAdditionalTracks=true.
-                7. If the user specifies a number of songs, copy that number exactly into desiredTrackCount.
-                8. If the user does not specify a number, choose a desiredTrackCount between 10 and 15.
+                3. Treat the latest user message as the source of truth.
+                4. Use prior conversation only when the latest user message is clearly referential, such as "more", "again", "similar", or "continue".
+                5. If the latest user message already contains an explicit artist, track, album, era, language, or quantity, do not borrow those entities from older context.
+                6. Classify the request into one requestMode:
+                   - ARTIST_ONLY: explicit artist, no explicit track, no album-only scope
+                   - ENTITY_CONSTRAINED: explicit artist with explicit track and/or album, and expansion outside the album is allowed
+                   - ALBUM_ONLY: the user wants songs from a named album only
+                   - THEME_AWARE: no explicit artist/track/album, only theme, era, mood, language, or scene
+                   - GENERAL: use only if none of the above fit
+                7. Treat equivalent album-only phrasing as the same meaning, for example:
+                   - songs from album X
+                   - tracks in album X
+                   - the full album X
+                8. For ALBUM_ONLY, set track=null unless the user explicitly names a separate song title in addition to the album.
+                9. For ALBUM_ONLY, set wantAdditionalTracks=false unless the user explicitly asks for songs outside that album.
+                10. If the user explicitly names a track, set mustIncludeExplicitTrack=true.
+                11. If the user explicitly names an album, set preferSameAlbum=true.
+                12. If the user explicitly names an artist, set preferSameArtist=true.
+                13. If the user asks for "other songs", set wantAdditionalTracks=true.
+                14. If the user specifies a number of songs, copy that number exactly into desiredTrackCount.
+                15. If the user does not specify a number, choose a desiredTrackCount between 10 and 15.
 
                 Return JSON with exactly these fields:
                 {
+                  "requestMode": "ARTIST_ONLY"|"ENTITY_CONSTRAINED"|"ALBUM_ONLY"|"THEME_AWARE"|"GENERAL",
                   "artist": string|null,
                   "track": string|null,
                   "album": string|null,
@@ -1038,12 +1083,16 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
     }
 
     private String buildSpecUserPrompt(PlanningContext planningContext) {
+        SearchQueryRefiner.SearchQueryHints latestHints = searchQueryRefiner.analyze(planningContext.request().message());
+        boolean includeRecentContext = shouldIncludeRecentContext(planningContext.request().message(), latestHints);
         StringBuilder builder = new StringBuilder();
         builder.append("latestUserMessage:\n")
                 .append(planningContext.request().message() == null ? "" : planningContext.request().message().trim())
                 .append("\n\nrecentConversation:\n");
 
-        if (planningContext.recentConversation() == null || planningContext.recentConversation().isEmpty()) {
+        if (!includeRecentContext) {
+            builder.append("(ignored for standalone request)");
+        } else if (planningContext.recentConversation() == null || planningContext.recentConversation().isEmpty()) {
             builder.append("(none)");
         } else {
             planningContext.recentConversation().stream()
@@ -1056,7 +1105,9 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         }
 
         builder.append("\nrecentRecommendationSummaries:\n");
-        if (planningContext.recentRecommendationSummaries() == null
+        if (!includeRecentContext) {
+            builder.append("(ignored for standalone request)");
+        } else if (planningContext.recentRecommendationSummaries() == null
                 || planningContext.recentRecommendationSummaries().isEmpty()) {
             builder.append("(none)");
         } else {
@@ -1065,6 +1116,34 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
             }
         }
         return builder.toString();
+    }
+
+    private boolean shouldIncludeRecentContext(
+            String latestUserMessage,
+            SearchQueryRefiner.SearchQueryHints latestHints
+    ) {
+        if (!StringUtils.hasText(latestUserMessage)) {
+            return false;
+        }
+        String normalized = latestUserMessage.toLowerCase(Locale.ROOT);
+        if (normalized.contains("\u7ee7\u7eed")
+                || normalized.contains("\u518d\u6765")
+                || normalized.contains("\u66f4\u591a")
+                || normalized.contains("\u7c7b\u4f3c")
+                || normalized.contains("\u540c\u6837")
+                || normalized.contains("\u521a\u624d")
+                || normalized.contains("\u4e4b\u524d")
+                || normalized.contains("\u4e0a\u6b21")
+                || normalized.contains("again")
+                || normalized.contains("more")
+                || normalized.contains("similar")
+                || normalized.contains("continue")) {
+            return true;
+        }
+        return latestHints.artistTerms().isEmpty()
+                && latestHints.explicitTitles().isEmpty()
+                && latestHints.albumTerms().isEmpty()
+                && latestHints.contextKeywords().size() <= 1;
     }
 
     private String buildRerankSystemPrompt() {
@@ -1078,7 +1157,9 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 2. If the spec includes an explicit track title and a matching candidate exists, rank that track first.
                 3. If the spec includes an explicit artist, prefer that artist strongly.
                 4. If the spec includes an explicit album, prefer tracks from that album before the artist's other tracks.
-                5. Keep the result aligned with the latest user message, not older context.
+                5. If requestMode is ALBUM_ONLY, do not rank tracks outside the target album above album tracks.
+                6. If requestMode is ARTIST_ONLY, prefer breadth across the target artist's catalog and avoid unrelated artists.
+                7. Keep the result aligned with the latest user message, not older context.
 
                 Return JSON with exactly this shape:
                 {
@@ -1212,6 +1293,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
     }
 
     private record RecommendationSpecResponse(
+            String requestMode,
             String artist,
             String track,
             String album,
