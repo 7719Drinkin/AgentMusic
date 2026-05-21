@@ -165,6 +165,32 @@ class AgentLlmPlanningHarnessTests {
     }
 
     @Test
+    void parseAndValidateRejectsRecommendationRequestClassifiedAsArtistLookup() {
+        PlanningContext context = new PlanningContext(
+                new AgentChatRequest("demo-user", RECOMMENDATION_MESSAGE + "\uff0c\u5148\u4e0d\u8981\u64ad\u653e", false),
+                List.of(),
+                List.of()
+        );
+
+        String responseJson = """
+                {
+                  "schemaVersion": "agentmusic.plan.v1",
+                  "intent": "ARTIST_LOOKUP",
+                  "summary": "Read artist metadata for Zhang Yusheng.",
+                  "reasoning": "The request mentions Zhang Yusheng.",
+                  "confidence": 82,
+                  "steps": [
+                    {"type": "READ_CHAT_CONTEXT", "arguments": {"limit": 20}},
+                    {"type": "LOOKUP_ARTIST", "arguments": {"query": "\u5f20\u96e8\u751f"}},
+                    {"type": "PERSIST_CHAT_REPLY", "arguments": {}}
+                  ]
+                }
+                """;
+
+        assertThrows(IllegalArgumentException.class, () -> harness.parseAndValidate(responseJson, context));
+    }
+
+    @Test
     void parseAndValidateAcceptsNoPlayRecommendationPlan() {
         PlanningContext context = new PlanningContext(
                 new AgentChatRequest("demo-user", RECOMMENDATION_MESSAGE + "\uff0c\u4e0d\u8981\u64ad\u653e", false),

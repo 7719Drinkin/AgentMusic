@@ -107,6 +107,87 @@ class LlmBackedTaskPlannerTests {
     }
 
     @Test
+    void shouldFallbackWhenLlmClassifiesRecommendationAsArtistLookup() {
+        OpenAiCompatiblePlanningClient planningClient = mock(OpenAiCompatiblePlanningClient.class);
+        when(planningClient.isEnabled()).thenReturn(true);
+        when(planningClient.generateValidatedPlan(any())).thenReturn(new AgentLlmPlanningResult(
+                new AgentLlmPlanningResponse(
+                        "agentmusic.plan.v1",
+                        AgentIntent.ARTIST_LOOKUP,
+                        "Read artist metadata.",
+                        "The request mentions an artist.",
+                        82,
+                        List.of()
+                ),
+                new AgentPlan(
+                        AgentIntent.ARTIST_LOOKUP,
+                        "Read artist metadata.",
+                        List.of(
+                                new PlanStep(1, PlanStepType.READ_CHAT_CONTEXT, Map.of("limit", 20)),
+                                new PlanStep(2, PlanStepType.LOOKUP_ARTIST, Map.of("query", "\u5f20\u96e8\u751f")),
+                                new PlanStep(3, PlanStepType.PERSIST_CHAT_REPLY, Map.of())
+                        )
+                )
+        ));
+
+        LlmBackedTaskPlanner planner = new LlmBackedTaskPlanner(
+                enabledProperties(),
+                planningClient,
+                new SimpleTaskPlanner()
+        );
+
+        TaskPlanningResult result = planner.createPlan(chineseNoPlayRecommendationContext());
+
+        assertEquals(LlmBackedTaskPlanner.FALLBACK_SOURCE, result.source());
+        assertTrue(result.fallbackUsed());
+        assertEquals("planner-post-validation", result.fallbackReason());
+        assertEquals(AgentIntent.RECOMMEND_PLAYLIST, result.plan().intent());
+    }
+
+    @Test
+    void shouldFallbackWhenLlmIgnoresNoPlayRecommendationConstraint() {
+        OpenAiCompatiblePlanningClient planningClient = mock(OpenAiCompatiblePlanningClient.class);
+        when(planningClient.isEnabled()).thenReturn(true);
+        when(planningClient.generateValidatedPlan(any())).thenReturn(new AgentLlmPlanningResult(
+                new AgentLlmPlanningResponse(
+                        "agentmusic.plan.v1",
+                        AgentIntent.PLAY_RECOMMENDATION,
+                        "Build and play a recommendation playlist.",
+                        "The user asked for recommendations.",
+                        84,
+                        List.of()
+                ),
+                new AgentPlan(
+                        AgentIntent.PLAY_RECOMMENDATION,
+                        "Build and play a recommendation playlist.",
+                        List.of(
+                                new PlanStep(1, PlanStepType.READ_CHAT_CONTEXT, Map.of("limit", 20)),
+                                new PlanStep(2, PlanStepType.READ_USER_PREFERENCES, Map.of()),
+                                new PlanStep(3, PlanStepType.READ_PLAYLIST_HISTORY, Map.of("limit", 10)),
+                                new PlanStep(4, PlanStepType.GENERATE_RECOMMENDATION_CANDIDATES, Map.of("query", "\u5f20\u96e8\u751f \u6cb3")),
+                                new PlanStep(5, PlanStepType.RANK_RECOMMENDATION_CANDIDATES, Map.of("query", "\u5f20\u96e8\u751f \u6cb3")),
+                                new PlanStep(6, PlanStepType.CREATE_RECOMMENDATION_PLAYLIST, Map.of("query", "\u5f20\u96e8\u751f \u6cb3")),
+                                new PlanStep(7, PlanStepType.UPDATE_PLAYBACK_STATE, Map.of("query", "\u5f20\u96e8\u751f \u6cb3")),
+                                new PlanStep(8, PlanStepType.PERSIST_CHAT_REPLY, Map.of())
+                        )
+                )
+        ));
+
+        LlmBackedTaskPlanner planner = new LlmBackedTaskPlanner(
+                enabledProperties(),
+                planningClient,
+                new SimpleTaskPlanner()
+        );
+
+        TaskPlanningResult result = planner.createPlan(chineseNoPlayRecommendationContext());
+
+        assertEquals(LlmBackedTaskPlanner.FALLBACK_SOURCE, result.source());
+        assertTrue(result.fallbackUsed());
+        assertEquals("planner-post-validation", result.fallbackReason());
+        assertEquals(AgentIntent.RECOMMEND_PLAYLIST, result.plan().intent());
+    }
+
+    @Test
     void shouldReportProviderRateLimitWhenLlmReturns429() {
         OpenAiCompatiblePlanningClient planningClient = mock(OpenAiCompatiblePlanningClient.class);
         when(planningClient.isEnabled()).thenReturn(true);
@@ -193,6 +274,18 @@ class LlmBackedTaskPlannerTests {
                         )
                 ),
                 List.of("Night Ride -> River / Everyday / Missing You")
+        );
+    }
+
+    private PlanningContext chineseNoPlayRecommendationContext() {
+        return new PlanningContext(
+                new AgentChatRequest(
+                        "demo-user",
+                        "\u63a8\u8350\u5f20\u96e8\u751f\u7684\u300a\u6cb3\u300b\u4ee5\u53ca\u4ed6\u7684\u5176\u4ed6\u6b4c\u66f2\uff0c\u5148\u4e0d\u8981\u64ad\u653e",
+                        false
+                ),
+                List.of(),
+                List.of()
         );
     }
 }

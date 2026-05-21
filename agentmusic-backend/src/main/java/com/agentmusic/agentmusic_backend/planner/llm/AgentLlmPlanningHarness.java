@@ -30,7 +30,15 @@ public class AgentLlmPlanningHarness {
     private static final String QUERY_ARGUMENT = "query";
     private static final String LIMIT_ARGUMENT = "limit";
     private static final Pattern TITLE_PATTERN = Pattern.compile("《\\s*([^》]+?)\\s*》");
-    private static final List<String> RECOMMENDATION_HINTS = List.of("推荐", "来点", "想听", "适合", "歌单", "mix");
+    private static final List<String> RECOMMENDATION_HINTS = List.of(
+            "推荐",
+            "来点",
+            "想听",
+            "适合",
+            "歌单",
+            "recommend",
+            "mix"
+    );
     private static final List<String> NO_PLAY_HINTS = List.of(
             "不要播放",
             "先不要播放",
@@ -132,6 +140,8 @@ public class AgentLlmPlanningHarness {
                 Intent selection rules:
                 - If the user asks for recommended songs, a generated playlist, or music that fits a mood / scene / genre, default to PLAY_RECOMMENDATION.
                 - Use RECOMMEND_PLAYLIST only when latestUserMessage explicitly says not to play, such as "不要播放", "先别播", "稍后播放", or "recommend only".
+                - A request like "推荐张雨生的《河》以及他的其他歌曲" is a recommendation request, not ARTIST_LOOKUP.
+                - Do not use ARTIST_LOOKUP when latestUserMessage contains "推荐", "来点", "想听", or "recommend".
                 - Use COMPOSITE_REQUEST only when the user wants to search explicit tracks first and then control playback in the same request.
                 - Never use COMPOSITE_REQUEST for recommendation generation.
 

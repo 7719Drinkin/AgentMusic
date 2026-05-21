@@ -1,7 +1,7 @@
 # Recommendation Search Chain
 
-Version: R1.2
-Updated: 2026-05-13
+Version: R1.4
+Updated: 2026-05-21
 
 ## 1. Purpose
 
@@ -92,7 +92,10 @@ Current runtime behavior:
 4. Code-side repair remains intentionally narrow:
    - fill missing artist / track / album from deterministic hints if obvious
    - clear `track` when it duplicates `album`
+   - prefer latest-message quoted track / album entities over conflicting LLM fields
    - coerce clearly misclassified album-only requests back to `ALBUM_ONLY`
+   - coerce explicit theme-only requests back to `THEME_AWARE` when LLM returns `GENERAL` or hallucinated pseudo-entities
+   - coerce explicit track requests away from `ARTIST_ONLY` so the quoted target track is not cleared
    - preserve strict `ARTIST_ONLY` and `ALBUM_ONLY` hard scopes
 
 ## 5. Entity Recommendation Flows
@@ -151,11 +154,13 @@ Current flow:
    - explicit track first when found
    - same album next
    - same artist additional tracks after that
+   - for very short CJK titles, substring expansions such as `淡水河` for `河` are deferred behind normal same-artist catalog tracks
 
 Current verified behavior:
 
 - explicit target tracks are now stably inserted at position 1
 - same-title tracks by other artists are no longer allowed to outrank the target
+- short-title false positives no longer dominate the immediate follow-up positions after the exact hit
 
 ### 5.3 Album-only
 
@@ -193,17 +198,30 @@ Current architecture for this first pass:
 
 1. LLM extracts theme semantics rather than explicit entities.
 2. LLM may provide `seedArtists` for broad requests where direct Spotify theme search is likely to be noisy.
+   - Runtime code merges LLM seed artists with deterministic defaults for known regions / eras instead of replacing the defaults.
 3. Code derives a `ThemeAwareProfile` and generates multiple theme-oriented search queries from:
    - the latest user message
    - semantic theme fields
    - language / era / scene / mood / genre hints
+   - deterministic latest-message theme clues override invalid or overly generic LLM theme fields
 4. Code resolves each seed artist to an `artistId` and expands a small catalog slice for that artist.
 5. Spotify theme search supplements the seed-artist pool with broader candidates.
 6. Candidate retrieval hit counts are retained for rerank and deterministic scoring.
 7. LLM reranks candidates against the latest user message.
-8. Code applies a light artist-diversity pass, avoids duplicate theme titles when alternatives exist, defers low title-language-confidence theme candidates, downranks live/concert variants and generic non-song segments such as `Intro`, then handles final deduplication and truncation.
+8. Code applies a theme-quality bucket before accepting the LLM order:
+   - seed-artist theme search hits are preferred over generic artist catalog spillover
+   - duplicate titles are deferred when alternatives exist
+   - low-confidence theme candidates are not used to fill the playlist when higher-confidence candidates already exist
+   - CJK-language theme candidates now require theme surface evidence, seed-artist evidence, or other strong local evidence
+   - live/concert variants and generic non-song segments such as `Intro` or bare `90s` are downranked or excluded
+9. LLM rerank receives explicit candidate evidence:
+   - explicit title match
+   - artist match
+   - album match
+   - theme quality bucket
+   - low-confidence theme flag
 
-This flow is less mature than the three entity-oriented flows above and still needs better quality filtering.
+This flow is less mature than the three entity-oriented flows above, but now has stricter guardrails against obvious query-spill candidates.
 
 Known limitation:
 
@@ -212,7 +230,7 @@ Known limitation:
   - seed artist quality
   - candidate surface strings
   - LLM rerank quality
-- As a result, requests such as `90s Cantonese songs` now route through a dedicated flow, but result quality is not yet at the same level as entity-constrained requests.
+- As a result, requests such as `90s Cantonese songs` now route through a dedicated flow with better filtering, but result quality is still not yet at the same level as entity-constrained requests.
 
 ## 7. Spotify Retrieval Paths
 
@@ -262,7 +280,8 @@ Note:
 1. Add richer theme-aware candidate evidence:
    - release year
    - language / locale clues
-   - stronger theme filtering
+   - stronger theme filtering beyond title / artist / album surface evidence
+   - artist locale / genre hints from Spotify artist metadata when available
 2. Improve observability for:
    - recommendation spec extraction source
    - rerank source
@@ -272,5 +291,7 @@ Note:
 ### Priority 2
 
 1. Expand alias and variant handling for album / title matching.
+   - Current code already avoids substring false positives for short explicit titles such as `河`.
+   - Current code accepts shorter album aliases when the shorter album name is still a strong substring of the requested album.
 2. Add more metadata to recommendation debugging and acceptance tooling.
 3. Normalize document encoding debt across root docs and backend docs.

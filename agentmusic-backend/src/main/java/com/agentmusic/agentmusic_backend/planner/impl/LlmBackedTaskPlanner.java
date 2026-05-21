@@ -1,15 +1,19 @@
 package com.agentmusic.agentmusic_backend.planner.impl;
 
 import com.agentmusic.agentmusic_backend.config.AgentChatProperties;
+import com.agentmusic.agentmusic_backend.planner.AgentIntent;
+import com.agentmusic.agentmusic_backend.planner.AgentPlan;
 import com.agentmusic.agentmusic_backend.planner.PlanningContext;
 import com.agentmusic.agentmusic_backend.planner.TaskPlanner;
 import com.agentmusic.agentmusic_backend.planner.TaskPlanningResult;
 import com.agentmusic.agentmusic_backend.planner.llm.OpenAiCompatiblePlanningClient;
+import java.util.List;
 import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
@@ -20,6 +24,26 @@ public class LlmBackedTaskPlanner implements TaskPlanner {
     public static final String LLM_SOURCE = "llm-harness";
     public static final String FALLBACK_SOURCE = "simple-task-planner-fallback";
     private static final Logger log = LoggerFactory.getLogger(LlmBackedTaskPlanner.class);
+    private static final List<String> RECOMMENDATION_HINTS = List.of(
+            "推荐",
+            "来点",
+            "想听",
+            "适合",
+            "歌单",
+            "recommend",
+            "mix"
+    );
+    private static final List<String> NO_PLAY_HINTS = List.of(
+            "不要播放",
+            "先不要播放",
+            "先别播",
+            "稍后播放",
+            "recommend only",
+            "do not play",
+            "don't play",
+            "no autoplay",
+            "without playback"
+    );
 
     private final AgentChatProperties agentChatProperties;
     private final OpenAiCompatiblePlanningClient planningClient;
@@ -43,6 +67,7 @@ public class LlmBackedTaskPlanner implements TaskPlanner {
 
         try {
             var result = planningClient.generateValidatedPlan(planningContext);
+            validateLlmPlanAgainstRequest(result.plan(), planningContext);
             return new TaskPlanningResult(result.plan(), LLM_SOURCE, false);
         } catch (RuntimeException exception) {
             String fallbackReason = classifyFailure(exception);
@@ -55,6 +80,35 @@ public class LlmBackedTaskPlanner implements TaskPlanner {
             );
             TaskPlanningResult fallback = fallbackPlanner.createPlan(planningContext);
             return new TaskPlanningResult(fallback.plan(), FALLBACK_SOURCE, true, fallbackReason);
+        }
+    }
+
+    private void validateLlmPlanAgainstRequest(AgentPlan plan, PlanningContext planningContext) {
+        String message = planningContext == null || planningContext.request() == null
+                ? ""
+                : planningContext.request().message();
+        if (!StringUtils.hasText(message) || plan == null || plan.intent() == null) {
+            return;
+        }
+
+        String normalized = message.toLowerCase();
+        boolean recommendationRequest = containsAny(normalized, RECOMMENDATION_HINTS);
+        if (!recommendationRequest) {
+            return;
+        }
+
+        boolean noPlayRequest = containsAny(normalized, NO_PLAY_HINTS);
+        if (plan.intent() == AgentIntent.ARTIST_LOOKUP
+                || plan.intent() == AgentIntent.TRACK_LOOKUP
+                || plan.intent() == AgentIntent.UNKNOWN
+                || plan.intent() == AgentIntent.CHAT_ONLY) {
+            throw new IllegalArgumentException("planner-post-validation: recommendation request cannot use lookup/chat intent.");
+        }
+        if (!noPlayRequest && plan.intent() != AgentIntent.PLAY_RECOMMENDATION) {
+            throw new IllegalArgumentException("planner-post-validation: recommendation request should default to playback.");
+        }
+        if (noPlayRequest && plan.intent() == AgentIntent.PLAY_RECOMMENDATION) {
+            throw new IllegalArgumentException("planner-post-validation: no-play recommendation must not start playback.");
         }
     }
 
@@ -95,7 +149,23 @@ public class LlmBackedTaskPlanner implements TaskPlanner {
             return "provider-empty-response";
         }
 
+        if (messageContains(throwable, "planner-post-validation")) {
+            return "planner-post-validation";
+        }
+
         return "unknown";
+    }
+
+    private boolean containsAny(String value, List<String> fragments) {
+        if (!StringUtils.hasText(value)) {
+            return false;
+        }
+        for (String fragment : fragments) {
+            if (value.contains(fragment)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean messageContains(Throwable throwable, String fragment) {

@@ -48,6 +48,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
     private static final int DEFAULT_SEARCH_LIMIT = 12;
     private static final int MAX_CANDIDATES = 40;
     private static final int MAX_THEME_CANDIDATES = 60;
+    private static final int MAX_THEME_SEED_ARTISTS = 12;
     private static final Pattern DIGIT_TRACK_COUNT_PATTERN = Pattern.compile("(\\d{1,2})\\s*[\\u9996\\u6536]");
     private static final Pattern CHINESE_TRACK_COUNT_PATTERN = Pattern.compile("([\\u4e00\\u4e8c\\u4e09\\u56db\\u4e94\\u516d\\u4e03\\u516b\\u4e5d\\u5341\\u4e24]{1,3})\\s*[\\u9996\\u6536]");
     private static final Pattern ARTIST_ONLY_COUNT_REQUEST_PATTERN = Pattern.compile(
@@ -77,6 +78,15 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
             {"會", "会"},
             {"聲", "声"},
             {"過", "过"},
+            {"張", "张"},
+            {"學", "学"},
+            {"劉", "刘"},
+            {"華", "华"},
+            {"葉", "叶"},
+            {"麗", "丽"},
+            {"蘭", "兰"},
+            {"歲", "岁"},
+            {"聽", "听"},
             {"為", "为"},
             {"傷", "伤"},
             {"最", "最"},
@@ -344,10 +354,35 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         Map<String, Integer> retrievalHits = new LinkedHashMap<>();
         Map<String, String> artistNameCache = new LinkedHashMap<>();
         int perSeedArtistLimit = Math.max(3, Math.min(6, spec.desiredTrackCount() / Math.max(1, Math.min(6, themeProfile.seedArtists().size())) + 2));
+        int perSeedSearchLimit = Math.max(6, Math.min(12, perSeedArtistLimit + 4));
         for (String seedArtist : themeProfile.seedArtists()) {
             Optional<ArtistDto> resolvedArtist = resolvePrimaryArtist(seedArtist, List.of());
             if (resolvedArtist.isEmpty()) {
                 continue;
+            }
+            String candidateArtistName = preferredArtistName(resolvedArtist.get(), seedArtist);
+            for (String seedQuery : buildSeedArtistThemeQueries(seedArtist, themeProfile)) {
+                for (TrackDto track : musicQueryApplicationService.searchTracks(seedQuery, perSeedSearchLimit)) {
+                    if (track == null || !StringUtils.hasText(track.trackId())) {
+                        continue;
+                    }
+                    if (!resolvedArtist.get().artistId().equals(track.artistId())) {
+                        continue;
+                    }
+                    retrievalHits.merge(track.trackId(), 3, Integer::sum);
+                    aggregated.putIfAbsent(
+                            track.trackId(),
+                            new RecommendationCandidate(
+                                    track.trackId(),
+                                    track.title(),
+                                    track.artistId(),
+                                    candidateArtistName,
+                                    track.albumName(),
+                                    0,
+                                    track
+                            )
+                    );
+                }
             }
             for (TrackDto track : musicQueryApplicationService.getArtistCatalogTracks(resolvedArtist.get().artistId(), perSeedArtistLimit)) {
                 if (track == null || !StringUtils.hasText(track.trackId())) {
@@ -356,14 +391,14 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 if (!resolvedArtist.get().artistId().equals(track.artistId())) {
                     continue;
                 }
-                retrievalHits.merge(track.trackId(), 2, Integer::sum);
+                retrievalHits.merge(track.trackId(), 1, Integer::sum);
                 aggregated.putIfAbsent(
                         track.trackId(),
                         new RecommendationCandidate(
                                 track.trackId(),
                                 track.title(),
                                 track.artistId(),
-                                resolvedArtist.get().name(),
+                                candidateArtistName,
                                 track.albumName(),
                                 0,
                                 track
@@ -435,7 +470,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                         track.trackId(),
                         track.title(),
                         track.artistId(),
-                        resolvedArtist.get().name(),
+                        preferredArtistName(resolvedArtist.get(), spec.artist()),
                         track.albumName(),
                         1,
                         track
@@ -470,7 +505,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                                 track.trackId(),
                                 track.title(),
                                 track.artistId(),
-                                resolvedArtist.map(ArtistDto::name).orElse(""),
+                                resolvedArtist.map(artist -> preferredArtistName(artist, spec.artist())).orElse(""),
                                 track.albumName(),
                                 1,
                                 track
@@ -496,7 +531,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                                 track.trackId(),
                                 track.title(),
                                 track.artistId(),
-                                resolvedArtist.get().name(),
+                                preferredArtistName(resolvedArtist.get(), spec.artist()),
                                 track.albumName(),
                                 1,
                                 track
@@ -538,7 +573,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                                 track.trackId(),
                                 track.title(),
                                 track.artistId(),
-                                resolvedArtist.get().name(),
+                                preferredArtistName(resolvedArtist.get(), spec.artist()),
                                 track.albumName(),
                                 1,
                                 track
@@ -565,7 +600,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                             track.trackId(),
                             track.title(),
                             track.artistId(),
-                            resolvedArtist.get().name(),
+                            preferredArtistName(resolvedArtist.get(), spec.artist()),
                             track.albumName(),
                             1,
                             track
@@ -632,16 +667,36 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
             SearchQueryRefiner.SearchQueryHints fallbackHints
     ) {
         String normalized = message == null ? "" : message.toLowerCase(Locale.ROOT);
-        String language = choosePreferredValue(spec.language(), detectThemeLanguage(normalized));
-        String era = choosePreferredValue(spec.era(), detectThemeEra(normalized));
-        String genre = choosePreferredValue(spec.genre(), detectThemeGenre(normalized, language));
-        String mood = choosePreferredValue(spec.mood(), detectThemeMood(normalized));
-        String scene = choosePreferredValue(spec.scene(), detectThemeScene(normalized));
+        String language = choosePreferredValue(detectThemeLanguage(normalized), spec.language());
+        String era = choosePreferredValue(detectThemeEra(normalized), spec.era());
+        String genre = choosePreferredValue(detectThemeGenre(normalized, language), spec.genre());
+        String mood = choosePreferredValue(detectThemeMood(normalized), spec.mood());
+        String scene = choosePreferredValue(detectThemeScene(normalized), spec.scene());
         List<String> contextKeywords = fallbackHints == null ? List.of() : fallbackHints.contextKeywords();
-        List<String> seedArtists = spec.seedArtists().isEmpty()
-                ? defaultThemeSeedArtists(language, era, genre)
-                : spec.seedArtists();
+        List<String> seedArtists = mergeThemeSeedArtists(
+                spec.seedArtists(),
+                defaultThemeSeedArtists(language, era, genre)
+        );
         return new ThemeAwareProfile(language, era, genre, mood, scene, contextKeywords, seedArtists);
+    }
+
+    private List<String> mergeThemeSeedArtists(List<String> primarySeeds, List<String> fallbackSeeds) {
+        LinkedHashSet<String> merged = new LinkedHashSet<>();
+        if (primarySeeds != null) {
+            primarySeeds.stream()
+                    .filter(StringUtils::hasText)
+                    .map(String::trim)
+                    .forEach(merged::add);
+        }
+        if (fallbackSeeds != null) {
+            fallbackSeeds.stream()
+                    .filter(StringUtils::hasText)
+                    .map(String::trim)
+                    .forEach(merged::add);
+        }
+        return merged.stream()
+                .limit(MAX_THEME_SEED_ARTISTS)
+                .toList();
     }
 
     private LinkedHashSet<String> buildThemeAwareQueries(
@@ -680,6 +735,31 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         if (!themeProfile.contextKeywords().isEmpty()) {
             addQuery(queries, joinThemeTokens(String.join(" ", themeProfile.contextKeywords()), localizedLanguage, localizedEra));
         }
+        return queries;
+    }
+
+    private LinkedHashSet<String> buildSeedArtistThemeQueries(
+            String seedArtist,
+            ThemeAwareProfile themeProfile
+    ) {
+        LinkedHashSet<String> queries = new LinkedHashSet<>();
+        if (!StringUtils.hasText(seedArtist)) {
+            return queries;
+        }
+
+        String localizedLanguage = localizedLanguageToken(themeProfile.language());
+        String englishLanguage = englishLanguageToken(themeProfile.language());
+        String localizedEra = localizedEraToken(themeProfile.era());
+        String englishEra = englishEraToken(themeProfile.era());
+        String localizedGenre = localizedGenreToken(themeProfile.genre());
+        String englishGenre = englishGenreToken(themeProfile.genre());
+        String localizedMood = localizedMoodToken(themeProfile.mood());
+        String localizedScene = localizedSceneToken(themeProfile.scene());
+
+        addQuery(queries, joinThemeTokens(seedArtist, localizedLanguage, localizedGenre, localizedEra));
+        addQuery(queries, joinThemeTokens(seedArtist, englishLanguage, englishGenre, englishEra));
+        addQuery(queries, joinThemeTokens(seedArtist, localizedLanguage, localizedMood, localizedScene));
+        addQuery(queries, searchQueryRefiner.buildStructuredQuery(null, seedArtist, null));
         return queries;
     }
 
@@ -893,12 +973,16 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 return List.of(
                         "\u5f20\u5b66\u53cb",
                         "\u9648\u6167\u5a34",
-                        "\u738b\u83f2",
+                        "\u8c2d\u548f\u9e9f",
+                        "\u5f20\u56fd\u8363",
+                        "\u6797\u5b50\u7965",
+                        "\u6797\u5fc6\u83b2",
                         "\u5218\u5fb7\u534e",
                         "\u9ece\u660e",
                         "\u90ed\u5bcc\u57ce",
                         "\u674e\u514b\u52e4",
-                        "\u90d1\u79c0\u6587"
+                        "\u90d1\u79c0\u6587",
+                        "\u8bb8\u51a0\u6770"
                 );
             }
         }
@@ -1073,13 +1157,22 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         );
     }
 
+    private String preferredArtistName(ArtistDto resolvedArtist, String requestedArtist) {
+        if (StringUtils.hasText(requestedArtist)) {
+            return requestedArtist.trim();
+        }
+        return resolvedArtist == null || resolvedArtist.name() == null ? "" : resolvedArtist.name();
+    }
+
     private RecommendationSpec repairResolvedSpec(
             RecommendationSpec spec,
             SearchQueryRefiner.SearchQueryHints hints
     ) {
+        String hintedTrack = hints.explicitTitles().isEmpty() ? null : hints.explicitTitles().getFirst();
+        String hintedAlbum = hints.albumTerms().isEmpty() ? null : hints.albumTerms().getFirst();
         String artist = choosePreferredValue(spec.artist(), hints.artistTerms().isEmpty() ? null : hints.artistTerms().getFirst());
-        String track = choosePreferredValue(spec.track(), hints.explicitTitles().isEmpty() ? null : hints.explicitTitles().getFirst());
-        String album = choosePreferredValue(spec.album(), hints.albumTerms().isEmpty() ? null : hints.albumTerms().getFirst());
+        String track = choosePreferredValue(hintedTrack, spec.track());
+        String album = choosePreferredValue(hintedAlbum, spec.album());
         String language = spec.language();
         String era = spec.era();
         String genre = spec.genre();
@@ -1095,14 +1188,29 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         boolean albumOnlyEvidence = StringUtils.hasText(album)
                 && hints.explicitTitles().isEmpty()
                 && !hints.wantsAdditionalTracks();
-        if (albumOnlyEvidence && !StringUtils.hasText(track)) {
+        boolean explicitTrackEvidence = StringUtils.hasText(track) && !hints.explicitTitles().isEmpty();
+        boolean latestEntityEvidence = !hints.artistTerms().isEmpty()
+                || !hints.explicitTitles().isEmpty()
+                || !hints.albumTerms().isEmpty();
+        boolean themeOnlyEvidence = !latestEntityEvidence
+                && hasThemeKeywordEvidence(hints);
+        if (explicitTrackEvidence) {
+            requestMode = RecommendationRequestMode.ENTITY_CONSTRAINED;
+        } else if (albumOnlyEvidence && !StringUtils.hasText(track)) {
             requestMode = RecommendationRequestMode.ALBUM_ONLY;
+        } else if (requestMode == RecommendationRequestMode.ARTIST_ONLY && !hints.albumTerms().isEmpty()) {
+            requestMode = RecommendationRequestMode.ENTITY_CONSTRAINED;
+        } else if (themeOnlyEvidence) {
+            requestMode = RecommendationRequestMode.THEME_AWARE;
         }
 
-        boolean wantAdditionalTracks = spec.wantAdditionalTracks();
-        boolean mustIncludeExplicitTrack = spec.mustIncludeExplicitTrack() && StringUtils.hasText(track);
-        boolean preferSameArtist = spec.preferSameArtist() && StringUtils.hasText(artist);
-        boolean preferSameAlbum = spec.preferSameAlbum() && StringUtils.hasText(album);
+        boolean wantAdditionalTracks = spec.wantAdditionalTracks() || hints.wantsAdditionalTracks();
+        boolean mustIncludeExplicitTrack = StringUtils.hasText(track)
+                && (spec.mustIncludeExplicitTrack() || !hints.explicitTitles().isEmpty());
+        boolean preferSameArtist = StringUtils.hasText(artist)
+                && (spec.preferSameArtist() || !hints.artistTerms().isEmpty());
+        boolean preferSameAlbum = StringUtils.hasText(album)
+                && (spec.preferSameAlbum() || !hints.albumTerms().isEmpty());
 
         if (requestMode == RecommendationRequestMode.ARTIST_ONLY) {
             track = null;
@@ -1147,6 +1255,49 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
                 mustIncludeExplicitTrack,
                 preferSameArtist,
                 preferSameAlbum
+        );
+    }
+
+    private boolean hasThemeKeywordEvidence(SearchQueryRefiner.SearchQueryHints hints) {
+        if (hints == null || hints.contextKeywords().isEmpty()) {
+            return false;
+        }
+        String combined = String.join(" ", hints.contextKeywords()).toLowerCase(Locale.ROOT);
+        return containsAny(
+                combined,
+                "\u7ca4\u8bed",
+                "\u7cb5\u8a9e",
+                "\u56fd\u8bed",
+                "\u83ef\u8a9e",
+                "\u534e\u8bed",
+                "\u4e2d\u6587",
+                "\u82f1\u6587",
+                "\u65e5\u8bed",
+                "\u65e5\u8a9e",
+                "\u97e9\u8bed",
+                "\u97d3\u8a9e",
+                "cantonese",
+                "cantopop",
+                "mandarin",
+                "mandopop",
+                "80\u5e74\u4ee3",
+                "90\u5e74\u4ee3",
+                "00\u5e74\u4ee3",
+                "80s",
+                "90s",
+                "2000s",
+                "\u96e8\u5929",
+                "\u901a\u52e4",
+                "\u6df1\u591c",
+                "\u6447\u6eda",
+                "\u6c11\u8c23",
+                "\u6292\u60c5",
+                "rain",
+                "commute",
+                "night",
+                "rock",
+                "folk",
+                "ballad"
         );
     }
 
@@ -1357,6 +1508,7 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         ranked.sort(Comparator
                 .comparingInt((RecommendationCandidate candidate) -> bucketFor(candidate, spec))
                 .reversed()
+                .thenComparing(Comparator.comparingInt((RecommendationCandidate candidate) -> themeQualityBucket(candidate, spec, themeProfile)).reversed())
                 .thenComparingInt(candidate -> llmPreferenceOrder.getOrDefault(candidate.trackId(), Integer.MAX_VALUE))
                 .thenComparing(Comparator.comparingInt((RecommendationCandidate candidate) -> deterministicScore(candidate, spec, themeProfile)).reversed())
                 .thenComparing(RecommendationCandidate::title, String.CASE_INSENSITIVE_ORDER));
@@ -1371,12 +1523,19 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         List<RecommendationCandidate> nonDuplicateVariants = ranked.stream()
                 .filter(candidate -> !candidate.trackId().equals(explicitCandidate.trackId()))
                 .filter(candidate -> !titleMatches(candidate.title(), explicitCandidate.title()))
+                .filter(candidate -> !isSpuriousShortTitleExpansion(candidate, spec))
+                .toList();
+        List<RecommendationCandidate> shortTitleExpansions = ranked.stream()
+                .filter(candidate -> !candidate.trackId().equals(explicitCandidate.trackId()))
+                .filter(candidate -> !titleMatches(candidate.title(), explicitCandidate.title()))
+                .filter(candidate -> isSpuriousShortTitleExpansion(candidate, spec))
                 .toList();
         List<RecommendationCandidate> duplicateTitleVariants = ranked.stream()
                 .filter(candidate -> !candidate.trackId().equals(explicitCandidate.trackId()))
                 .filter(candidate -> titleMatches(candidate.title(), explicitCandidate.title()))
                 .toList();
         reordered.addAll(nonDuplicateVariants);
+        reordered.addAll(shortTitleExpansions);
         reordered.addAll(duplicateTitleVariants);
         return reordered;
     }
@@ -1466,6 +1625,10 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         }
 
         if (selected.size() >= desiredTrackCount) {
+            return selected;
+        }
+
+        if (!selected.isEmpty()) {
             return selected;
         }
 
@@ -1562,6 +1725,8 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         int score = 0;
         if (StringUtils.hasText(spec.track()) && titleMatches(candidate.title(), spec.track())) {
             score += 500;
+        } else if (isSpuriousShortTitleExpansion(candidate, spec)) {
+            score -= 80;
         }
         if (StringUtils.hasText(spec.artist()) && artistMatches(candidate, spec.artist())) {
             score += 260;
@@ -1580,6 +1745,32 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
             score += scoreThemeAwareCandidate(candidate, themeProfile);
         }
         return score;
+    }
+
+    private int themeQualityBucket(
+            RecommendationCandidate candidate,
+            RecommendationSpec spec,
+            ThemeAwareProfile themeProfile
+    ) {
+        if (!isThemeAwareMode(spec) || themeProfile == null) {
+            return 0;
+        }
+        if (isGenericNonSongSegment(candidate.title()) || isLiveOrConcertVariant(candidate.title(), candidate.albumName())) {
+            return -2;
+        }
+        if (isLowConfidenceThemeCandidate(candidate, themeProfile)) {
+            return -1;
+        }
+        int bucket = 1;
+        if (candidate.retrievalHits() >= 3) {
+            bucket += 2;
+        } else if (candidate.retrievalHits() >= 2) {
+            bucket += 1;
+        }
+        if (hasThemeSurfaceEvidence(candidate, themeProfile)) {
+            bucket += 1;
+        }
+        return bucket;
     }
 
     private int scoreThemeAwareCandidate(
@@ -1626,8 +1817,57 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
             if (isLiveOrConcertVariant(title, album)) {
                 score -= 45;
             }
+            if (hasThemeSurfaceEvidence(candidate, themeProfile)) {
+                score += 45;
+            }
+            for (String seedArtist : themeProfile.seedArtists()) {
+                String normalizedSeedArtist = normalizeForMatching(seedArtist);
+                if (!normalizedSeedArtist.isBlank() && normalizedArtist.contains(normalizedSeedArtist)) {
+                    score += 35;
+                    break;
+                }
+            }
         }
         return score;
+    }
+
+    private boolean hasThemeSurfaceEvidence(
+            RecommendationCandidate candidate,
+            ThemeAwareProfile themeProfile
+    ) {
+        if (candidate == null || themeProfile == null) {
+            return false;
+        }
+        String combined = normalizeForMatching(String.join(
+                " ",
+                safeString(candidate.title()),
+                safeString(candidate.artistName()),
+                safeString(candidate.albumName())
+        ));
+        if (combined.isBlank()) {
+            return false;
+        }
+        String[] evidenceTerms = {
+                localizedLanguageToken(themeProfile.language()),
+                englishLanguageToken(themeProfile.language()),
+                localizedEraToken(themeProfile.era()),
+                englishEraToken(themeProfile.era()),
+                localizedGenreToken(themeProfile.genre()),
+                englishGenreToken(themeProfile.genre()),
+                localizedMoodToken(themeProfile.mood()),
+                localizedSceneToken(themeProfile.scene())
+        };
+        for (String evidenceTerm : evidenceTerms) {
+            String normalizedEvidence = normalizeForMatching(evidenceTerm);
+            if (!normalizedEvidence.isBlank() && combined.contains(normalizedEvidence)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String safeString(String value) {
+        return value == null ? "" : value;
     }
 
     private boolean containsCjk(String value) {
@@ -1659,7 +1899,43 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         if (!"cantonese".equals(language) && !"mandarin".equals(language)) {
             return false;
         }
-        return !containsCjk(candidate.title());
+        if (!containsCjk(candidate.title())
+                && !containsCjk(candidate.albumName())
+                && !containsCjk(candidate.artistName())) {
+            return true;
+        }
+        return !isHighConfidenceThemeCandidate(candidate, themeProfile);
+    }
+
+    private boolean isHighConfidenceThemeCandidate(
+            RecommendationCandidate candidate,
+            ThemeAwareProfile themeProfile
+    ) {
+        if (candidate == null || themeProfile == null) {
+            return false;
+        }
+        return hasThemeSurfaceEvidence(candidate, themeProfile)
+                || matchesThemeSeedArtist(candidate, themeProfile);
+    }
+
+    private boolean matchesThemeSeedArtist(
+            RecommendationCandidate candidate,
+            ThemeAwareProfile themeProfile
+    ) {
+        if (candidate == null || themeProfile == null || themeProfile.seedArtists().isEmpty()) {
+            return false;
+        }
+        String normalizedArtist = normalizeForMatching(candidate.artistName());
+        if (normalizedArtist.isBlank()) {
+            return false;
+        }
+        for (String seedArtist : themeProfile.seedArtists()) {
+            String normalizedSeedArtist = normalizeForMatching(seedArtist);
+            if (!normalizedSeedArtist.isBlank() && normalizedArtist.contains(normalizedSeedArtist)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isGenericNonSongSegment(String title) {
@@ -1667,7 +1943,16 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         return normalized.equals("intro")
                 || normalized.equals("outro")
                 || normalized.equals("interlude")
-                || normalized.equals("skit");
+                || normalized.equals("skit")
+                || normalized.equals("80s")
+                || normalized.equals("90s")
+                || normalized.equals("00s")
+                || normalized.equals("1980s")
+                || normalized.equals("1990s")
+                || normalized.equals("2000s")
+                || normalized.equals("80\u5e74\u4ee3")
+                || normalized.equals("90\u5e74\u4ee3")
+                || normalized.equals("2000\u5e74\u4ee3");
     }
 
     private boolean titleMatches(String actualTitle, String expectedTitle) {
@@ -1676,14 +1961,46 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         if (normalizedActual.isBlank() || normalizedExpected.isBlank()) {
             return false;
         }
-        if (normalizedActual.equals(normalizedExpected)
-                || normalizedActual.contains(normalizedExpected)
+        if (normalizedActual.equals(normalizedExpected)) {
+            return true;
+        }
+        if (isShortCjkTitle(normalizedExpected)) {
+            return normalizeBaseTitle(actualTitle).equals(normalizedExpected);
+        }
+        if (normalizedActual.contains(normalizedExpected)
                 || normalizedExpected.contains(normalizedActual)) {
             return true;
         }
         int lcsLength = longestCommonSubsequenceLength(normalizedActual, normalizedExpected);
         int minLength = Math.min(normalizedActual.length(), normalizedExpected.length());
         return minLength >= 4 && lcsLength >= minLength - 1;
+    }
+
+    private boolean isShortCjkTitle(String normalizedTitle) {
+        return normalizedTitle.codePointCount(0, normalizedTitle.length()) <= 2
+                && containsCjk(normalizedTitle);
+    }
+
+    private boolean isSpuriousShortTitleExpansion(RecommendationCandidate candidate, RecommendationSpec spec) {
+        if (candidate == null || spec == null || !StringUtils.hasText(spec.track())) {
+            return false;
+        }
+        String normalizedExpected = normalizeForMatching(spec.track());
+        if (!isShortCjkTitle(normalizedExpected)) {
+            return false;
+        }
+        String normalizedActual = normalizeForMatching(candidate.title());
+        return StringUtils.hasText(normalizedActual)
+                && normalizedActual.contains(normalizedExpected)
+                && !titleMatches(candidate.title(), spec.track());
+    }
+
+    private String normalizeBaseTitle(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        String base = value.replaceFirst("(?i)\\s*[-\\u2013\\u2014(（\\[]\\s*(live|remaster(?:ed)?|version|demo|伴奏|演唱会|演唱會|现场|現場|重制|重錄|重录).*$", "");
+        return normalizeForMatching(base);
     }
 
     private boolean artistMatches(RecommendationCandidate candidate, String expectedArtist) {
@@ -1704,7 +2021,15 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
         if (normalizedActual.isBlank() || normalizedExpected.isBlank()) {
             return false;
         }
-        return normalizedActual.equals(normalizedExpected) || normalizedActual.contains(normalizedExpected);
+        if (normalizedActual.equals(normalizedExpected) || normalizedActual.contains(normalizedExpected)) {
+            return true;
+        }
+        if (normalizedActual.length() >= 4 && normalizedExpected.contains(normalizedActual)) {
+            return true;
+        }
+        int lcsLength = longestCommonSubsequenceLength(normalizedActual, normalizedExpected);
+        int minLength = Math.min(normalizedActual.length(), normalizedExpected.length());
+        return minLength >= 6 && lcsLength >= minLength - 1;
     }
 
     private String normalizeForMatching(String value) {
@@ -1903,13 +2228,23 @@ public class LlmBackedRecommendationSelectionService implements RecommendationSe
             builder.append("{\"serialization\":\"failed\"}");
         }
         builder.append("\n\ncandidates:\n");
+        SearchQueryRefiner.SearchQueryHints latestHints = searchQueryRefiner.analyze(planningContext.request().message());
+        ThemeAwareProfile themeProfile = deriveThemeAwareProfile(spec, planningContext.request().message(), latestHints);
         for (RecommendationCandidate candidate : candidates) {
             builder.append("- {")
                     .append("\"trackId\":\"").append(candidate.trackId()).append("\",")
                     .append("\"title\":\"").append(escapeForPrompt(candidate.title())).append("\",")
                     .append("\"artistName\":\"").append(escapeForPrompt(candidate.artistName())).append("\",")
                     .append("\"albumName\":\"").append(escapeForPrompt(candidate.albumName())).append("\",")
-                    .append("\"retrievalHits\":").append(candidate.retrievalHits())
+                    .append("\"retrievalHits\":").append(candidate.retrievalHits()).append(",")
+                    .append("\"evidence\":{")
+                    .append("\"explicitTitleMatch\":").append(StringUtils.hasText(spec.track()) && titleMatches(candidate.title(), spec.track())).append(",")
+                    .append("\"shortTitleExpansion\":").append(isSpuriousShortTitleExpansion(candidate, spec)).append(",")
+                    .append("\"artistMatch\":").append(StringUtils.hasText(spec.artist()) && artistMatches(candidate, spec.artist())).append(",")
+                    .append("\"albumMatch\":").append(StringUtils.hasText(spec.album()) && albumMatches(candidate.albumName(), spec.album())).append(",")
+                    .append("\"themeQualityBucket\":").append(themeQualityBucket(candidate, spec, themeProfile)).append(",")
+                    .append("\"lowConfidenceThemeCandidate\":").append(isLowConfidenceThemeCandidate(candidate, themeProfile))
+                    .append("}")
                     .append("}\n");
         }
         return builder.toString();
