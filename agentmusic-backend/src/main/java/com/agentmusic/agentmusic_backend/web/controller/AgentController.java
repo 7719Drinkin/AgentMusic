@@ -13,8 +13,12 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +33,9 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 @RestController
 @RequestMapping("/api/agent")
 public class AgentController {
+
+    private static final Logger log = LoggerFactory.getLogger(AgentController.class);
+    private static final long STREAM_HEARTBEAT_INTERVAL_MS = 10_000L;
 
     private final AgentApplicationService agentApplicationService;
     private final LiveChatReplyService liveChatReplyService;
@@ -53,29 +60,37 @@ public class AgentController {
     public ResponseEntity<StreamingResponseBody> chatStream(@RequestBody AgentChatRequest request) {
         StreamingResponseBody stream = outputStream -> {
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8));
+            Object writeLock = new Object();
+            AtomicBoolean streamClosed = new AtomicBoolean(false);
+            Thread heartbeatThread = startHeartbeat(writer, writeLock, streamClosed);
             AgentChatStreamListener listener = new AgentChatStreamListener() {
                 @Override
                 public void onStatus(String message) {
-                    writeStreamEventUnchecked(writer, "status", Map.of("message", message));
+                    writeStreamEventUnchecked(writer, writeLock, "status", Map.of("message", message));
                 }
 
                 @Override
                 public void onReplyDelta(String delta) {
-                    writeStreamEventUnchecked(writer, "reply-delta", Map.of("delta", delta));
+                    writeStreamEventUnchecked(writer, writeLock, "reply-delta", Map.of("delta", delta));
                 }
             };
 
             try {
                 AgentChatResponse response = agentApplicationService.chat(request, listener);
-                writeStreamEvent(writer, "complete", Map.of("response", response));
+                writeStreamEvent(writer, writeLock, "complete", Map.of("response", response));
             } catch (UncheckedIOException exception) {
                 throw exception.getCause();
             } catch (RuntimeException exception) {
-                writeStreamEvent(writer, "error", Map.of("message", exception.getMessage() == null ? "Agent request failed." : exception.getMessage()));
+                writeStreamEvent(writer, writeLock, "error", Map.of("message", exception.getMessage() == null ? "Agent request failed." : exception.getMessage()));
+            } finally {
+                streamClosed.set(true);
+                heartbeatThread.interrupt();
             }
         };
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("application/x-ndjson"))
+                .header("Cache-Control", "no-cache")
+                .header("X-Accel-Buffering", "no")
                 .body(stream);
     }
 
@@ -92,20 +107,45 @@ public class AgentController {
         return liveChatReplyService.getRuntimeStatus();
     }
 
-    private void writeStreamEventUnchecked(BufferedWriter writer, String type, Object payload) {
+    private Thread startHeartbeat(BufferedWriter writer, Object writeLock, AtomicBoolean streamClosed) {
+        Thread heartbeatThread = new Thread(() -> {
+            while (!streamClosed.get()) {
+                try {
+                    Thread.sleep(STREAM_HEARTBEAT_INTERVAL_MS);
+                    if (!streamClosed.get()) {
+                        writeStreamEvent(writer, writeLock, "heartbeat", Map.of("timestamp", Instant.now().toString()));
+                    }
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    return;
+                } catch (IOException | UncheckedIOException exception) {
+                    streamClosed.set(true);
+                    log.debug("Agent chat stream heartbeat stopped because the stream is no longer writable.", exception);
+                    return;
+                }
+            }
+        }, "agent-chat-stream-heartbeat");
+        heartbeatThread.setDaemon(true);
+        heartbeatThread.start();
+        return heartbeatThread;
+    }
+
+    private void writeStreamEventUnchecked(BufferedWriter writer, Object writeLock, String type, Object payload) {
         try {
-            writeStreamEvent(writer, type, payload);
+            writeStreamEvent(writer, writeLock, type, payload);
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }
     }
 
-    private void writeStreamEvent(BufferedWriter writer, String type, Object payload) throws IOException {
-        writer.write(objectMapper.writeValueAsString(Map.of(
-                "type", type,
-                "payload", payload
-        )));
-        writer.newLine();
-        writer.flush();
+    private void writeStreamEvent(BufferedWriter writer, Object writeLock, String type, Object payload) throws IOException {
+        synchronized (writeLock) {
+            writer.write(objectMapper.writeValueAsString(Map.of(
+                    "type", type,
+                    "payload", payload
+            )));
+            writer.newLine();
+            writer.flush();
+        }
     }
 }

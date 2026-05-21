@@ -1,7 +1,7 @@
 ﻿# AgentMusic 任务清单
 
-版本：T2.6
-更新日期：2026-05-13
+版本：T2.7
+更新日期：2026-05-21
 
 本文档用于跟踪当前版本的任务优先级、已完成工作和下一步实施顺序。
 
@@ -268,6 +268,28 @@
 - 不再把“重启恢复验证”作为当前阶段常规开发验收项。
 
 ## 4. 重大缺陷记录
+
+### Spotify Search 400 Bad Request
+
+当前观察到后端偶发：
+
+- `WebClientResponseException$BadRequest: 400 Bad Request from GET https://api.spotify.com/v1/search`
+
+初步判断：
+
+- 问题发生在后端调用 Spotify Web API `/v1/search`，不是前端直接请求失败。
+- 当前推荐链会生成大量结构化 / 主题型 query，部分 query 可能因字段组合、特殊字符、长度、空白内容或 Spotify search 语法不兼容触发 400。
+- 现有日志只打印了异常栈，缺少 Spotify 返回 body、最终 query、limit、market 等上下文，导致无法精准定位是哪条 query 触发。
+
+后续待处理：
+
+- 在 `SpotifyWebApiCatalogClient.searchTracks/searchArtists` 中补充 400 响应 body、query、limit、market 的结构化日志。
+- 对进入 Spotify `/v1/search` 的 query 做输入校验与降级：
+  - 空 query 直接跳过。
+  - 过长 query 截断或拆分。
+  - 结构化字段值中的特殊字符做安全清洗。
+  - 单条 query 400 时只丢弃该候选，不中断整轮推荐。
+- 增加回归用例覆盖 malformed query 不应导致整轮 Agent 请求失败。
 
 ### Bridge 模式播放上下文共享
 
