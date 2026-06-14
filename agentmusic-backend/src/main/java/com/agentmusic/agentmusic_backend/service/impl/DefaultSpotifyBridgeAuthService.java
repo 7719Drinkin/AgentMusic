@@ -4,6 +4,7 @@ import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyAuthClient;
 import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyToken;
 import com.agentmusic.agentmusic_backend.config.SpotifyBridgeProperties;
 import com.agentmusic.agentmusic_backend.web.dto.SpotifyBridgeAuthStatusDto;
+import com.agentmusic.agentmusic_backend.web.dto.SpotifyWebPlaybackTokenDto;
 import com.agentmusic.agentmusic_backend.web.exception.ApiErrorCodes;
 import com.agentmusic.agentmusic_backend.web.exception.SpotifyBridgeAuthorizationException;
 import com.agentmusic.agentmusic_backend.persistence.repository.SpotifyBridgeTokenRepository;
@@ -24,6 +25,11 @@ public class DefaultSpotifyBridgeAuthService implements SpotifyBridgeAuthService
 
     private static final long STATE_TTL_SECONDS = 600;
     private static final long REFRESH_SKEW_SECONDS = 60;
+    private static final Set<String> WEB_PLAYBACK_REQUIRED_SCOPES = Set.of(
+            "streaming",
+            "user-read-email",
+            "user-read-private"
+    );
 
     private final SpotifyAuthClient spotifyAuthClient;
     private final SpotifyBridgeTokenRepository spotifyBridgeTokenRepository;
@@ -68,6 +74,32 @@ public class DefaultSpotifyBridgeAuthService implements SpotifyBridgeAuthService
         return spotifyBridgeTokenRepository.findCurrent()
                 .map(this::refreshIfNeeded)
                 .map(SpotifyToken::accessToken);
+    }
+
+    @Override
+    public SpotifyWebPlaybackTokenDto getWebPlaybackToken() {
+        ensureBridgeEnabled();
+        SpotifyToken spotifyToken = spotifyBridgeTokenRepository.findCurrent()
+                .map(this::refreshIfNeeded)
+                .orElseThrow(() -> new SpotifyBridgeAuthorizationException(
+                        ApiErrorCodes.AUTHORIZATION_MISSING,
+                        "Spotify bridge account is not connected. Reconnect the bridge account and try again."
+                ));
+        Set<String> missingScopes = missingWebPlaybackScopes(spotifyToken.scopes());
+        if (!missingScopes.isEmpty()) {
+            throw new SpotifyBridgeAuthorizationException(
+                    ApiErrorCodes.SCOPE_MISSING,
+                    "Spotify bridge authorization is missing Web Playback SDK scopes: "
+                            + String.join(", ", missingScopes)
+                            + ". Reconnect the bridge account and try again."
+            );
+        }
+        return new SpotifyWebPlaybackTokenDto(
+                spotifyToken.accessToken(),
+                spotifyToken.expiresAt(),
+                spotifyToken.scopes(),
+                missingScopes
+        );
     }
 
     @Override
@@ -124,6 +156,15 @@ public class DefaultSpotifyBridgeAuthService implements SpotifyBridgeAuthService
                 spotifyToken.scopes(),
                 spotifyToken.expiresAt()
         );
+    }
+
+    private Set<String> missingWebPlaybackScopes(Set<String> scopes) {
+        if (scopes == null || scopes.isEmpty()) {
+            return WEB_PLAYBACK_REQUIRED_SCOPES;
+        }
+        Set<String> missingScopes = new java.util.LinkedHashSet<>(WEB_PLAYBACK_REQUIRED_SCOPES);
+        missingScopes.removeAll(scopes);
+        return missingScopes;
     }
 
     private void validateState(String state) {

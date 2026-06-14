@@ -173,6 +173,76 @@
     gap: 8px;
 }
 
+.webPlayerCard{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(29,185,84,.18), rgba(255,255,255,.05));
+    border: 1px solid rgba(29,185,84,.24);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.webPlayerMain{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.webPlayerTitle{
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.webPlayerStatus{
+    display: inline-flex;
+    width: fit-content;
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.webPlayerHint{
+    display: block;
+    max-width: 210px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.35;
+    opacity: .86;
+}
+
+.webPlayerButton{
+    border: 0;
+    border-radius: 999px;
+    background: #1ed760;
+    color: #06180d;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.2;
+    padding: 8px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 8px 18px rgba(29,185,84,.2);
+}
+
+.webPlayerButton:hover:enabled{
+    background: #31e773;
+}
+
+.webPlayerButton:disabled{
+    opacity: .58;
+    cursor: default;
+}
+
 .deviceNotice{
     margin: 0;
     border-radius: 10px;

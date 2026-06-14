@@ -5,6 +5,7 @@ public final class ApiErrorCodes {
     public static final String AUTHORIZATION = "spotify-authorization";
     public static final String AUTHORIZATION_MISSING = "spotify-authorization-missing";
     public static final String AUTHORIZATION_STATE = "spotify-authorization-state";
+    public static final String SCOPE_MISSING = "spotify-scope-missing";
     public static final String BRIDGE_DISABLED = "spotify-bridge-disabled";
     public static final String DEVICE_UNAVAILABLE = "spotify-device-unavailable";
     public static final String DEVICE_OFFLINE = "spotify-device-offline";

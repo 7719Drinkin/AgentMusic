@@ -170,7 +170,7 @@ class GlobalApiExceptionHandlerTests {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(response.getBody()).isEqualTo(new ApiErrorResponse(
                 ApiErrorCodes.DEVICE_RESTRICTED,
-                "Spotify reported the selected playback device as restricted. Keep an active Web Player or desktop client available and try again."
+                "Spotify reported the selected playback device as restricted. Enable the AgentMusic web player or choose another device."
         ));
     }
 
@@ -190,7 +190,7 @@ class GlobalApiExceptionHandlerTests {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(response.getBody()).isEqualTo(new ApiErrorResponse(
                 ApiErrorCodes.DEVICE_UNAVAILABLE,
-                "Spotify did not report an active playback device. Keep the same bridge account Web Player or desktop client online."
+                "Spotify did not report an active playback device. Enable the AgentMusic web player and try again."
         ));
     }
 

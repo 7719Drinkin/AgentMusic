@@ -22,6 +22,8 @@ import org.springframework.stereotype.Service;
 public class DefaultBridgePlaybackControlService implements BridgePlaybackControlService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultBridgePlaybackControlService.class);
+    private static final int DEVICE_OPERATION_ATTEMPTS = 3;
+    private static final long DEVICE_OPERATION_RETRY_DELAY_MS = 350L;
 
     private final SpotifyPlaybackClient spotifyPlaybackClient;
     private final SpotifyBridgeAuthService spotifyBridgeAuthService;
@@ -55,9 +57,9 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
 
         ensureTargetDevice(accessToken, resolvedDeviceId);
         if (shouldResume) {
-            spotifyPlaybackClient.transferPlayback(accessToken, resolvedDeviceId, true);
+            transferPlaybackWithRetry(accessToken, resolvedDeviceId, true);
         } else {
-            spotifyPlaybackClient.playTrack(accessToken, trackId, resolvedDeviceId);
+            playTrackWithRetry(accessToken, trackId, resolvedDeviceId);
             applyPlaybackModeBestEffort(accessToken, resolvedPlaybackMode, resolvedDeviceId);
         }
         return playbackSessionService.saveSession(
@@ -190,7 +192,7 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
         if (resolvedDeviceId == null) {
             return current;
         }
-        spotifyPlaybackClient.transferPlayback(accessToken, resolvedDeviceId, play);
+        transferPlaybackWithRetry(accessToken, resolvedDeviceId, play);
         return playbackSessionService.saveSession(
                 userId,
                 current == null ? null : current.sessionId(),
@@ -226,11 +228,6 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
         List<SpotifyBridgeDevice> availableDevices = spotifyPlaybackClient.getAvailableDevices(accessToken).stream()
                 .filter(device -> device.id() != null && !device.id().isBlank())
                 .toList();
-        if (availableDevices.isEmpty()) {
-            throw new SpotifyPlaybackUnavailableException(
-                    "Spotify did not report any available devices. Keep the same bridge account Web Player or desktop client online."
-            );
-        }
 
         return availableDevices.stream()
                 .filter(device -> requestedDeviceId.equals(device.id()))
@@ -239,15 +236,13 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
                     if (device.restricted()) {
                         throw new SpotifyPlaybackUnavailableException(
                                 ApiErrorCodes.DEVICE_RESTRICTED,
-                                "Selected Spotify device is restricted. Switch to an active Web Player or desktop client."
+                                "Selected Spotify device is restricted. Enable the AgentMusic web player or choose another device."
                         );
                     }
                     return device.id();
                 })
-                .orElseThrow(() -> new SpotifyPlaybackUnavailableException(
-                        ApiErrorCodes.DEVICE_OFFLINE,
-                        "Selected Spotify device is offline or no longer available. Refresh devices and try again."
-                ));
+                // A Web Playback SDK device can be usable before Spotify reports it in /me/player/devices.
+                .orElse(requestedDeviceId);
     }
 
     private String resolveTargetDeviceId(String accessToken, String userId, String requestedDeviceId) {
@@ -255,9 +250,25 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
                 .filter(device -> device.id() != null && !device.id().isBlank())
                 .toList();
         if (availableDevices.isEmpty()) {
+            if (requestedDeviceId != null && !requestedDeviceId.isBlank()) {
+                return requestedDeviceId;
+            }
             throw new SpotifyPlaybackUnavailableException(
-                    "Spotify did not report any available devices. Keep the same bridge account Web Player or desktop client online."
+                    "Spotify did not report any available AgentMusic playback devices. Enable the AgentMusic web player and try again."
             );
+        }
+
+        if (requestedDeviceId != null && !requestedDeviceId.isBlank()) {
+            Optional<SpotifyBridgeDevice> requestedDevice = availableDevices.stream()
+                    .filter(device -> requestedDeviceId.equals(device.id()))
+                    .findFirst();
+            if (requestedDevice.isPresent() && requestedDevice.get().restricted()) {
+                throw new SpotifyPlaybackUnavailableException(
+                        ApiErrorCodes.DEVICE_RESTRICTED,
+                        "Selected Spotify device is restricted. Enable the AgentMusic web player or choose another device."
+                );
+            }
+            return requestedDeviceId;
         }
 
         List<SpotifyBridgeDevice> devices = availableDevices.stream()
@@ -266,7 +277,7 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
         if (devices.isEmpty()) {
             throw new SpotifyPlaybackUnavailableException(
                     ApiErrorCodes.DEVICE_RESTRICTED,
-                    "Spotify detected devices, but all of them are restricted. Switch to an active Web Player or desktop client."
+                    "Spotify detected devices, but all of them are restricted. Enable the AgentMusic web player or choose another device."
             );
         }
 
@@ -305,7 +316,58 @@ public class DefaultBridgePlaybackControlService implements BridgePlaybackContro
         if (targetDeviceIsActive) {
             return;
         }
-        spotifyPlaybackClient.transferPlayback(accessToken, deviceId, false);
+        transferPlaybackWithRetry(accessToken, deviceId, false);
+    }
+
+    private void transferPlaybackWithRetry(String accessToken, String deviceId, boolean play) {
+        runDeviceOperationWithRetry(
+                "transferPlayback",
+                deviceId,
+                () -> spotifyPlaybackClient.transferPlayback(accessToken, deviceId, play)
+        );
+    }
+
+    private void playTrackWithRetry(String accessToken, String trackId, String deviceId) {
+        runDeviceOperationWithRetry(
+                "playTrack",
+                deviceId,
+                () -> spotifyPlaybackClient.playTrack(accessToken, trackId, deviceId)
+        );
+    }
+
+    private void runDeviceOperationWithRetry(String operation, String deviceId, Runnable operationCall) {
+        RuntimeException lastException = null;
+        for (int attempt = 1; attempt <= DEVICE_OPERATION_ATTEMPTS; attempt++) {
+            try {
+                operationCall.run();
+                return;
+            } catch (RuntimeException exception) {
+                lastException = exception;
+                if (attempt >= DEVICE_OPERATION_ATTEMPTS) {
+                    break;
+                }
+                LOGGER.warn(
+                        "Spotify {} failed for deviceId={} attempt={}/{}. Retrying after {}ms.",
+                        operation,
+                        deviceId,
+                        attempt,
+                        DEVICE_OPERATION_ATTEMPTS,
+                        DEVICE_OPERATION_RETRY_DELAY_MS,
+                        exception
+                );
+                sleepBeforeRetry();
+            }
+        }
+        throw lastException;
+    }
+
+    private void sleepBeforeRetry() {
+        try {
+            Thread.sleep(DEVICE_OPERATION_RETRY_DELAY_MS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting to retry Spotify playback device operation.", exception);
+        }
     }
 
     private void applyPlaybackModeBestEffort(String accessToken, PlaybackMode playbackMode, String deviceId) {

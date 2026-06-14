@@ -102,6 +102,7 @@ Current bridge-mode baseline should request:
 
 - `user-read-private`
 - `user-read-email`
+- `streaming`
 - `user-read-playback-state`
 - `user-read-currently-playing`
 - `user-modify-playback-state`
@@ -172,6 +173,12 @@ Only one token set is used:
 
 - one bridge account access token
 - one bridge account refresh token
+
+The backend owns the refresh token and Spotify app secret. For Spotify Web Playback SDK only, the frontend may request a short-lived access token through the backend token-broker endpoint:
+
+- `GET /api/auth/spotify/web-playback-token`
+
+This endpoint must not expose the refresh token or client secret.
 
 ### Storage recommendation
 
@@ -269,4 +276,3 @@ Future phase 2 can replace bridge token ownership with per-user Spotify authoriz
 - planner structure
 
 That is why Spotify access should stay behind client and service interfaces from the start.
-
