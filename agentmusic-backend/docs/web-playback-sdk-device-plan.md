@@ -71,7 +71,7 @@ Footer UI
 
 ### Missing `streaming` scope
 
-Current backend scopes include playback read/write scopes but do not include `streaming`.
+The backend authorization scope list must include `streaming`.
 
 Solution:
 
@@ -182,11 +182,10 @@ Solution:
 ### Phase 1: Authorization and token broker
 
 1. Add `streaming` to the Spotify authorization scope list.
-2. Extend auth status to report whether all Web Playback SDK scopes are present.
-3. Add `GET /api/auth/spotify/web-playback-token`.
-4. Return only short-lived access token metadata to the frontend.
-5. Add structured error response for missing scope or expired bridge authorization.
-6. Update bridge-mode documentation to mention the Web Playback SDK token exception.
+2. Add `GET /api/auth/spotify/web-playback-token`.
+3. Return only short-lived access token metadata to the frontend.
+4. Add structured error response for missing scope or expired bridge authorization.
+5. Update bridge-mode documentation to mention the Web Playback SDK token exception.
 
 Expected result:
 
@@ -342,4 +341,3 @@ Recommended execution order:
 - Transfer Playback: https://developer.spotify.com/documentation/web-api/reference/transfer-a-users-playback
 - Start/Resume Playback: https://developer.spotify.com/documentation/web-api/reference/start-a-users-playback
 - Spotify Scopes: https://developer.spotify.com/documentation/web-api/concepts/scopes
-

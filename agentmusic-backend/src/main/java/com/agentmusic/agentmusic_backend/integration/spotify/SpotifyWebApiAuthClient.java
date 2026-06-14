@@ -30,6 +30,7 @@ public class SpotifyWebApiAuthClient implements SpotifyAuthClient {
     private static final Set<String> DEFAULT_SCOPES = Set.of(
             "user-read-private",
             "user-read-email",
+            "streaming",
             "user-read-playback-state",
             "user-read-currently-playing",
             "user-modify-playback-state",

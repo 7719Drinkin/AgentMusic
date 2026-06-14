@@ -4,6 +4,7 @@ const ERROR_CODE = {
   AUTHORIZATION: 'spotify-authorization',
   AUTHORIZATION_MISSING: 'spotify-authorization-missing',
   AUTHORIZATION_STATE: 'spotify-authorization-state',
+  SCOPE_MISSING: 'spotify-scope-missing',
   BRIDGE_DISABLED: 'spotify-bridge-disabled',
   DEVICE_UNAVAILABLE: 'spotify-device-unavailable',
   DEVICE_OFFLINE: 'spotify-device-offline',
@@ -159,14 +160,16 @@ function toUserMessage(path, status, code, detailMessage) {
       return 'Spotify bridge authorization expired or is invalid. Reconnect the bridge account and try again.'
     case ERROR_CODE.AUTHORIZATION_MISSING:
       return 'Spotify bridge account is not connected. Reconnect the bridge account and try again.'
+    case ERROR_CODE.SCOPE_MISSING:
+      return 'Spotify bridge authorization is missing Web Playback SDK scopes. Reconnect the bridge account and try again.'
     case ERROR_CODE.BRIDGE_DISABLED:
       return 'Spotify bridge mode is disabled on the backend. Enable the bridge configuration and try again.'
     case ERROR_CODE.DEVICE_UNAVAILABLE:
-      return 'No active Spotify device is available. Keep the same bridge account Web Player or desktop client online.'
+      return 'No active Spotify device is available. Enable the AgentMusic web player and try again.'
     case ERROR_CODE.DEVICE_OFFLINE:
       return 'Selected Spotify device is offline or unavailable. Refresh the device list and try again.'
     case ERROR_CODE.DEVICE_RESTRICTED:
-      return 'Detected Spotify devices are restricted. Switch to an active Web Player or desktop client and try again.'
+      return 'Detected Spotify devices are restricted. Enable the AgentMusic web player or choose another device.'
     case ERROR_CODE.NETWORK:
       return 'Spotify service is temporarily unreachable. Check the network or DNS and try again.'
     case ERROR_CODE.PLAYBACK_CONFLICT:

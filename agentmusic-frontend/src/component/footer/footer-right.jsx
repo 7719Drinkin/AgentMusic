@@ -18,6 +18,8 @@ function FooterRight({
   isDeviceBusy,
   devicePanelMessage,
   devicePanelTone,
+  webPlayback,
+  onEnableWebPlayback,
   onRefreshDevices,
   onTransferDevice,
 }) {
@@ -37,6 +39,8 @@ function FooterRight({
   })
   const deviceSummaryStateClassName = getSummaryToneClassName(styles, deviceSummaryState.tone)
   const panelNoticeClassName = getNoticeToneClassName(styles, devicePanelTone)
+  const webPlayerState = getWebPlayerState(webPlayback)
+  const webPlayerToneClassName = getNoticeToneClassName(styles, webPlayerState.tone)
 
   useEffect(() => {
     if (!isDevicePanelOpen) {
@@ -141,6 +145,28 @@ function FooterRight({
                 {isDevicesLoading ? 'Refreshing...' : 'Refresh'}
               </button>
             </div>
+            <div className={styles.webPlayerCard} data-testid="agentmusic-web-player-card">
+              <div className={styles.webPlayerMain}>
+                <span className={styles.webPlayerTitle}>AgentMusic Web Player</span>
+                <span className={`${styles.webPlayerStatus} ${webPlayerToneClassName}`.trim()}>
+                  {webPlayerState.label}
+                </span>
+                {webPlayback?.errorMessage ? (
+                  <span className={`${styles.webPlayerHint} ${webPlayerToneClassName}`.trim()}>
+                    {webPlayback.errorMessage}
+                  </span>
+                ) : null}
+              </div>
+              <button
+                className={styles.webPlayerButton}
+                type="button"
+                onClick={onEnableWebPlayback}
+                disabled={isDeviceBusy || webPlayback?.isConnecting}
+                data-testid="agentmusic-web-player-enable"
+              >
+                {webPlayback?.isConnecting ? 'Connecting...' : webPlayback?.isReady ? 'Use here' : 'Enable'}
+              </button>
+            </div>
             {devicePanelMessage ? (
               <p
                 className={`${styles.deviceNotice} ${panelNoticeClassName}`.trim()}
@@ -154,7 +180,7 @@ function FooterRight({
                 className={`${styles.deviceNotice} ${styles.deviceNoticeWarning}`.trim()}
                 data-testid="playback-device-notice"
               >
-                Current session device is offline. Choose another available device.
+                Current session device is offline. Enable AgentMusic Web Player or choose another available device.
               </p>
             ) : null}
             {!devicePanelMessage && hasRestrictedOnly ? (
@@ -162,7 +188,7 @@ function FooterRight({
                 className={`${styles.deviceNotice} ${styles.deviceNoticeWarning}`.trim()}
                 data-testid="playback-device-notice"
               >
-                Detected devices are restricted. Keep the same bridge account Web Player or desktop client active.
+                Detected devices are restricted. Enable AgentMusic Web Player or choose another available device.
               </p>
             ) : null}
             <div className={styles.devicePanelBody}>
@@ -171,7 +197,7 @@ function FooterRight({
               ) : null}
               {!isDevicesLoading && devices.length === 0 ? (
                 <p className={styles.deviceEmpty} data-testid="playback-device-empty">
-                  No available Spotify devices. Keep the same bridge account Web Player or desktop client online.
+                  No available Spotify devices. Enable AgentMusic Web Player to play in this browser.
                 </p>
               ) : null}
               {!isDevicesLoading && devices.map((device) => {
@@ -259,7 +285,23 @@ function getDeviceSummaryState({
   if (hasCurrentDevice) {
     return { text: 'Current device ready', tone: 'success' }
   }
-  return { text: 'Open Spotify on this bridge account', tone: 'info' }
+  return { text: 'Enable AgentMusic Web Player', tone: 'info' }
+}
+
+function getWebPlayerState(webPlayback) {
+  if (webPlayback?.isConnecting) {
+    return { label: 'Connecting', tone: 'info' }
+  }
+  if (webPlayback?.isActive) {
+    return { label: 'Playing here', tone: 'success' }
+  }
+  if (webPlayback?.isReady) {
+    return { label: 'Ready', tone: 'success' }
+  }
+  if (webPlayback?.errorMessage) {
+    return { label: 'Needs attention', tone: 'error' }
+  }
+  return { label: 'Off', tone: 'info' }
 }
 
 function getNoticeToneClassName(stylesModule, tone) {

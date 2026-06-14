@@ -16,6 +16,7 @@ import {
   transferPlayback,
 } from '../../api/playback'
 import CONST from '../../constants/index'
+import useSpotifyWebPlayback from '../../hooks/useSpotifyWebPlayback'
 import useWindowSize from '../../hooks/useWindowSize'
 import Audio from './audio'
 import FooterLeft from './footer-left'
@@ -73,6 +74,7 @@ function Footer(props) {
   const [isDeviceBusy, setIsDeviceBusy] = useState(false)
   const [devicePanelMessage, setDevicePanelMessage] = useState('')
   const [devicePanelTone, setDevicePanelTone] = useState('info')
+  const webPlayback = useSpotifyWebPlayback({ volume })
 
   const hasTrackContext = Boolean(props.trackData.trackId || props.trackData.track)
   const hasPlaylistContext = Boolean(props.currentPlaylistId)
@@ -80,6 +82,22 @@ function Footer(props) {
   const remoteDurationSeconds = (props.trackData.durationMs || 0) / 1000
   const canSeek = hasTrackContext && (duration > 0 || remoteDurationSeconds > 0)
   const shouldUseLocalPreview = Boolean(props.trackData.track) && !props.trackData.trackId
+  const webPlaybackDevice = webPlayback.deviceId
+    ? {
+        id: webPlayback.deviceId,
+        name: 'AgentMusic Web Player',
+        active: props.deviceId === webPlayback.deviceId || webPlayback.isActive,
+        restricted: false,
+        type: 'Web Playback SDK',
+        volumePercent: Math.round(volume * 100),
+      }
+    : null
+  const devicesForPanel = webPlaybackDevice
+    ? [
+        webPlaybackDevice,
+        ...devices.filter((device) => device.id !== webPlaybackDevice.id),
+      ]
+    : devices
 
   const applyPlaybackSession = async (session) => {
     if (!session) {
@@ -125,6 +143,39 @@ function Footer(props) {
 
     props.syncPlaybackSessionAction(payload)
     setCurrentTime((session.currentPositionMs || 0) / 1000)
+  }
+
+  const syncCurrentPlaybackState = (overrides = {}) => {
+    props.syncPlaybackSessionAction({
+      currentPositionMs: Math.round(currentTime * 1000),
+      isPlaying: props.isPlaying,
+      playbackMode: props.playbackMode,
+      deviceId: props.deviceId,
+      currentPlaylistId: props.currentPlaylistId,
+      currentTrackIndex: props.currentTrackIndex,
+      trackId: props.trackData.trackId,
+      track: props.trackData.track,
+      trackName: props.trackData.trackName,
+      trackImg: props.trackData.trackImg,
+      trackArtist: props.trackData.trackArtist,
+      trackArtistId: props.trackData.trackArtistId,
+      albumName: props.trackData.albumName,
+      albumId: props.trackData.albumId,
+      durationMs: props.trackData.durationMs,
+      ...overrides,
+    })
+  }
+
+  const ensureWebPlaybackDevice = async ({ activate = false } = {}) => {
+    if (shouldUseLocalPreview) {
+      return props.deviceId
+    }
+    if (webPlayback.deviceId && webPlayback.isReady) {
+      return webPlayback.deviceId
+    }
+    const deviceId = await webPlayback.ensureReady({ activate })
+    syncCurrentPlaybackState({ deviceId })
+    return deviceId
   }
 
   const refreshPlaybackSession = async (useSyncEndpoint = false) => {
@@ -244,6 +295,35 @@ function Footer(props) {
     }
   }, [shouldUseLocalPreview, volume])
 
+  useEffect(() => {
+    if (!webPlayback.errorMessage) {
+      return
+    }
+    setPlaybackError(webPlayback.errorMessage)
+  }, [webPlayback.errorMessage])
+
+  useEffect(() => {
+    const sdkState = webPlayback.playbackState
+    if (!sdkState || !webPlayback.deviceId || props.deviceId !== webPlayback.deviceId) {
+      return
+    }
+
+    setCurrentTime((sdkState.positionMs || 0) / 1000)
+    setDuration((sdkState.durationMs || 0) / 1000)
+    syncCurrentPlaybackState({
+      currentPositionMs: sdkState.positionMs || 0,
+      isPlaying: !sdkState.paused,
+      deviceId: webPlayback.deviceId,
+      trackId: sdkState.track?.id || props.trackData.trackId,
+      track: null,
+      trackName: sdkState.track?.name || props.trackData.trackName,
+      trackImg: sdkState.track?.albumImageUrl || props.trackData.trackImg,
+      trackArtist: sdkState.track?.artistName || props.trackData.trackArtist,
+      albumName: sdkState.track?.albumName || props.trackData.albumName,
+      durationMs: sdkState.track?.durationMs || sdkState.durationMs || props.trackData.durationMs,
+    })
+  }, [webPlayback.playbackState, webPlayback.deviceId, props.deviceId])
+
   const handleNext = async () => {
     if (!canSkipTrack || isPlaybackBusy) {
       return
@@ -251,7 +331,8 @@ function Footer(props) {
 
     try {
       setIsPlaybackBusy(true)
-      await nextTrack(DEMO_USER_ID, props.deviceId)
+      const deviceId = await ensureWebPlaybackDevice({ activate: true })
+      await nextTrack(DEMO_USER_ID, deviceId || props.deviceId)
       await refreshPlaybackSession(true)
       setPlaybackError('')
     } catch (error) {
@@ -268,7 +349,8 @@ function Footer(props) {
 
     try {
       setIsPlaybackBusy(true)
-      await previousTrack(DEMO_USER_ID, props.deviceId)
+      const deviceId = await ensureWebPlaybackDevice({ activate: true })
+      await previousTrack(DEMO_USER_ID, deviceId || props.deviceId)
       await refreshPlaybackSession(true)
       setPlaybackError('')
     } catch (error) {
@@ -285,11 +367,12 @@ function Footer(props) {
 
     try {
       setIsPlaybackBusy(true)
+      const deviceId = await ensureWebPlaybackDevice({ activate: true })
       const session = await playTrack(DEMO_USER_ID, {
         trackId,
         playlistId: props.currentPlaylistId,
         trackIndex,
-        deviceId: props.deviceId,
+        deviceId: deviceId || props.deviceId,
         playbackMode: props.playbackMode,
       })
       await applyPlaybackSession(session)
@@ -418,7 +501,8 @@ function Footer(props) {
 
     try {
       setIsPlaybackBusy(true)
-      const session = await seekPlayback(DEMO_USER_ID, Math.round(position * 1000), props.deviceId)
+      const deviceId = await ensureWebPlaybackDevice({ activate: true })
+      const session = await seekPlayback(DEMO_USER_ID, Math.round(position * 1000), deviceId || props.deviceId)
       await applyPlaybackSession(session)
       setPlaybackError('')
     } catch (error) {
@@ -435,20 +519,51 @@ function Footer(props) {
 
     try {
       setIsDeviceBusy(true)
+      if (deviceId === webPlayback.deviceId && !webPlayback.isReady) {
+        await webPlayback.ensureReady({ activate: true })
+      }
       const session = await transferPlayback(DEMO_USER_ID, deviceId, props.isPlaying)
       await applyPlaybackSession(session)
       const refreshedDevices = await refreshDevices({ silent: true })
       const nextDevice = refreshedDevices.find((item) => item.id === deviceId)
-      setDevicePanelMessage(
-        nextDevice?.name
-          ? `Switched playback to ${nextDevice.name}.`
-          : 'Playback device updated.',
-      )
+      let successMessage = 'Playback device updated.'
+      if (deviceId === webPlayback.deviceId) {
+        successMessage = 'AgentMusic Web Player is ready.'
+      } else if (nextDevice?.name) {
+        successMessage = `Switched playback to ${nextDevice.name}.`
+      }
+      setDevicePanelMessage(successMessage)
       setDevicePanelTone('success')
       setPlaybackError('')
       return true
     } catch (error) {
       const feedback = resolveDeviceFeedback(error, 'Failed to switch playback device.')
+      setDevicePanelMessage(feedback.message)
+      setDevicePanelTone(feedback.tone)
+      setPlaybackError(feedback.message)
+      return false
+    } finally {
+      setIsDeviceBusy(false)
+    }
+  }
+
+  const handleEnableWebPlayback = async () => {
+    if (isDeviceBusy) {
+      return false
+    }
+
+    try {
+      setIsDeviceBusy(true)
+      const deviceId = await webPlayback.ensureReady({ activate: true })
+      const session = await transferPlayback(DEMO_USER_ID, deviceId, props.isPlaying)
+      await applyPlaybackSession(session)
+      setDevicePanelMessage('AgentMusic Web Player is ready.')
+      setDevicePanelTone('success')
+      setPlaybackError('')
+      await refreshDevices({ silent: true })
+      return true
+    } catch (error) {
+      const feedback = resolveDeviceFeedback(error, 'Failed to enable AgentMusic Web Player.')
       setDevicePanelMessage(feedback.message)
       setDevicePanelTone(feedback.tone)
       setPlaybackError(feedback.message)
@@ -475,13 +590,16 @@ function Footer(props) {
 
     try {
       setIsPlaybackBusy(true)
+      const deviceId = props.isPlaying
+        ? props.deviceId
+        : await ensureWebPlaybackDevice({ activate: true })
       const session = props.isPlaying
-        ? await pausePlayback(DEMO_USER_ID, props.deviceId)
+        ? await pausePlayback(DEMO_USER_ID, deviceId || props.deviceId)
         : await playTrack(DEMO_USER_ID, {
             trackId: props.trackData.trackId,
             playlistId: props.currentPlaylistId,
             trackIndex: props.currentTrackIndex,
-            deviceId: props.deviceId,
+            deviceId: deviceId || props.deviceId,
             playbackMode: props.playbackMode,
           })
       await applyPlaybackSession(session)
@@ -530,7 +648,8 @@ function Footer(props) {
 
     try {
       setIsPlaybackBusy(true)
-      const session = await changePlaybackMode(DEMO_USER_ID, nextMode, props.deviceId)
+      const deviceId = await ensureWebPlaybackDevice({ activate: true })
+      const session = await changePlaybackMode(DEMO_USER_ID, nextMode, deviceId || props.deviceId)
       await applyPlaybackSession(session)
       setPlaybackError('')
     } catch (error) {
@@ -582,12 +701,20 @@ function Footer(props) {
             isNowPlayingOpen={props.isNowPlayingOpen}
             isQueueOpen={props.isQueueOpen}
             hasTrackContext={hasTrackContext}
-            devices={devices}
+            devices={devicesForPanel}
             currentDeviceId={props.deviceId}
             isDevicesLoading={isDevicesLoading}
             isDeviceBusy={isDeviceBusy}
             devicePanelMessage={devicePanelMessage}
             devicePanelTone={devicePanelTone}
+            webPlayback={{
+              deviceId: webPlayback.deviceId,
+              isReady: webPlayback.isReady,
+              isConnecting: webPlayback.isConnecting,
+              isActive: webPlayback.isActive,
+              errorMessage: webPlayback.errorMessage,
+            }}
+            onEnableWebPlayback={handleEnableWebPlayback}
             onRefreshDevices={() => refreshDevices({ silent: false })}
             onTransferDevice={handleTransferDevice}
           />

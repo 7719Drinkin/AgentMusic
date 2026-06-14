@@ -162,7 +162,7 @@ function PlaylistPage({
 
       const devices = await loadAvailableDevices()
       if (devices.length === 0) {
-        setPlaybackError('当前没有可用的 Spotify 设备。请保持同一 bridge 账号的 Web Player 或桌面客户端在线。')
+        setPlaybackError('当前没有可用的 Spotify 设备。请启用 AgentMusic Web Player 后重试。')
         return
       }
 

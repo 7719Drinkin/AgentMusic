@@ -331,7 +331,7 @@ class DefaultBridgePlaybackControlServiceTests {
     }
 
     @Test
-    void transferPlaybackShouldFailWhenSelectedDeviceIsOffline() {
+    void transferPlaybackShouldAllowTransientWebSdkDeviceId() {
         SpotifyBridgeProperties properties = new SpotifyBridgeProperties(
                 true,
                 "client-id",
@@ -363,13 +363,32 @@ class DefaultBridgePlaybackControlServiceTests {
         when(spotifyPlaybackClient.getAvailableDevices("token")).thenReturn(List.of(
                 new SpotifyBridgeDevice("default-device", "Default", true, false, "Computer", 50)
         ));
+        when(playbackSessionService.saveSession(
+                eq("demo-user"),
+                eq("session-7"),
+                eq("track-2"),
+                eq("playlist-1"),
+                eq(1),
+                eq(5000),
+                eq(true),
+                eq(PlaybackMode.SEQUENTIAL),
+                eq("missing-device")
+        )).thenReturn(new PlaybackSessionDto(
+                "session-7",
+                "track-2",
+                "playlist-1",
+                1,
+                5000,
+                true,
+                PlaybackMode.SEQUENTIAL,
+                "missing-device",
+                LocalDateTime.now()
+        ));
 
-        assertThrows(
-                SpotifyPlaybackUnavailableException.class,
-                () -> service.transferPlayback("demo-user", "missing-device", false)
-        );
+        PlaybackSessionDto session = service.transferPlayback("demo-user", "missing-device", false);
 
-        verify(spotifyPlaybackClient, never()).transferPlayback(anyString(), anyString(), anyBoolean());
+        verify(spotifyPlaybackClient).transferPlayback("token", "missing-device", false);
+        assertEquals("missing-device", session.deviceId());
     }
 
     @Test

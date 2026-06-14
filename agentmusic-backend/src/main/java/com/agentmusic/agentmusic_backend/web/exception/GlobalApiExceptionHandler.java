@@ -105,10 +105,10 @@ public class GlobalApiExceptionHandler {
             return "Spotify bridge authorization expired or is invalid. Reconnect the bridge account.";
         }
         if (isPlaybackRestricted(exception)) {
-            return "Spotify reported the selected playback device as restricted. Keep an active Web Player or desktop client available and try again.";
+            return "Spotify reported the selected playback device as restricted. Enable the AgentMusic web player or choose another device.";
         }
         if (isPlaybackNotFound(exception)) {
-            return "Spotify did not report an active playback device. Keep the same bridge account Web Player or desktop client online.";
+            return "Spotify did not report an active playback device. Enable the AgentMusic web player and try again.";
         }
         if (exception.getStatusCode().is5xxServerError()) {
             return "Spotify service responded with a server error. Try again shortly.";

@@ -1,6 +1,7 @@
 package com.agentmusic.agentmusic_backend.web.controller;
 
 import com.agentmusic.agentmusic_backend.web.dto.SpotifyBridgeAuthStatusDto;
+import com.agentmusic.agentmusic_backend.web.dto.SpotifyWebPlaybackTokenDto;
 import com.agentmusic.agentmusic_backend.service.SpotifyBridgeAuthService;
 import java.net.URI;
 import org.springframework.http.HttpHeaders;
@@ -41,5 +42,9 @@ public class SpotifyBridgeAuthController {
     public SpotifyBridgeAuthStatusDto status() {
         return spotifyBridgeAuthService.getCurrentStatus();
     }
-}
 
+    @GetMapping("/web-playback-token")
+    public SpotifyWebPlaybackTokenDto webPlaybackToken() {
+        return spotifyBridgeAuthService.getWebPlaybackToken();
+    }
+}

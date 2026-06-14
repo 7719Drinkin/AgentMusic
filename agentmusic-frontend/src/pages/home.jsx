@@ -250,7 +250,7 @@ function Home({ playbackMode, deviceId }) {
 
       const devices = await loadAvailableDevices()
       if (devices.length === 0) {
-        setPlaybackError('No active Spotify device is available. Keep the same bridge account signed in on Spotify Web Player or a desktop client.')
+        setPlaybackError('No active Spotify device is available. Enable AgentMusic Web Player and try again.')
         return
       }
 

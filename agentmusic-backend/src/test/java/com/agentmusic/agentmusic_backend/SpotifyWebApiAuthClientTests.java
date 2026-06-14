@@ -34,5 +34,6 @@ class SpotifyWebApiAuthClientTests {
         assertThat(uriValue).doesNotContain("scope=user-read-private user-read-email");
         assertThat(uriValue).doesNotContain(" ");
         assertThat(uriValue).contains("%20");
+        assertThat(uriValue).contains("streaming");
     }
 }
