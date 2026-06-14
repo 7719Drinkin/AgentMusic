@@ -1,14 +1,36 @@
-# AgentMusic Web Playback SDK Device Plan
+# AgentMusic Web Playback SDK Device Implementation
 
 ## Purpose
 
-This document records the implementation plan for turning the AgentMusic frontend bottom playback bar into a real Spotify playback device.
+This document records the implementation plan and current status for turning the AgentMusic frontend bottom playback bar into a real Spotify playback device.
 
 The goal is:
 
 - The user should not need to open the official Spotify desktop client or Spotify Web Player.
 - AgentMusic should create its own browser-based Spotify Connect device through Spotify Web Playback SDK.
 - Existing backend playback APIs should continue to own playback orchestration, playlist context, session persistence, and error handling.
+
+## Implementation Status
+
+Status as of 2026-06-14: the core SDK device flow is implemented and manually verified.
+
+Implemented:
+
+- The backend authorization scope list includes `streaming`.
+- The backend exposes `GET /api/auth/spotify/web-playback-token` as a short-lived token broker for Spotify Web Playback SDK.
+- The frontend has a shared `SpotifyWebPlaybackProvider`, so Footer, Music Home, and Playlist Detail use one SDK player instance.
+- The footer device panel can enable `AgentMusic Web Player` and route playback to it.
+- Music Home track cards automatically enable/reuse the SDK device before playback.
+- Playlist Detail play buttons automatically enable/reuse the SDK device before playback.
+- Refreshing the frontend automatically reconnects the SDK device during the same browser session after the player has been enabled once.
+- Backend playback routing accepts transient SDK device IDs and retries transfer/play while Spotify device visibility catches up.
+- Device routing preserves a currently selected visible device; if the current device is missing, stale, or unavailable, the frontend enables/reuses `AgentMusic Web Player`.
+
+Remaining follow-up work:
+
+- Add frontend unit/integration tests with a mocked `window.Spotify`.
+- Keep improving progress-bar smoothness with local ticking plus SDK/backend reconciliation.
+- Continue treating the SDK `device_id` as transient; do not persist it as long-term configuration.
 
 ## Boundary
 
@@ -25,7 +47,7 @@ Required assumptions for the current project phase:
 
 ## Current Project State
 
-The current footer is a playback controller, not a playback device.
+The current footer is now a playback controller for an SDK-backed browser playback device. The browser tab becomes a Spotify Connect device named `AgentMusic Web Player`, while the backend remains responsible for playlist context, session persistence, and Spotify Web API orchestration.
 
 Relevant frontend files:
 
@@ -33,6 +55,9 @@ Relevant frontend files:
 - `agentmusic-frontend/src/component/footer/footer-right.jsx`
 - `agentmusic-frontend/src/component/footer/player/music-control-box.jsx`
 - `agentmusic-frontend/src/component/footer/player/music-progress-bar.jsx`
+- `agentmusic-frontend/src/context/SpotifyWebPlaybackContext.jsx`
+- `agentmusic-frontend/src/hooks/useSpotifyWebPlayback.js`
+- `agentmusic-frontend/src/api/spotifyAuth.js`
 - `agentmusic-frontend/src/api/playback.js`
 
 Relevant backend files:
@@ -43,7 +68,7 @@ Relevant backend files:
 - `agentmusic-backend/src/main/java/com/agentmusic/agentmusic_backend/integration/spotify/SpotifyWebApiAuthClient.java`
 - `agentmusic-backend/src/main/java/com/agentmusic/agentmusic_backend/service/impl/DefaultSpotifyBridgeAuthService.java`
 
-Current playback flow:
+Backend-orchestrated playback flow:
 
 ```text
 Footer UI
@@ -55,7 +80,7 @@ Footer UI
             -> existing Spotify Connect device
 ```
 
-Target playback flow:
+Implemented SDK playback flow:
 
 ```text
 Footer UI
@@ -95,13 +120,13 @@ Solution:
 - Do not persist the access token in localStorage.
 - Keep the token in memory only inside the SDK wrapper.
 
-Proposed endpoint:
+Implemented endpoint:
 
 ```text
 GET /api/auth/spotify/web-playback-token
 ```
 
-Proposed response:
+Response:
 
 ```json
 {
@@ -177,15 +202,17 @@ Solution:
 - Backend chooses the next track from AgentMusic playlist context.
 - Backend plays that selected track to the SDK `device_id`.
 
-## Detailed Implementation Plan
+## Detailed Implementation Record
 
 ### Phase 1: Authorization and token broker
 
-1. Add `streaming` to the Spotify authorization scope list.
-2. Add `GET /api/auth/spotify/web-playback-token`.
+Status: completed.
+
+1. Added `streaming` to the Spotify authorization scope list.
+2. Added `GET /api/auth/spotify/web-playback-token`.
 3. Return only short-lived access token metadata to the frontend.
-4. Add structured error response for missing scope or expired bridge authorization.
-5. Update bridge-mode documentation to mention the Web Playback SDK token exception.
+4. Added structured error response for missing scope or expired bridge authorization.
+5. Updated bridge-mode documentation to mention the Web Playback SDK token exception.
 
 Expected result:
 
@@ -193,6 +220,8 @@ Expected result:
 - Backend still owns refresh token and app secret.
 
 ### Phase 2: Frontend SDK wrapper
+
+Status: completed.
 
 1. Add a frontend module such as `src/api/spotifyWebPlayback.js` or `src/hooks/useSpotifyWebPlayback.js`.
 2. Load `https://sdk.scdn.co/spotify-player.js` exactly once.
@@ -222,6 +251,8 @@ Expected result:
 
 ### Phase 3: Footer integration
 
+Status: completed.
+
 1. Add an "Enable AgentMusic Player" state to the bottom playback bar.
 2. On the first play click:
    - activate SDK player
@@ -246,6 +277,8 @@ Expected result:
 
 ### Phase 4: Backend playback routing
 
+Status: completed.
+
 1. Keep existing `deviceId` request fields.
 2. Make web SDK device the preferred target when frontend supplies its `device_id`.
 3. Add retry/backoff around transfer/play for newly registered SDK devices.
@@ -258,6 +291,8 @@ Expected result:
 - Backend remains the orchestration layer.
 
 ### Phase 5: State synchronization
+
+Status: implemented for SDK state updates and backend reconciliation. Progress-bar smoothing can still be improved.
 
 1. Map SDK `player_state_changed` into current footer state:
    - current track Spotify ID
@@ -281,6 +316,8 @@ Expected result:
 
 ### Phase 6: Auto-next and playlist context
 
+Status: implemented through backend next/previous playback APIs while keeping AgentMusic playlist context authoritative.
+
 1. Detect track end through SDK state or current footer timer.
 2. Call backend `nextTrack(userId, webDeviceId)`.
 3. Backend resolves the next track from AgentMusic playlist context.
@@ -297,6 +334,8 @@ Expected result:
 - Spotify queue does not override local playlist semantics.
 
 ### Phase 7: Testing
+
+Status: backend automated tests and manual browser smoke tests completed. Frontend automated tests remain follow-up work.
 
 Manual E2E checklist:
 
@@ -321,18 +360,24 @@ Automated tests:
 4. Frontend unit test with mocked `window.Spotify`.
 5. Frontend integration test for footer state transitions.
 
-## Priority
+## Next Priority
 
-Recommended execution order:
+The original execution order has been completed for the core SDK device path:
 
 1. Add `streaming` scope and reconnect bridge account.
 2. Add backend web playback token endpoint.
 3. Implement frontend SDK wrapper.
-4. Connect footer play button to SDK activation and backend play.
-5. Add SDK state synchronization.
-6. Add auto-next behavior against local playlist context.
-7. Polish device panel wording and visual states.
-8. Add tests and document manual E2E steps.
+4. Connected footer play button to SDK activation and backend play.
+5. Added SDK state synchronization.
+6. Added auto-next behavior against local playlist context.
+7. Polished device panel wording and visual states.
+8. Documented manual E2E steps.
+
+Next recommended work:
+
+1. Add frontend tests for the shared Web Playback SDK provider and Footer/Home/Playlist playback flows.
+2. Improve progress-bar ticking smoothness during SDK playback.
+3. Keep an eye on Spotify API rate limits when running repeated manual E2E.
 
 ## Official References
 

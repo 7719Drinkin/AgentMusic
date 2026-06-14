@@ -9,6 +9,7 @@ import * as Icons from '../component/icons'
 import TextRegularM from '../component/text/text-regular-m'
 import TitleL from '../component/text/title-l'
 import Topnav from '../component/topnav/topnav'
+import { useSpotifyWebPlaybackContext } from '../context/SpotifyWebPlaybackContext'
 import convertTime from '../functions/convertTime'
 import styles from './playlist.module.css'
 
@@ -43,6 +44,7 @@ function PlaylistPage({
 }) {
   const { path } = useParams()
   const playlistId = decodeURIComponent(path)
+  const webPlayback = useSpotifyWebPlaybackContext()
   const [playlist, setPlaylist] = useState(null)
   const [artistDirectory, setArtistDirectory] = useState({})
   const [isLoading, setIsLoading] = useState(true)
@@ -151,6 +153,22 @@ function PlaylistPage({
     return Array.isArray(devices) ? devices : []
   }
 
+  const resolvePlaybackDeviceId = async (devices) => {
+    const currentDevice = deviceId
+      ? devices.find((device) => device.id === deviceId && !device.restricted)
+      : null
+
+    if (currentDevice) {
+      return currentDevice.id
+    }
+
+    if (webPlayback.deviceId && webPlayback.isReady) {
+      return webPlayback.deviceId
+    }
+
+    return webPlayback.ensureReady({ activate: true })
+  }
+
   const handlePlayTrack = async (trackId, trackIndex) => {
     if (!trackId || isPlaybackBusy) {
       return
@@ -161,16 +179,13 @@ function PlaylistPage({
       setPlaybackError('')
 
       const devices = await loadAvailableDevices()
-      if (devices.length === 0) {
-        setPlaybackError('当前没有可用的 Spotify 设备。请启用 AgentMusic Web Player 后重试。')
-        return
-      }
+      const targetDeviceId = await resolvePlaybackDeviceId(devices)
 
       await playTrack(DEMO_USER_ID, {
         trackId,
         playlistId,
         trackIndex,
-        deviceId,
+        deviceId: targetDeviceId,
         playbackMode,
       })
       window.dispatchEvent(new CustomEvent(PLAYBACK_REFRESH_EVENT))

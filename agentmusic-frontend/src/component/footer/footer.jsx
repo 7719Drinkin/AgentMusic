@@ -16,7 +16,7 @@ import {
   transferPlayback,
 } from '../../api/playback'
 import CONST from '../../constants/index'
-import useSpotifyWebPlayback from '../../hooks/useSpotifyWebPlayback'
+import { useSpotifyWebPlaybackContext } from '../../context/SpotifyWebPlaybackContext'
 import useWindowSize from '../../hooks/useWindowSize'
 import Audio from './audio'
 import FooterLeft from './footer-left'
@@ -66,7 +66,6 @@ function Footer(props) {
   const autoAdvanceTrackRef = useRef(null)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
-  const [volume, setVolume] = useState(1)
   const [isPlaybackBusy, setIsPlaybackBusy] = useState(false)
   const [playbackError, setPlaybackError] = useState('')
   const [devices, setDevices] = useState([])
@@ -74,7 +73,8 @@ function Footer(props) {
   const [isDeviceBusy, setIsDeviceBusy] = useState(false)
   const [devicePanelMessage, setDevicePanelMessage] = useState('')
   const [devicePanelTone, setDevicePanelTone] = useState('info')
-  const webPlayback = useSpotifyWebPlayback({ volume })
+  const webPlayback = useSpotifyWebPlaybackContext()
+  const { volume, setVolume } = webPlayback
 
   const hasTrackContext = Boolean(props.trackData.trackId || props.trackData.track)
   const hasPlaylistContext = Boolean(props.currentPlaylistId)

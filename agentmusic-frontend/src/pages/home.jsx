@@ -9,6 +9,7 @@ import Topnav from '../component/topnav/topnav'
 import TextRegularM from '../component/text/text-regular-m'
 import TitleL from '../component/text/title-l'
 import TitleM from '../component/text/title-m'
+import { useSpotifyWebPlaybackContext } from '../context/SpotifyWebPlaybackContext'
 import styles from './home.module.css'
 
 const DEMO_USER_ID = 'demo-user'
@@ -24,6 +25,7 @@ const INITIAL_COLLAPSED_SECTIONS = {
 function Home({ playbackMode, deviceId }) {
   const history = useHistory()
   const location = useLocation()
+  const webPlayback = useSpotifyWebPlaybackContext()
   const [playlists, setPlaylists] = useState([])
   const [artists, setArtists] = useState({})
   const [isLoading, setIsLoading] = useState(true)
@@ -239,6 +241,22 @@ function Home({ playbackMode, deviceId }) {
     return Array.isArray(devices) ? devices : []
   }
 
+  const resolvePlaybackDeviceId = async (devices) => {
+    const currentDevice = deviceId
+      ? devices.find((device) => device.id === deviceId && !device.restricted)
+      : null
+
+    if (currentDevice) {
+      return currentDevice.id
+    }
+
+    if (webPlayback.deviceId && webPlayback.isReady) {
+      return webPlayback.deviceId
+    }
+
+    return webPlayback.ensureReady({ activate: true })
+  }
+
   const handlePlayTrack = async (item) => {
     if (!item?.track?.trackId || isPlaybackBusy) {
       return
@@ -249,16 +267,13 @@ function Home({ playbackMode, deviceId }) {
       setPlaybackError('')
 
       const devices = await loadAvailableDevices()
-      if (devices.length === 0) {
-        setPlaybackError('No active Spotify device is available. Enable AgentMusic Web Player and try again.')
-        return
-      }
+      const targetDeviceId = await resolvePlaybackDeviceId(devices)
 
       await playTrack(DEMO_USER_ID, {
         trackId: item.track.trackId,
         playlistId: item.playlistId,
         trackIndex: item.trackIndex,
-        deviceId,
+        deviceId: targetDeviceId,
         playbackMode,
       })
 
