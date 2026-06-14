@@ -6,6 +6,7 @@ const SDK_SCRIPT_URL = 'https://sdk.scdn.co/spotify-player.js'
 const PLAYER_NAME = 'AgentMusic Web Player'
 const SDK_LOAD_TIMEOUT_MS = 15000
 const READY_TIMEOUT_MS = 15000
+const WEB_PLAYBACK_ENABLED_KEY = 'agentmusic:web-playback-enabled'
 
 let sdkLoadPromise = null
 
@@ -107,12 +108,28 @@ function toActionablePlaybackError(message) {
   return normalizedMessage
 }
 
-export default function useSpotifyWebPlayback({ volume = 1 } = {}) {
+function rememberWebPlaybackEnabled() {
+  try {
+    window.sessionStorage?.setItem(WEB_PLAYBACK_ENABLED_KEY, 'true')
+  } catch {
+  }
+}
+
+function wasWebPlaybackEnabled() {
+  try {
+    return window.sessionStorage?.getItem(WEB_PLAYBACK_ENABLED_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+export default function useSpotifyWebPlayback({ volume = 1, autoReconnect = false } = {}) {
   const playerRef = useRef(null)
   const deviceIdRef = useRef(null)
   const readyPromiseRef = useRef(null)
   const readyResolverRef = useRef(null)
   const readyRejecterRef = useRef(null)
+  const autoReconnectAttemptedRef = useRef(false)
   const [deviceId, setDeviceId] = useState(null)
   const [isReady, setIsReady] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
@@ -162,6 +179,7 @@ export default function useSpotifyWebPlayback({ volume = 1 } = {}) {
 
     player.addListener('ready', ({ device_id: readyDeviceId }) => {
       deviceIdRef.current = readyDeviceId
+      rememberWebPlaybackEnabled()
       setDeviceId(readyDeviceId)
       setIsReady(true)
       setIsConnecting(false)
@@ -228,7 +246,11 @@ export default function useSpotifyWebPlayback({ volume = 1 } = {}) {
         throw new Error('Spotify refused the AgentMusic web player connection.')
       }
 
-      return await readyPromise
+      const readyDeviceId = await readyPromise
+      if (activate || wasWebPlaybackEnabled()) {
+        rememberWebPlaybackEnabled()
+      }
+      return readyDeviceId
     } catch (error) {
       resetReadyPromise()
       setErrorMessage(toSdkErrorMessage(error))
@@ -256,6 +278,15 @@ export default function useSpotifyWebPlayback({ volume = 1 } = {}) {
       playerRef.current?.disconnect?.()
     }
   }, [])
+
+  useEffect(() => {
+    if (!autoReconnect || autoReconnectAttemptedRef.current || !wasWebPlaybackEnabled()) {
+      return
+    }
+
+    autoReconnectAttemptedRef.current = true
+    ensureReady({ activate: false }).catch(() => {})
+  }, [autoReconnect])
 
   return {
     deviceId,

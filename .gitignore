@@ -29,3 +29,6 @@ agentmusic-backend/*.log
 # test-ui
 artifacts/
 agentmusic-frontend/*-current-page.png
+
+# local
+local/

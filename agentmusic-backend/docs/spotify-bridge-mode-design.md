@@ -180,6 +180,17 @@ The backend owns the refresh token and Spotify app secret. For Spotify Web Playb
 
 This endpoint must not expose the refresh token or client secret.
 
+### Web Playback SDK token exception
+
+Spotify Web Playback SDK requires a browser-side access token with `streaming`, `user-read-private`, and `user-read-email`. AgentMusic supports this through a backend token broker:
+
+- the frontend receives only a short-lived access token
+- the refresh token remains backend-owned
+- the SDK token is kept in browser memory only
+- missing SDK scopes are reported with the structured code `spotify-scope-missing`
+
+The bridge account must be re-authorized whenever new required scopes are added. Existing refresh tokens are not automatically upgraded by changing backend configuration.
+
 ### Storage recommendation
 
 Do not keep bridge account tokens in source code.
@@ -202,28 +213,49 @@ Correct process:
 4. Backend exchanges code for tokens.
 5. Backend keeps only tokens and app credentials.
 
-## What the Current Codebase Already Supports
+## Current Bridge Mode Implementation
 
-### Existing support
+### Implemented support
 
-The current backend already supports the overall bridge-mode architecture well:
+The current backend supports the bridge-mode architecture:
 
 1. Controllers are already separated from service logic.
 2. Application services already exist and are the correct insertion point for Spotify orchestration.
 3. Spotify clients already exist as interfaces.
 4. Local playback session and recommendation history are already modeled in domain, DTO, repository, and service layers.
 5. MySQL/Redis design already separates local user state from external Spotify metadata cache.
+6. Spotify authorization, token persistence, refresh, catalog search, and playback clients are implemented for the bridge account.
+7. The Web Playback SDK token broker is implemented for the frontend browser playback device.
+8. Backend playback routing accepts transient SDK device IDs and retries transfer/play while Spotify Connect device visibility catches up.
 
 ### Current gaps
 
-The following still need to be implemented for real Spotify bridge integration:
+The remaining bridge-mode gaps are product and hardening work rather than core integration blockers:
 
-1. concrete `SpotifyAuthClient`
-2. concrete `SpotifyCatalogClient`
-3. concrete `SpotifyPlaybackClient`
-4. bridge token persistence and refresh strategy
-5. a dedicated auth entrypoint for developer bridge-account authorization
-6. planner-driven execution of Spotify operations
+1. frontend automated tests for Web Playback SDK state transitions
+2. smoother progress-bar ticking during SDK playback
+3. continued Spotify rate-limit hardening for repeated recommendation searches
+4. future migration from one bridge account to per-user Spotify account binding
+
+## Web Playback SDK Device Model
+
+The current frontend can create its own Spotify Connect device named `AgentMusic Web Player` through Spotify Web Playback SDK.
+
+Runtime behavior:
+
+1. `SpotifyWebPlaybackProvider` owns one shared SDK player instance for the frontend app.
+2. Footer, Music Home, and Playlist Detail reuse that shared SDK instance.
+3. When playback is requested from Music Home or Playlist Detail, the frontend first preserves the currently selected visible device if it is available.
+4. If the current device is missing, stale, or unavailable, the frontend enables or reuses `AgentMusic Web Player`.
+5. After SDK `ready`, the frontend sends the transient SDK `device_id` to backend playback endpoints.
+6. The backend keeps AgentMusic playlist/session state authoritative and controls Spotify playback through Web API.
+7. Refreshing the frontend automatically reconnects the SDK device during the same browser session after the player has been enabled once.
+
+Important boundary:
+
+- The SDK `device_id` is session-scoped and must not be stored as permanent configuration.
+- The frontend still cannot fetch or decode raw Spotify audio streams.
+- Spotify Premium remains required for playback.
 
 ## Bridge Mode and Local State Sync
 

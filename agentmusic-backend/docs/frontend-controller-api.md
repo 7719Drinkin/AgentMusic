@@ -277,6 +277,39 @@ Response shape:
 }
 ```
 
+### `GET /api/auth/spotify/web-playback-token`
+
+Returns a short-lived bridge-account access token for Spotify Web Playback SDK.
+
+This endpoint is the only current exception where the frontend receives a Spotify access token. The backend still owns the refresh token and client secret. The frontend must keep this token in memory only and must not persist it to localStorage.
+
+Response shape:
+
+```json
+{
+  "accessToken": "short-lived-access-token",
+  "expiresAt": "2026-06-14T07:12:44Z",
+  "scopes": [
+    "streaming",
+    "user-read-private",
+    "user-read-email"
+  ],
+  "missingScopes": []
+}
+```
+
+If the bridge authorization is missing Web Playback SDK scopes, the endpoint returns a structured API error with:
+
+```text
+spotify-scope-missing
+```
+
+Required SDK scopes:
+
+- `streaming`
+- `user-read-private`
+- `user-read-email`
+
 ## DTO Notes
 
 ### `TrackDto`
@@ -318,6 +351,13 @@ Response shape:
 - `restricted`
 - `type`
 - `volumePercent`
+
+### `SpotifyWebPlaybackTokenDto`
+
+- `accessToken`
+- `expiresAt`
+- `scopes`
+- `missingScopes`
 
 ### `ChatMessageDto`
 
