@@ -1,0 +1,397 @@
+.PlaylistPage{
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: transparent;
+    position: relative;
+    padding-bottom: calc(var(--footer-safe-height, 104px) + 40px);
+    color: var(--text-white);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,.24) transparent;
+}
+
+.PlaylistPage::-webkit-scrollbar{
+    width: 10px;
+}
+
+.PlaylistPage::-webkit-scrollbar-track{
+    background: transparent;
+}
+
+.PlaylistPage::-webkit-scrollbar-thumb{
+    border-radius: 999px;
+    background: rgba(255,255,255,.24);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+.PlaylistPage::-webkit-scrollbar-thumb:hover{
+    background: rgba(255,255,255,.38);
+    background-clip: padding-box;
+}
+
+.gradientBg{
+    height: 340px;
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: -1;
+    background: linear-gradient(transparent, rgba(0,0,0,.52));
+    transition: background 1s ease;
+    background-color: var(--hover-home-bg);
+}
+
+.gradientBgSoft{
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 340px;
+    height: 260px;
+    z-index: -2;
+    background-image: linear-gradient(rgba(0,0,0,.66), var(--main-background));
+    background-color: var(--hover-home-bg);
+}
+
+.Bg{
+    position: fixed;
+    inset: 0;
+    z-index: -3;
+    background-color: var(--main-background);
+}
+
+.Hero{
+    display: flex;
+    align-items: flex-end;
+    gap: 28px;
+    padding: 32px;
+}
+
+.Cover{
+    width: 220px;
+    height: 220px;
+    object-fit: cover;
+    border-radius: 18px;
+    box-shadow: 0 24px 44px rgba(0,0,0,.38);
+}
+
+.HeroMeta{
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+}
+
+.HeroEyebrowRow{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.PlaylistType{
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.72);
+}
+
+.HeroStatePill{
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(29,185,84,.16);
+    color: #d8ffe6;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: .03em;
+}
+
+.HeroMeta p{
+    margin: 0;
+    color: rgba(255,255,255,.75);
+}
+
+.PlaylistMetaLead{
+    max-width: 720px;
+    line-height: 1.55;
+}
+
+.PlaylistMetaRow{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.MetaChip{
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.06);
+    color: rgba(255,255,255,.82);
+    font-size: 12px;
+    line-height: 1.3;
+}
+
+.PlaylistActions{
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 32px 24px;
+}
+
+.PlayActionText{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.PlayActionText strong{
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.3;
+}
+
+.PlayActionText span{
+    color: rgba(255,255,255,.62);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.PlaybackStatus{
+    padding: 0 32px 20px;
+}
+
+.PlaybackStatus p{
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(210,52,67,.12);
+    border: 1px solid rgba(210,52,67,.22);
+    color: #ffb3bc;
+}
+
+.PlayButton{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border: 0;
+    border-radius: 50%;
+    background: #1db954;
+    cursor: pointer;
+    box-shadow: 0 12px 24px rgba(29,185,84,.28);
+    transition: transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+}
+
+.PlayButton svg{
+    width: 24px;
+    height: 24px;
+    fill: #fff !important;
+}
+
+.PlayButton:hover:enabled{
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 14px 28px rgba(29,185,84,.34);
+}
+
+.PlayButton:disabled{
+    opacity: .5;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.PlaylistSongs{
+    padding: 0 32px;
+}
+
+.ListHead{
+    margin: 0 0 12px;
+    padding: 8px 16px;
+    color: #b3b3b3;
+    position: sticky;
+    top: 64px;
+    z-index: 2;
+    backdrop-filter: blur(14px);
+    background: linear-gradient(180deg, rgba(18,18,18,.92), rgba(18,18,18,.76));
+    border-bottom: 1px solid hsla(0,0%,100%,.1);
+    display: grid;
+    grid-gap: 16px;
+    grid-template-columns: 24px minmax(280px, 1.8fr) minmax(160px, 1fr) 120px 48px;
+    align-items: center;
+}
+
+.ListHead p{
+    margin: 0;
+    letter-spacing: .03em;
+}
+
+.ListHead svg{
+    fill: #b3b3b3;
+    font-size: 16px;
+    justify-self: end;
+}
+
+.SongBtn{
+    display: grid;
+    grid-template-columns: 24px minmax(280px, 1.8fr) minmax(160px, 1fr) 120px 48px;
+    gap: 16px;
+    align-items: center;
+    width: 100%;
+    padding: 10px 16px;
+    background: linear-gradient(180deg, rgba(255,255,255,.03) 0%, rgba(255,255,255,.01) 100%);
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+.SongBtn:hover{
+    background: rgba(255,255,255,.08);
+    border-color: rgba(255,255,255,.08);
+    transform: translateY(-1px);
+}
+
+.SongBtn:disabled{
+    opacity: .6;
+    cursor: not-allowed;
+}
+
+.ActiveSongBtn{
+    background: rgba(29,185,84,.12);
+    border-color: rgba(29,185,84,.22);
+    box-shadow: inset 3px 0 0 #1db954;
+}
+
+.RowIndex{
+    color: #b3b3b3;
+    font-size: 14px;
+}
+
+.RowTrack{
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 12px;
+}
+
+.RowTrack img{
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 6px;
+    box-shadow: 0 8px 18px rgba(0,0,0,.24);
+}
+
+.RowTrackMeta{
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 3px;
+}
+
+.RowTitleLine{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.RowTrackMeta strong{
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #fff;
+}
+
+.RowStatePill{
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(29,185,84,.18);
+    color: #b7ffd1;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+
+.RowTrackMeta p{
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #b3b3b3;
+}
+
+.RowAlbum,
+.RowAddedAt,
+.RowDuration{
+    margin: 0;
+    color: #b3b3b3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.RowDuration{
+    justify-self: end;
+}
+
+.EmptyState{
+    padding: 24px 16px;
+}
+
+@media screen and (max-width: 920px) {
+    .Hero{
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .Cover{
+        width: 180px;
+        height: 180px;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .PlaylistPage{
+        margin-bottom: 180px;
+    }
+
+    .Hero{
+        padding: 24px 16px;
+    }
+
+    .PlaylistActions{
+        padding: 0 16px 20px;
+    }
+
+    .PlaylistSongs{
+        padding: 0 16px;
+    }
+
+    .ListHead,
+    .SongBtn{
+        grid-template-columns: 20px minmax(0, 1fr) 44px;
+        gap: 12px;
+    }
+
+    .ListHead p:nth-child(3),
+    .ListHead p:nth-child(4),
+    .RowAlbum,
+    .RowAddedAt{
+        display: none;
+    }
+}

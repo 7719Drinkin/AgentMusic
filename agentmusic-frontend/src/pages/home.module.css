@@ -1,0 +1,604 @@
+.Home{
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    background: transparent;
+    position: relative;
+    height: 100%;
+    padding-bottom: calc(var(--footer-safe-height, 104px) + 20px);
+    color: var(--text-white);
+}
+.Home::-webkit-scrollbar{
+    width: 12px;
+}
+
+.Home::-webkit-scrollbar-track{
+    background: transparent;
+}
+
+.Home::-webkit-scrollbar-thumb{
+    background: rgba(255,255,255,.16);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+}
+
+.Home:hover::-webkit-scrollbar-thumb{
+    background: rgba(255,255,255,.26);
+    background-clip: padding-box;
+}
+
+.HoverBg{
+    min-height: 460px;
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: -1;
+    background:
+        radial-gradient(circle at 8% 8%, rgba(29,185,84,.24), transparent 24%),
+        radial-gradient(circle at 82% 0%, rgba(123,92,255,.14), transparent 28%),
+        linear-gradient(180deg, rgba(22,25,23,.96), rgba(12,12,12,.94) 48%, rgba(10,10,10,0) 100%);
+}
+
+.Bg{
+    position: fixed;
+    inset: 0;
+    background:
+        linear-gradient(180deg, #0e0f0f 0%, #111313 28%, #090909 100%);
+    z-index: -2;
+}
+
+.Content{
+    width: min(100%, 1360px);
+    margin: 0 auto;
+    padding: 26px 18px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.Hero{
+    display: grid;
+    grid-template-columns: minmax(0, 1.18fr) minmax(320px, .82fr);
+    gap: 16px;
+    align-items: stretch;
+}
+
+.HeroCopyCard,
+.HeroAsideStack{
+    min-width: 0;
+}
+
+.HeroCopyCard{
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 26px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,.08);
+    background:
+        radial-gradient(circle at top right, rgba(29,185,84,.16), transparent 34%),
+        linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.025));
+    box-shadow: 0 24px 42px rgba(0,0,0,.24);
+}
+
+.HeroEyebrowRow{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.HeroEyebrow{
+    color: rgba(255,255,255,.58);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.HeroPill{
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(29,185,84,.18);
+    color: #d8ffe6;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.HeroTitleBlock{
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.HeroKicker{
+    color: rgba(255,255,255,.5);
+    font-size: 12px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.HeroTitleBlock h1{
+    margin: 0;
+    font-size: clamp(2.2rem, 4vw, 4.1rem);
+    line-height: 1.01;
+    letter-spacing: -.06em;
+}
+
+.HeroLead{
+    max-width: 760px;
+    line-height: 1.68;
+    color: rgba(255,255,255,.78);
+    font-size: 14px;
+}
+
+.HeroActions{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.PrimaryAction,
+.SecondaryAction,
+.SectionToggle{
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform .16s ease, background-color .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+
+.PrimaryAction,
+.SecondaryAction{
+    min-height: 44px;
+    padding: 0 18px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.PrimaryAction{
+    border: 0;
+    background: #1db954;
+    color: #fff;
+    box-shadow: 0 14px 28px rgba(29,185,84,.26);
+}
+
+.PrimaryAction:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 18px 32px rgba(29,185,84,.34);
+}
+
+.SecondaryAction{
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.06);
+    color: #fff;
+}
+
+.SecondaryAction:hover{
+    transform: translateY(-1px);
+    background: rgba(255,255,255,.1);
+}
+
+.HeroAsideStack{
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 14px;
+}
+
+.SpotlightCard,
+.SpotlightCardEmpty,
+.SignalCard{
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: linear-gradient(180deg, rgba(255,255,255,.085), rgba(255,255,255,.03));
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0,0,0,.22);
+}
+
+.SpotlightCard{
+    display: grid;
+    grid-template-columns: 132px 1fr;
+    gap: 16px;
+    padding: 18px;
+}
+
+.SpotlightCard img{
+    width: 132px;
+    height: 132px;
+    border-radius: 14px;
+    object-fit: cover;
+    box-shadow: 0 18px 36px rgba(0,0,0,.28);
+}
+
+.SpotlightMeta{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.SpotlightMeta span,
+.SignalCardHeader span{
+    color: rgba(255,255,255,.56);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.SpotlightMeta strong,
+.SignalCardHeader strong{
+    font-size: 22px;
+    line-height: 1.1;
+}
+
+.SpotlightMeta p,
+.SpotlightCardEmpty p{
+    margin: 0;
+    color: rgba(255,255,255,.72);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.SpotlightCardEmpty{
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+}
+
+.SignalCard{
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.SignalCardHeader{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.HeroMetricGrid{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.HeroMetricCard{
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,.06);
+    background: rgba(255,255,255,.04);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.HeroMetricCard span{
+    color: rgba(255,255,255,.62);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.HeroMetricCard strong{
+    font-size: 24px;
+    line-height: 1;
+}
+
+.StatusBanner p{
+    margin: 0;
+    padding: 12px 16px;
+    border-radius: 18px;
+    background: rgba(210,52,67,.12);
+    border: 1px solid rgba(210,52,67,.22);
+    color: #ffb3bc;
+}
+
+.SectionCard{
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 20px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,.06);
+    background: linear-gradient(180deg, rgba(255,255,255,.052), rgba(255,255,255,.02));
+    box-shadow: 0 14px 26px rgba(0,0,0,.13);
+}
+
+.SectionCardCollapsed{
+    gap: 12px;
+}
+
+.SectionCardHeader{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.SectionHeader{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.SectionHeader h2{
+    margin: 0;
+    font-size: clamp(1.15rem, 2vw, 1.55rem);
+    letter-spacing: -.03em;
+}
+
+.SectionHeader p{
+    margin: 0;
+    color: rgba(255,255,255,.68);
+    line-height: 1.58;
+}
+
+.SectionHeaderActions{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.SectionCountPill{
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.06);
+    color: rgba(255,255,255,.72);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .03em;
+}
+
+.SectionToggle{
+    min-height: 34px;
+    padding: 0 14px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(255,255,255,.08);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.SectionToggle:hover{
+    transform: translateY(-1px);
+    background: rgba(255,255,255,.12);
+}
+
+.SectionCollapsedHint p{
+    margin: 0;
+    color: rgba(255,255,255,.6);
+}
+
+.SectionBody{
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.CardGrid,
+.TrackGrid,
+.ArtistGrid{
+    display: grid;
+    gap: 14px;
+}
+
+.CardGrid{
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+}
+
+.TrackGrid{
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+}
+
+.ArtistGrid{
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.MediaCard,
+.MediaCardStatic,
+.TrackCard,
+.ArtistCard{
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 14px;
+    background: rgba(255,255,255,.032);
+    color: inherit;
+    overflow: hidden;
+}
+
+.MediaCard,
+.TrackCard,
+.ArtistCard{
+    cursor: pointer;
+    transition: transform .16s ease, border-color .16s ease, background-color .16s ease, box-shadow .16s ease;
+}
+
+.MediaCard:hover,
+.TrackCard:hover,
+.ArtistCard:hover{
+    transform: translateY(-2px);
+    border-color: rgba(255,255,255,.12);
+    background: rgba(255,255,255,.058);
+    box-shadow: 0 18px 30px rgba(0,0,0,.16);
+}
+
+.MediaCard img,
+.MediaCardStatic img{
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    display: block;
+}
+
+.MediaCardMeta{
+    padding: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.MediaCardMeta strong{
+    font-size: 14px;
+    line-height: 1.35;
+}
+
+.MediaCardMeta span,
+.MediaCardMeta p{
+    margin: 0;
+    color: rgba(255,255,255,.66);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.TrackCard{
+    text-align: left;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: 76px 1fr;
+    gap: 10px;
+    align-items: center;
+}
+
+.TrackCard img{
+    width: 76px;
+    height: 76px;
+    border-radius: 18px;
+    object-fit: cover;
+}
+
+.TrackCard:disabled{
+    opacity: .6;
+    cursor: not-allowed;
+}
+
+.TrackMeta{
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.TrackMeta strong,
+.TrackMeta span,
+.TrackMeta p{
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    margin: 0;
+}
+
+.TrackMeta span,
+.TrackMeta p{
+    color: rgba(255,255,255,.66);
+    font-size: 12px;
+}
+
+.ArtistCard{
+    padding: 13px;
+    text-align: left;
+    display: grid;
+    grid-template-columns: 76px 1fr;
+    gap: 14px;
+    align-items: center;
+}
+
+.ArtistCard img{
+    width: 76px;
+    height: 76px;
+    border-radius: 999px;
+    object-fit: cover;
+}
+
+.ArtistCardActive{
+    background: linear-gradient(180deg, rgba(29,185,84,.18), rgba(29,185,84,.08));
+    border-color: rgba(29,185,84,.26);
+}
+
+.ArtistMeta{
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ArtistMeta strong{
+    font-size: 15px;
+}
+
+.ArtistMeta span,
+.ArtistMeta p{
+    margin: 0;
+    color: rgba(255,255,255,.66);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+@media screen and (max-width: 1180px) {
+    .Hero{
+        grid-template-columns: 1fr;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .Content{
+        padding: 20px 14px 22px;
+        gap: 16px;
+    }
+
+    .HeroCopyCard,
+    .SpotlightCard,
+    .SpotlightCardEmpty,
+    .SignalCard,
+    .SectionCard{
+        border-radius: 14px;
+    }
+
+    .HeroCopyCard,
+    .SectionCard,
+    .SignalCard{
+        padding: 18px;
+    }
+
+    .SpotlightCard{
+        grid-template-columns: 92px 1fr;
+        gap: 14px;
+    }
+
+    .SpotlightCard img{
+        width: 92px;
+        height: 92px;
+    }
+
+    .HeroMetricGrid{
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .SectionCardHeader{
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .SectionHeaderActions{
+        justify-content: flex-start;
+    }
+
+    .TrackGrid,
+    .ArtistGrid,
+    .CardGrid{
+        grid-template-columns: 1fr;
+    }
+}

@@ -1,0 +1,246 @@
+.Topnav {
+  position: sticky;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 99;
+  padding: 0 14px 0;
+  background:
+    linear-gradient(180deg, rgba(10, 11, 11, 0.96), rgba(10, 11, 11, 0.62) 72%, rgba(10, 11, 11, 0));
+  backdrop-filter: blur(16px);
+}
+
+.Bar {
+  width: min(100%, 1320px);
+  margin: 0 auto;
+  min-height: 62px;
+  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0 0 18px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-top: none;
+  background:
+    radial-gradient(circle at 8% -30%, rgba(29, 185, 84, 0.18), transparent 30%),
+    linear-gradient(180deg, rgba(35, 38, 36, 0.88), rgba(18, 19, 19, 0.8)),
+    rgba(13, 14, 14, 0.9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 16px 32px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(18px);
+}
+
+.Bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(110deg, transparent 0%, rgba(255, 255, 255, 0.08) 32%, transparent 62%);
+  transform: translateX(-70%);
+  opacity: 0.6;
+  animation: navSheen 8s cubic-bezier(.2, .8, .2, 1) infinite;
+}
+
+.Bar::after {
+  content: "";
+  position: absolute;
+  right: 18px;
+  bottom: 0;
+  left: 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(29, 185, 84, 0.7), rgba(74, 144, 255, 0.5), transparent);
+}
+
+@keyframes navSheen {
+  0%, 62% {
+    transform: translateX(-80%);
+  }
+  82%, 100% {
+    transform: translateX(80%);
+  }
+}
+
+.HistoryRail {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.034);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.HistoryButton {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.74);
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s cubic-bezier(.2, .8, .2, 1);
+}
+
+.HistoryButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.RouteCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.Eyebrow {
+  margin: 0;
+  color: rgba(151, 226, 181, 0.86);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.RouteRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.RouteRow h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+
+.Detail {
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.NavCluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  justify-self: end;
+  min-width: 0;
+}
+
+.RouteSwitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.RouteSwitch a {
+  min-height: 32px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s cubic-bezier(.2, .8, .2, 1);
+}
+
+.RouteSwitch a:hover {
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.RouteSwitch a.ActiveRoute {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.08));
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.ProfileBadge {
+  min-height: 32px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 980px) {
+  .Topnav {
+    padding: 0 12px;
+  }
+
+  .Bar {
+    grid-template-columns: auto 1fr;
+  }
+
+  .NavCluster {
+    grid-column: 1 / -1;
+    justify-content: space-between;
+  }
+}
+
+@media screen and (max-width: 760px) {
+  .Topnav {
+    padding: 0 10px;
+  }
+
+  .Bar {
+    padding: 10px 12px;
+    gap: 10px;
+    border-radius: 0 0 16px 16px;
+  }
+
+  .RouteRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .Detail {
+    white-space: normal;
+  }
+
+  .NavCluster {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .RouteSwitch {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .RouteSwitch a {
+    flex: 1 1 0;
+  }
+
+  .ProfileBadge {
+    justify-content: center;
+  }
+}

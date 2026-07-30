@@ -1,0 +1,739 @@
+import React, { useEffect, useRef, useState } from 'react'
+import { connect } from 'react-redux'
+import { syncPlaybackSession as syncPlaybackSessionAction } from '../../actions'
+import { getErrorCode, getErrorMessage } from '../../api/http'
+import { fetchArtist, fetchTrack } from '../../api/music'
+import {
+  changePlaybackMode,
+  fetchPlaybackDevices,
+  fetchPlaybackSession,
+  nextTrack,
+  pausePlayback,
+  playTrack,
+  previousTrack,
+  seekPlayback,
+  syncPlaybackSession,
+  transferPlayback,
+} from '../../api/playback'
+import CONST from '../../constants/index'
+import { useSpotifyWebPlaybackContext } from '../../context/SpotifyWebPlaybackContext'
+import useWindowSize from '../../hooks/useWindowSize'
+import Audio from './audio'
+import FooterLeft from './footer-left'
+import FooterRight from './footer-right'
+import MusicControlBox from './player/music-control-box'
+import MusicProgressBar from './player/music-progress-bar'
+import styles from './footer.module.css'
+
+const DEMO_USER_ID = 'demo-user'
+const PLAYBACK_REFRESH_EVENT = 'agentmusic:playback-session-updated'
+const QUEUE_NEXT_REQUEST_EVENT = 'agentmusic:queue-next-request'
+const QUEUE_PLAY_REQUEST_EVENT = 'agentmusic:queue-play-request'
+const REMOTE_SYNC_INTERVAL_MS = 1500
+const AUTO_ADVANCE_END_THRESHOLD_MS = 2000
+const AUTO_ADVANCE_BUFFER_MS = 350
+const MAX_AUTO_ADVANCE_DELAY_MS = 2147483647
+
+function resolvePlaybackError(error, fallbackMessage) {
+  return getErrorMessage(error, fallbackMessage)
+}
+
+function resolveDeviceFeedback(error, fallbackMessage) {
+  const code = getErrorCode(error)
+  const message = getErrorMessage(error, fallbackMessage)
+
+  switch (code) {
+    case 'spotify-device-offline':
+      return { code, message, tone: 'warning' }
+    case 'spotify-device-restricted':
+      return { code, message, tone: 'warning' }
+    case 'spotify-device-unavailable':
+      return { code, message, tone: 'warning' }
+    case 'spotify-authorization':
+    case 'spotify-authorization-missing':
+    case 'spotify-network':
+    case 'server-failure':
+      return { code, message, tone: 'error' }
+    default:
+      return { code, message, tone: 'error' }
+  }
+}
+
+function Footer(props) {
+  const size = useWindowSize()
+  const footerRef = useRef(null)
+  const audioRef = useRef(null)
+  const autoAdvanceTrackRef = useRef(null)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [isPlaybackBusy, setIsPlaybackBusy] = useState(false)
+  const [playbackError, setPlaybackError] = useState('')
+  const [devices, setDevices] = useState([])
+  const [isDevicesLoading, setIsDevicesLoading] = useState(false)
+  const [isDeviceBusy, setIsDeviceBusy] = useState(false)
+  const [devicePanelMessage, setDevicePanelMessage] = useState('')
+  const [devicePanelTone, setDevicePanelTone] = useState('info')
+  const webPlayback = useSpotifyWebPlaybackContext()
+  const { volume, setVolume } = webPlayback
+
+  const hasTrackContext = Boolean(props.trackData.trackId || props.trackData.track)
+  const hasPlaylistContext = Boolean(props.currentPlaylistId)
+  const canSkipTrack = hasTrackContext && hasPlaylistContext
+  const remoteDurationSeconds = (props.trackData.durationMs || 0) / 1000
+  const canSeek = hasTrackContext && (duration > 0 || remoteDurationSeconds > 0)
+  const shouldUseLocalPreview = Boolean(props.trackData.track) && !props.trackData.trackId
+  const webPlaybackDevice = webPlayback.deviceId
+    ? {
+        id: webPlayback.deviceId,
+        name: 'AgentMusic Web Player',
+        active: props.deviceId === webPlayback.deviceId || webPlayback.isActive,
+        restricted: false,
+        type: 'Web Playback SDK',
+        volumePercent: Math.round(volume * 100),
+      }
+    : null
+  const devicesForPanel = webPlaybackDevice
+    ? [
+        webPlaybackDevice,
+        ...devices.filter((device) => device.id !== webPlaybackDevice.id),
+      ]
+    : devices
+
+  const applyPlaybackSession = async (session) => {
+    if (!session) {
+      return
+    }
+
+    let payload = {
+      currentPositionMs: session.currentPositionMs,
+      isPlaying: session.isPlaying,
+      playbackMode: session.playbackMode,
+      deviceId: session.deviceId,
+      currentPlaylistId: session.currentPlaylistId,
+      currentTrackIndex: session.currentTrackIndex,
+    }
+
+    if (session.currentTrackId) {
+      const track = await fetchTrack(session.currentTrackId)
+      if (track) {
+        let artistName = track.artistId || 'Spotify track'
+
+        if (track.artistId) {
+          try {
+            const artist = await fetchArtist(track.artistId)
+            artistName = artist?.name || artistName
+          } catch {
+          }
+        }
+
+        payload = {
+          ...payload,
+          trackId: track.trackId,
+          track: null,
+          trackName: track.title,
+          trackImg: track.albumImageUrl || props.trackData.trackImg,
+          trackArtist: artistName,
+          trackArtistId: track.artistId,
+          albumName: track.albumName || '',
+          albumId: track.albumId || null,
+          durationMs: track.durationMs,
+        }
+      }
+    }
+
+    props.syncPlaybackSessionAction(payload)
+    setCurrentTime((session.currentPositionMs || 0) / 1000)
+  }
+
+  const syncCurrentPlaybackState = (overrides = {}) => {
+    props.syncPlaybackSessionAction({
+      currentPositionMs: Math.round(currentTime * 1000),
+      isPlaying: props.isPlaying,
+      playbackMode: props.playbackMode,
+      deviceId: props.deviceId,
+      currentPlaylistId: props.currentPlaylistId,
+      currentTrackIndex: props.currentTrackIndex,
+      trackId: props.trackData.trackId,
+      track: props.trackData.track,
+      trackName: props.trackData.trackName,
+      trackImg: props.trackData.trackImg,
+      trackArtist: props.trackData.trackArtist,
+      trackArtistId: props.trackData.trackArtistId,
+      albumName: props.trackData.albumName,
+      albumId: props.trackData.albumId,
+      durationMs: props.trackData.durationMs,
+      ...overrides,
+    })
+  }
+
+  const ensureWebPlaybackDevice = async ({ activate = false } = {}) => {
+    if (shouldUseLocalPreview) {
+      return props.deviceId
+    }
+    if (webPlayback.deviceId && webPlayback.isReady) {
+      return webPlayback.deviceId
+    }
+    const deviceId = await webPlayback.ensureReady({ activate })
+    syncCurrentPlaybackState({ deviceId })
+    return deviceId
+  }
+
+  const refreshPlaybackSession = async (useSyncEndpoint = false) => {
+    try {
+      const session = useSyncEndpoint
+        ? await syncPlaybackSession(DEMO_USER_ID)
+        : await fetchPlaybackSession(DEMO_USER_ID)
+      await applyPlaybackSession(session)
+      setPlaybackError('')
+    } catch (error) {
+      setPlaybackError(resolvePlaybackError(error, 'Failed to sync playback state.'))
+    }
+  }
+
+  const refreshDevices = async ({ silent = false } = {}) => {
+    if (!silent) {
+      setIsDevicesLoading(true)
+    }
+
+    try {
+      const deviceList = await fetchPlaybackDevices(DEMO_USER_ID)
+      const normalizedDeviceList = Array.isArray(deviceList) ? deviceList : []
+      setDevices(normalizedDeviceList)
+      setDevicePanelMessage('')
+      setDevicePanelTone('info')
+      setPlaybackError('')
+      return normalizedDeviceList
+    } catch (error) {
+      const feedback = resolveDeviceFeedback(error, 'Failed to load playback devices.')
+      setDevicePanelMessage(feedback.message)
+      setDevicePanelTone(feedback.tone)
+      setPlaybackError(feedback.message)
+      return []
+    } finally {
+      if (!silent) {
+        setIsDevicesLoading(false)
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!footerRef.current) {
+      return undefined
+    }
+
+    const applyFooterHeight = () => {
+      const nextHeight = Math.ceil(footerRef.current?.getBoundingClientRect().height || 0)
+      if (nextHeight > 0) {
+        document.documentElement.style.setProperty('--footer-safe-height', `${nextHeight}px`)
+      }
+    }
+
+    applyFooterHeight()
+
+    const observer = new ResizeObserver(() => {
+      applyFooterHeight()
+    })
+
+    observer.observe(footerRef.current)
+    window.addEventListener('resize', applyFooterHeight)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', applyFooterHeight)
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadPlaybackState = async () => {
+      if (cancelled) {
+        return
+      }
+      await refreshPlaybackSession(false)
+      await refreshDevices({ silent: true })
+    }
+
+    loadPlaybackState()
+    window.addEventListener(PLAYBACK_REFRESH_EVENT, loadPlaybackState)
+
+    return () => {
+      cancelled = true
+      window.removeEventListener(PLAYBACK_REFRESH_EVENT, loadPlaybackState)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!audioRef.current || !shouldUseLocalPreview) {
+      if (audioRef.current) {
+        audioRef.current.pause()
+      }
+      return
+    }
+
+    if (props.isPlaying) {
+      audioRef.current.play().catch(() => {})
+    } else {
+      audioRef.current.pause()
+    }
+  }, [props.isPlaying, props.trackData.track, shouldUseLocalPreview])
+
+  useEffect(() => {
+    if (!audioRef.current || !shouldUseLocalPreview) {
+      return
+    }
+
+    const targetSeconds = (props.currentPositionMs || 0) / 1000
+    if (Math.abs(audioRef.current.currentTime - targetSeconds) > 0.75) {
+      audioRef.current.currentTime = targetSeconds
+    }
+  }, [props.currentPositionMs, props.trackData.trackId, shouldUseLocalPreview])
+
+  useEffect(() => {
+    if (audioRef.current && shouldUseLocalPreview) {
+      audioRef.current.volume = volume
+    }
+  }, [shouldUseLocalPreview, volume])
+
+  useEffect(() => {
+    if (!webPlayback.errorMessage) {
+      return
+    }
+    setPlaybackError(webPlayback.errorMessage)
+  }, [webPlayback.errorMessage])
+
+  useEffect(() => {
+    const sdkState = webPlayback.playbackState
+    if (!sdkState || !webPlayback.deviceId || props.deviceId !== webPlayback.deviceId) {
+      return
+    }
+
+    setCurrentTime((sdkState.positionMs || 0) / 1000)
+    setDuration((sdkState.durationMs || 0) / 1000)
+    syncCurrentPlaybackState({
+      currentPositionMs: sdkState.positionMs || 0,
+      isPlaying: !sdkState.paused,
+      deviceId: webPlayback.deviceId,
+      trackId: sdkState.track?.id || props.trackData.trackId,
+      track: null,
+      trackName: sdkState.track?.name || props.trackData.trackName,
+      trackImg: sdkState.track?.albumImageUrl || props.trackData.trackImg,
+      trackArtist: sdkState.track?.artistName || props.trackData.trackArtist,
+      albumName: sdkState.track?.albumName || props.trackData.albumName,
+      durationMs: sdkState.track?.durationMs || sdkState.durationMs || props.trackData.durationMs,
+    })
+  }, [webPlayback.playbackState, webPlayback.deviceId, props.deviceId])
+
+  const handleNext = async () => {
+    if (!canSkipTrack || isPlaybackBusy) {
+      return
+    }
+
+    try {
+      setIsPlaybackBusy(true)
+      const deviceId = await ensureWebPlaybackDevice({ activate: true })
+      await nextTrack(DEMO_USER_ID, deviceId || props.deviceId)
+      await refreshPlaybackSession(true)
+      setPlaybackError('')
+    } catch (error) {
+      setPlaybackError(resolvePlaybackError(error, 'Failed to skip to the next track.'))
+    } finally {
+      setIsPlaybackBusy(false)
+    }
+  }
+
+  const handlePrevious = async () => {
+    if (!canSkipTrack || isPlaybackBusy) {
+      return
+    }
+
+    try {
+      setIsPlaybackBusy(true)
+      const deviceId = await ensureWebPlaybackDevice({ activate: true })
+      await previousTrack(DEMO_USER_ID, deviceId || props.deviceId)
+      await refreshPlaybackSession(true)
+      setPlaybackError('')
+    } catch (error) {
+      setPlaybackError(resolvePlaybackError(error, 'Failed to return to the previous track.'))
+    } finally {
+      setIsPlaybackBusy(false)
+    }
+  }
+
+  const handleQueueTrackPlay = async (trackId, trackIndex) => {
+    if (!props.currentPlaylistId || !trackId || isPlaybackBusy) {
+      return
+    }
+
+    try {
+      setIsPlaybackBusy(true)
+      const deviceId = await ensureWebPlaybackDevice({ activate: true })
+      const session = await playTrack(DEMO_USER_ID, {
+        trackId,
+        playlistId: props.currentPlaylistId,
+        trackIndex,
+        deviceId: deviceId || props.deviceId,
+        playbackMode: props.playbackMode,
+      })
+      await applyPlaybackSession(session)
+      setPlaybackError('')
+    } catch (error) {
+      setPlaybackError(resolvePlaybackError(error, 'Failed to switch to the selected track.'))
+    } finally {
+      setIsPlaybackBusy(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!audioRef.current || !shouldUseLocalPreview) {
+      return
+    }
+
+    const handleEnded = async () => {
+      if (canSkipTrack) {
+        await handleNext()
+      }
+    }
+
+    audioRef.current.addEventListener('ended', handleEnded)
+    return () => {
+      audioRef.current?.removeEventListener('ended', handleEnded)
+    }
+  }, [canSkipTrack, shouldUseLocalPreview, handleNext])
+
+  useEffect(() => {
+    autoAdvanceTrackRef.current = null
+  }, [props.trackData.trackId])
+
+  useEffect(() => {
+    const trackId = props.trackData.trackId
+    const durationMs = props.trackData.durationMs || 0
+    if (shouldUseLocalPreview || !trackId || !canSkipTrack || durationMs <= 0 || isPlaybackBusy) {
+      return undefined
+    }
+
+    const positionMs = Math.max(
+      props.currentPositionMs || 0,
+      Math.round(currentTime * 1000) || 0,
+    )
+    const remainingMs = durationMs - positionMs
+    const isNearEnd = remainingMs <= AUTO_ADVANCE_END_THRESHOLD_MS
+    if (!props.isPlaying && !isNearEnd) {
+      return undefined
+    }
+
+    const delayMs = props.isPlaying
+      ? Math.max(AUTO_ADVANCE_BUFFER_MS, remainingMs + AUTO_ADVANCE_BUFFER_MS)
+      : AUTO_ADVANCE_BUFFER_MS
+    const timeoutId = window.setTimeout(() => {
+      if (autoAdvanceTrackRef.current === trackId) {
+        return
+      }
+      autoAdvanceTrackRef.current = trackId
+      handleNext()
+    }, Math.min(delayMs, MAX_AUTO_ADVANCE_DELAY_MS))
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [
+    canSkipTrack,
+    currentTime,
+    handleNext,
+    isPlaybackBusy,
+    props.currentPositionMs,
+    props.isPlaying,
+    props.trackData.durationMs,
+    props.trackData.trackId,
+    shouldUseLocalPreview,
+  ])
+
+  useEffect(() => {
+    if (!props.isPlaying || !props.trackData.trackId || isPlaybackBusy) {
+      return undefined
+    }
+
+    const intervalId = window.setInterval(() => {
+      refreshPlaybackSession(true)
+    }, REMOTE_SYNC_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [isPlaybackBusy, props.isPlaying, props.trackData.trackId])
+
+  useEffect(() => {
+    const requestNext = () => {
+      handleNext()
+    }
+
+    window.addEventListener(QUEUE_NEXT_REQUEST_EVENT, requestNext)
+    return () => {
+      window.removeEventListener(QUEUE_NEXT_REQUEST_EVENT, requestNext)
+    }
+  }, [handleNext])
+
+  useEffect(() => {
+    const requestQueuePlay = (event) => {
+      const { trackId, trackIndex } = event.detail || {}
+      handleQueueTrackPlay(trackId, trackIndex)
+    }
+
+    window.addEventListener(QUEUE_PLAY_REQUEST_EVENT, requestQueuePlay)
+    return () => {
+      window.removeEventListener(QUEUE_PLAY_REQUEST_EVENT, requestQueuePlay)
+    }
+  }, [handleQueueTrackPlay])
+
+  const handleTrackClick = async (position) => {
+    if (!canSeek || isPlaybackBusy) {
+      return
+    }
+
+    if (audioRef.current) {
+      audioRef.current.currentTime = position
+    }
+    setCurrentTime(position)
+
+    if (!props.trackData.trackId) {
+      return
+    }
+
+    try {
+      setIsPlaybackBusy(true)
+      const deviceId = await ensureWebPlaybackDevice({ activate: true })
+      const session = await seekPlayback(DEMO_USER_ID, Math.round(position * 1000), deviceId || props.deviceId)
+      await applyPlaybackSession(session)
+      setPlaybackError('')
+    } catch (error) {
+      setPlaybackError(resolvePlaybackError(error, 'Failed to update playback position.'))
+    } finally {
+      setIsPlaybackBusy(false)
+    }
+  }
+
+  const handleTransferDevice = async (deviceId) => {
+    if (!deviceId || isDeviceBusy) {
+      return false
+    }
+
+    try {
+      setIsDeviceBusy(true)
+      if (deviceId === webPlayback.deviceId && !webPlayback.isReady) {
+        await webPlayback.ensureReady({ activate: true })
+      }
+      const session = await transferPlayback(DEMO_USER_ID, deviceId, props.isPlaying)
+      await applyPlaybackSession(session)
+      const refreshedDevices = await refreshDevices({ silent: true })
+      const nextDevice = refreshedDevices.find((item) => item.id === deviceId)
+      let successMessage = 'Playback device updated.'
+      if (deviceId === webPlayback.deviceId) {
+        successMessage = 'AgentMusic Web Player is ready.'
+      } else if (nextDevice?.name) {
+        successMessage = `Switched playback to ${nextDevice.name}.`
+      }
+      setDevicePanelMessage(successMessage)
+      setDevicePanelTone('success')
+      setPlaybackError('')
+      return true
+    } catch (error) {
+      const feedback = resolveDeviceFeedback(error, 'Failed to switch playback device.')
+      setDevicePanelMessage(feedback.message)
+      setDevicePanelTone(feedback.tone)
+      setPlaybackError(feedback.message)
+      return false
+    } finally {
+      setIsDeviceBusy(false)
+    }
+  }
+
+  const handleEnableWebPlayback = async () => {
+    if (isDeviceBusy) {
+      return false
+    }
+
+    try {
+      setIsDeviceBusy(true)
+      const deviceId = await webPlayback.ensureReady({ activate: true })
+      const session = await transferPlayback(DEMO_USER_ID, deviceId, props.isPlaying)
+      await applyPlaybackSession(session)
+      setDevicePanelMessage('AgentMusic Web Player is ready.')
+      setDevicePanelTone('success')
+      setPlaybackError('')
+      await refreshDevices({ silent: true })
+      return true
+    } catch (error) {
+      const feedback = resolveDeviceFeedback(error, 'Failed to enable AgentMusic Web Player.')
+      setDevicePanelMessage(feedback.message)
+      setDevicePanelTone(feedback.tone)
+      setPlaybackError(feedback.message)
+      return false
+    } finally {
+      setIsDeviceBusy(false)
+    }
+  }
+
+  const handleTogglePlay = async () => {
+    if (!hasTrackContext || isPlaybackBusy) {
+      return
+    }
+
+    if (!props.trackData.trackId) {
+      props.syncPlaybackSessionAction({
+        isPlaying: !props.isPlaying,
+        currentPositionMs: Math.round(currentTime * 1000),
+        playbackMode: props.playbackMode,
+        deviceId: props.deviceId,
+      })
+      return
+    }
+
+    try {
+      setIsPlaybackBusy(true)
+      const deviceId = props.isPlaying
+        ? props.deviceId
+        : await ensureWebPlaybackDevice({ activate: true })
+      const session = props.isPlaying
+        ? await pausePlayback(DEMO_USER_ID, deviceId || props.deviceId)
+        : await playTrack(DEMO_USER_ID, {
+            trackId: props.trackData.trackId,
+            playlistId: props.currentPlaylistId,
+            trackIndex: props.currentTrackIndex,
+            deviceId: deviceId || props.deviceId,
+            playbackMode: props.playbackMode,
+          })
+      await applyPlaybackSession(session)
+      setPlaybackError('')
+    } catch (error) {
+      setPlaybackError(
+        resolvePlaybackError(
+          error,
+          props.isPlaying ? 'Failed to pause playback.' : 'Failed to start playback.',
+        ),
+      )
+    } finally {
+      setIsPlaybackBusy(false)
+    }
+  }
+
+  const handleToggleShuffle = async () => {
+    const nextMode = props.playbackMode === 'SHUFFLE' ? 'SEQUENTIAL' : 'SHUFFLE'
+    await updatePlaybackMode(nextMode)
+  }
+
+  const handleCycleLoopMode = async () => {
+    let nextMode = 'LIST_LOOP'
+    if (props.playbackMode === 'LIST_LOOP') {
+      nextMode = 'SINGLE_LOOP'
+    } else if (props.playbackMode === 'SINGLE_LOOP') {
+      nextMode = 'SEQUENTIAL'
+    }
+    await updatePlaybackMode(nextMode)
+  }
+
+  const updatePlaybackMode = async (nextMode) => {
+    if (!hasTrackContext || isPlaybackBusy) {
+      return
+    }
+
+    if (!props.trackData.trackId) {
+      props.syncPlaybackSessionAction({
+        isPlaying: props.isPlaying,
+        currentPositionMs: Math.round(currentTime * 1000),
+        playbackMode: nextMode,
+        deviceId: props.deviceId,
+      })
+      return
+    }
+
+    try {
+      setIsPlaybackBusy(true)
+      const deviceId = await ensureWebPlaybackDevice({ activate: true })
+      const session = await changePlaybackMode(DEMO_USER_ID, nextMode, deviceId || props.deviceId)
+      await applyPlaybackSession(session)
+      setPlaybackError('')
+    } catch (error) {
+      setPlaybackError(resolvePlaybackError(error, 'Failed to change playback mode.'))
+    } finally {
+      setIsPlaybackBusy(false)
+    }
+  }
+
+  return (
+    <footer ref={footerRef} className={styles.footer}>
+      {playbackError ? <div className={styles.PlaybackError}>{playbackError}</div> : null}
+      <div className={styles.nowplayingbar}>
+        <FooterLeft onOpenNowPlayingPanel={props.onOpenNowPlayingPanel} />
+        <div className={styles.footerMid}>
+          <MusicControlBox
+            isPlaying={props.isPlaying}
+            playbackMode={props.playbackMode}
+            onTogglePlay={handleTogglePlay}
+            onPrevious={handlePrevious}
+            onNext={handleNext}
+            onToggleShuffle={handleToggleShuffle}
+            onCycleLoopMode={handleCycleLoopMode}
+            disablePlay={!hasTrackContext}
+            disableSkip={!canSkipTrack}
+            disableModeToggle={!hasTrackContext}
+            isBusy={isPlaybackBusy}
+          />
+          <MusicProgressBar
+            currentTime={currentTime}
+            duration={duration || remoteDurationSeconds}
+            handleTrackClick={handleTrackClick}
+            disabled={!canSeek || isPlaybackBusy}
+          />
+          <Audio
+            ref={audioRef}
+            handleDuration={setDuration}
+            handleCurrentTime={setCurrentTime}
+            trackData={props.trackData}
+            isPlaying={props.isPlaying}
+          />
+        </div>
+        {size.width > CONST.MOBILE_SIZE ? (
+          <FooterRight
+            volume={volume}
+            setVolume={setVolume}
+            onOpenNowPlayingPanel={props.onOpenNowPlayingPanel}
+            onToggleQueueDrawer={props.onToggleQueueDrawer}
+            isNowPlayingOpen={props.isNowPlayingOpen}
+            isQueueOpen={props.isQueueOpen}
+            hasTrackContext={hasTrackContext}
+            devices={devicesForPanel}
+            currentDeviceId={props.deviceId}
+            isDevicesLoading={isDevicesLoading}
+            isDeviceBusy={isDeviceBusy}
+            devicePanelMessage={devicePanelMessage}
+            devicePanelTone={devicePanelTone}
+            webPlayback={{
+              deviceId: webPlayback.deviceId,
+              isReady: webPlayback.isReady,
+              isConnecting: webPlayback.isConnecting,
+              isActive: webPlayback.isActive,
+              errorMessage: webPlayback.errorMessage,
+            }}
+            onEnableWebPlayback={handleEnableWebPlayback}
+            onRefreshDevices={() => refreshDevices({ silent: false })}
+            onTransferDevice={handleTransferDevice}
+          />
+        ) : null}
+      </div>
+    </footer>
+  )
+}
+
+const mapStateToProps = (state) => {
+  return {
+    trackData: state.trackData,
+    isPlaying: state.isPlaying,
+    currentPositionMs: state.currentPositionMs,
+    playbackMode: state.playbackMode,
+    deviceId: state.deviceId,
+    currentPlaylistId: state.currentPlaylistId,
+    currentTrackIndex: state.currentTrackIndex,
+  }
+}
+
+export default connect(mapStateToProps, { syncPlaybackSessionAction })(Footer)

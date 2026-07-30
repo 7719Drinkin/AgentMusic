@@ -1,0 +1,398 @@
+package com.agentmusic.agentmusic_backend.service.impl;
+
+import com.agentmusic.agentmusic_backend.config.SpotifyBridgeProperties;
+import com.agentmusic.agentmusic_backend.domain.PlaybackMode;
+import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyBridgeDevice;
+import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyPlaybackClient;
+import com.agentmusic.agentmusic_backend.integration.spotify.SpotifyPlaybackState;
+import com.agentmusic.agentmusic_backend.service.BridgePlaybackControlService;
+import com.agentmusic.agentmusic_backend.service.PlaybackSessionService;
+import com.agentmusic.agentmusic_backend.service.SpotifyBridgeAuthService;
+import com.agentmusic.agentmusic_backend.web.dto.PlaybackSessionDto;
+import com.agentmusic.agentmusic_backend.web.exception.ApiErrorCodes;
+import com.agentmusic.agentmusic_backend.web.exception.SpotifyBridgeAuthorizationException;
+import com.agentmusic.agentmusic_backend.web.exception.SpotifyPlaybackUnavailableException;
+import java.util.List;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+@Service
+public class DefaultBridgePlaybackControlService implements BridgePlaybackControlService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultBridgePlaybackControlService.class);
+    private static final int DEVICE_OPERATION_ATTEMPTS = 3;
+    private static final long DEVICE_OPERATION_RETRY_DELAY_MS = 350L;
+
+    private final SpotifyPlaybackClient spotifyPlaybackClient;
+    private final SpotifyBridgeAuthService spotifyBridgeAuthService;
+    private final PlaybackSessionService playbackSessionService;
+    private final SpotifyBridgeProperties spotifyBridgeProperties;
+
+    public DefaultBridgePlaybackControlService(
+            SpotifyPlaybackClient spotifyPlaybackClient,
+            SpotifyBridgeAuthService spotifyBridgeAuthService,
+            PlaybackSessionService playbackSessionService,
+            SpotifyBridgeProperties spotifyBridgeProperties
+    ) {
+        this.spotifyPlaybackClient = spotifyPlaybackClient;
+        this.spotifyBridgeAuthService = spotifyBridgeAuthService;
+        this.playbackSessionService = playbackSessionService;
+        this.spotifyBridgeProperties = spotifyBridgeProperties;
+    }
+
+    @Override
+    public PlaybackSessionDto playTrack(String userId, String trackId, PlaybackMode playbackMode, String deviceId) {
+        PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
+        PlaybackMode resolvedPlaybackMode = playbackMode == null ? PlaybackMode.SEQUENTIAL : playbackMode;
+        String accessToken = requireAccessToken();
+        String resolvedDeviceId = resolveTargetDeviceId(accessToken, userId, deviceId);
+        Optional<SpotifyPlaybackState> playbackState = spotifyPlaybackClient.getPlaybackState(accessToken);
+        boolean shouldResume = playbackState
+                .filter(state -> !state.isPlaying())
+                .filter(state -> trackId.equals(state.trackId()))
+                .filter(state -> resolvedDeviceId == null || resolvedDeviceId.equals(state.deviceId()))
+                .isPresent();
+
+        ensureTargetDevice(accessToken, resolvedDeviceId);
+        if (shouldResume) {
+            transferPlaybackWithRetry(accessToken, resolvedDeviceId, true);
+        } else {
+            playTrackWithRetry(accessToken, trackId, resolvedDeviceId);
+            applyPlaybackModeBestEffort(accessToken, resolvedPlaybackMode, resolvedDeviceId);
+        }
+        return playbackSessionService.saveSession(
+                userId,
+                current == null ? null : current.sessionId(),
+                trackId,
+                current == null ? null : current.currentPlaylistId(),
+                current == null ? null : current.currentTrackIndex(),
+                shouldResume && current != null ? current.currentPositionMs() : 0,
+                true,
+                resolvedPlaybackMode,
+                resolvedDeviceId
+        );
+    }
+
+    @Override
+    public PlaybackSessionDto pause(String userId, String deviceId) {
+        PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
+        String accessToken = requireAccessToken();
+        String resolvedDeviceId = resolveTargetDeviceId(accessToken, userId, deviceId);
+        spotifyPlaybackClient.pause(accessToken, resolvedDeviceId);
+        return playbackSessionService.saveSession(
+                userId,
+                current == null ? null : current.sessionId(),
+                current == null ? null : current.currentTrackId(),
+                current == null ? null : current.currentPlaylistId(),
+                current == null ? null : current.currentTrackIndex(),
+                current == null ? 0 : current.currentPositionMs(),
+                false,
+                current == null ? PlaybackMode.SEQUENTIAL : current.playbackMode(),
+                resolvedDeviceId
+        );
+    }
+
+    @Override
+    public PlaybackSessionDto nextTrack(String userId, String deviceId) {
+        String accessToken = requireAccessToken();
+        String resolvedDeviceId = resolveTargetDeviceId(accessToken, userId, deviceId);
+        spotifyPlaybackClient.nextTrack(accessToken, resolvedDeviceId);
+        return syncPlaybackState(userId);
+    }
+
+    @Override
+    public PlaybackSessionDto previousTrack(String userId, String deviceId) {
+        String accessToken = requireAccessToken();
+        String resolvedDeviceId = resolveTargetDeviceId(accessToken, userId, deviceId);
+        spotifyPlaybackClient.previousTrack(accessToken, resolvedDeviceId);
+        return syncPlaybackState(userId);
+    }
+
+    @Override
+    public PlaybackSessionDto seek(String userId, int positionMs, String deviceId) {
+        PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
+        String accessToken = requireAccessToken();
+        String resolvedDeviceId = resolveTargetDeviceId(accessToken, userId, deviceId);
+        spotifyPlaybackClient.seek(accessToken, positionMs, resolvedDeviceId);
+        return playbackSessionService.saveSession(
+                userId,
+                current == null ? null : current.sessionId(),
+                current == null ? null : current.currentTrackId(),
+                current == null ? null : current.currentPlaylistId(),
+                current == null ? null : current.currentTrackIndex(),
+                positionMs,
+                current != null && current.isPlaying(),
+                current == null ? PlaybackMode.SEQUENTIAL : current.playbackMode(),
+                resolvedDeviceId
+        );
+    }
+
+    @Override
+    public PlaybackSessionDto changePlaybackMode(String userId, PlaybackMode playbackMode, String deviceId) {
+        PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
+        PlaybackMode resolvedPlaybackMode = playbackMode == null ? PlaybackMode.SEQUENTIAL : playbackMode;
+        String accessToken = requireAccessToken();
+        String resolvedDeviceId = resolveTargetDeviceId(accessToken, userId, deviceId);
+        spotifyPlaybackClient.changePlaybackMode(accessToken, resolvedPlaybackMode, resolvedDeviceId);
+        return playbackSessionService.saveSession(
+                userId,
+                current == null ? null : current.sessionId(),
+                current == null ? null : current.currentTrackId(),
+                current == null ? null : current.currentPlaylistId(),
+                current == null ? null : current.currentTrackIndex(),
+                current == null ? 0 : current.currentPositionMs(),
+                current != null && current.isPlaying(),
+                resolvedPlaybackMode,
+                resolvedDeviceId
+        );
+    }
+
+    @Override
+    public PlaybackSessionDto syncPlaybackState(String userId) {
+        PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
+        Optional<String> accessToken = spotifyBridgeAuthService.getValidAccessToken();
+        if (accessToken.isEmpty()) {
+            return current;
+        }
+        Optional<SpotifyPlaybackState> playbackState = spotifyPlaybackClient.getPlaybackState(accessToken.get());
+        if (playbackState.isEmpty()) {
+            return current;
+        }
+        SpotifyPlaybackState state = playbackState.get();
+        PlaybackMode resolvedPlaybackMode = current != null
+                && current.currentPlaylistId() != null
+                && current.playbackMode() != null
+                ? current.playbackMode()
+                : state.playbackMode();
+        return playbackSessionService.saveSession(
+                userId,
+                current == null ? null : current.sessionId(),
+                state.trackId(),
+                current == null ? null : current.currentPlaylistId(),
+                current == null ? null : current.currentTrackIndex(),
+                state.progressMs(),
+                state.isPlaying(),
+                resolvedPlaybackMode,
+                resolveConfiguredDeviceId(state.deviceId())
+        );
+    }
+
+    @Override
+    public List<SpotifyBridgeDevice> getAvailableDevices(String userId) {
+        return spotifyPlaybackClient.getAvailableDevices(requireAccessToken());
+    }
+
+    @Override
+    public PlaybackSessionDto transferPlayback(String userId, String deviceId, boolean play) {
+        PlaybackSessionDto current = playbackSessionService.getActiveSession(userId).orElse(null);
+        String accessToken = requireAccessToken();
+        String resolvedDeviceId = resolveTransferDeviceId(accessToken, deviceId);
+        if (resolvedDeviceId == null) {
+            return current;
+        }
+        transferPlaybackWithRetry(accessToken, resolvedDeviceId, play);
+        return playbackSessionService.saveSession(
+                userId,
+                current == null ? null : current.sessionId(),
+                current == null ? null : current.currentTrackId(),
+                current == null ? null : current.currentPlaylistId(),
+                current == null ? null : current.currentTrackIndex(),
+                current == null ? 0 : current.currentPositionMs(),
+                play || (current != null && current.isPlaying()),
+                current == null ? PlaybackMode.SEQUENTIAL : current.playbackMode(),
+                resolvedDeviceId
+        );
+    }
+
+    private String requireAccessToken() {
+        if (!spotifyBridgeProperties.enabled()) {
+            throw new SpotifyBridgeAuthorizationException(
+                    ApiErrorCodes.BRIDGE_DISABLED,
+                    "Spotify bridge mode is disabled."
+            );
+        }
+
+        return spotifyBridgeAuthService.getValidAccessToken().orElseThrow(() -> new SpotifyBridgeAuthorizationException(
+                ApiErrorCodes.AUTHORIZATION_MISSING,
+                "Spotify bridge account is not connected. Reconnect the bridge account and try again."
+        ));
+    }
+
+    private String resolveTransferDeviceId(String accessToken, String requestedDeviceId) {
+        if (requestedDeviceId == null || requestedDeviceId.isBlank()) {
+            throw new IllegalArgumentException("Playback device id is required for transfer.");
+        }
+
+        List<SpotifyBridgeDevice> availableDevices = spotifyPlaybackClient.getAvailableDevices(accessToken).stream()
+                .filter(device -> device.id() != null && !device.id().isBlank())
+                .toList();
+
+        return availableDevices.stream()
+                .filter(device -> requestedDeviceId.equals(device.id()))
+                .findFirst()
+                .map(device -> {
+                    if (device.restricted()) {
+                        throw new SpotifyPlaybackUnavailableException(
+                                ApiErrorCodes.DEVICE_RESTRICTED,
+                                "Selected Spotify device is restricted. Enable the AgentMusic web player or choose another device."
+                        );
+                    }
+                    return device.id();
+                })
+                // A Web Playback SDK device can be usable before Spotify reports it in /me/player/devices.
+                .orElse(requestedDeviceId);
+    }
+
+    private String resolveTargetDeviceId(String accessToken, String userId, String requestedDeviceId) {
+        List<SpotifyBridgeDevice> availableDevices = spotifyPlaybackClient.getAvailableDevices(accessToken).stream()
+                .filter(device -> device.id() != null && !device.id().isBlank())
+                .toList();
+        if (availableDevices.isEmpty()) {
+            if (requestedDeviceId != null && !requestedDeviceId.isBlank()) {
+                return requestedDeviceId;
+            }
+            throw new SpotifyPlaybackUnavailableException(
+                    "Spotify did not report any available AgentMusic playback devices. Enable the AgentMusic web player and try again."
+            );
+        }
+
+        if (requestedDeviceId != null && !requestedDeviceId.isBlank()) {
+            Optional<SpotifyBridgeDevice> requestedDevice = availableDevices.stream()
+                    .filter(device -> requestedDeviceId.equals(device.id()))
+                    .findFirst();
+            if (requestedDevice.isPresent() && requestedDevice.get().restricted()) {
+                throw new SpotifyPlaybackUnavailableException(
+                        ApiErrorCodes.DEVICE_RESTRICTED,
+                        "Selected Spotify device is restricted. Enable the AgentMusic web player or choose another device."
+                );
+            }
+            return requestedDeviceId;
+        }
+
+        List<SpotifyBridgeDevice> devices = availableDevices.stream()
+                .filter(device -> !device.restricted())
+                .toList();
+        if (devices.isEmpty()) {
+            throw new SpotifyPlaybackUnavailableException(
+                    ApiErrorCodes.DEVICE_RESTRICTED,
+                    "Spotify detected devices, but all of them are restricted. Enable the AgentMusic web player or choose another device."
+            );
+        }
+
+        String currentSessionDeviceId = playbackSessionService.getActiveSession(userId)
+                .map(PlaybackSessionDto::deviceId)
+                .filter(id -> !id.isBlank())
+                .orElse(null);
+
+        return findMatchingDeviceId(devices, requestedDeviceId)
+                .or(() -> findMatchingDeviceId(devices, currentSessionDeviceId))
+                .or(() -> findMatchingDeviceId(devices, spotifyBridgeProperties.defaultDeviceId()))
+                .or(() -> devices.stream().filter(SpotifyBridgeDevice::active).map(SpotifyBridgeDevice::id).findFirst())
+                .or(() -> devices.stream().map(SpotifyBridgeDevice::id).findFirst())
+                .orElseThrow(() -> new SpotifyPlaybackUnavailableException(
+                        "Spotify could not resolve a controllable target device."
+                ));
+    }
+
+    private Optional<String> findMatchingDeviceId(List<SpotifyBridgeDevice> devices, String candidateDeviceId) {
+        if (candidateDeviceId == null || candidateDeviceId.isBlank()) {
+            return Optional.empty();
+        }
+        return devices.stream()
+                .filter(device -> candidateDeviceId.equals(device.id()))
+                .map(SpotifyBridgeDevice::id)
+                .findFirst();
+    }
+
+    private void ensureTargetDevice(String accessToken, String deviceId) {
+        if (deviceId == null || deviceId.isBlank()) {
+            return;
+        }
+        boolean targetDeviceIsActive = spotifyPlaybackClient.getAvailableDevices(accessToken).stream()
+                .filter(device -> !device.restricted())
+                .anyMatch(device -> deviceId.equals(device.id()) && device.active());
+        if (targetDeviceIsActive) {
+            return;
+        }
+        transferPlaybackWithRetry(accessToken, deviceId, false);
+    }
+
+    private void transferPlaybackWithRetry(String accessToken, String deviceId, boolean play) {
+        runDeviceOperationWithRetry(
+                "transferPlayback",
+                deviceId,
+                () -> spotifyPlaybackClient.transferPlayback(accessToken, deviceId, play)
+        );
+    }
+
+    private void playTrackWithRetry(String accessToken, String trackId, String deviceId) {
+        runDeviceOperationWithRetry(
+                "playTrack",
+                deviceId,
+                () -> spotifyPlaybackClient.playTrack(accessToken, trackId, deviceId)
+        );
+    }
+
+    private void runDeviceOperationWithRetry(String operation, String deviceId, Runnable operationCall) {
+        RuntimeException lastException = null;
+        for (int attempt = 1; attempt <= DEVICE_OPERATION_ATTEMPTS; attempt++) {
+            try {
+                operationCall.run();
+                return;
+            } catch (RuntimeException exception) {
+                lastException = exception;
+                if (attempt >= DEVICE_OPERATION_ATTEMPTS) {
+                    break;
+                }
+                LOGGER.warn(
+                        "Spotify {} failed for deviceId={} attempt={}/{}. Retrying after {}ms.",
+                        operation,
+                        deviceId,
+                        attempt,
+                        DEVICE_OPERATION_ATTEMPTS,
+                        DEVICE_OPERATION_RETRY_DELAY_MS,
+                        exception
+                );
+                sleepBeforeRetry();
+            }
+        }
+        throw lastException;
+    }
+
+    private void sleepBeforeRetry() {
+        try {
+            Thread.sleep(DEVICE_OPERATION_RETRY_DELAY_MS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting to retry Spotify playback device operation.", exception);
+        }
+    }
+
+    private void applyPlaybackModeBestEffort(String accessToken, PlaybackMode playbackMode, String deviceId) {
+        if (playbackMode == null || playbackMode == PlaybackMode.SEQUENTIAL) {
+            return;
+        }
+        try {
+            spotifyPlaybackClient.changePlaybackMode(accessToken, playbackMode, deviceId);
+        } catch (RuntimeException exception) {
+            LOGGER.warn(
+                    "Ignoring playback mode change failure during playTrack deviceId={} playbackMode={}",
+                    deviceId,
+                    playbackMode,
+                    exception
+            );
+        }
+    }
+
+    private String resolveConfiguredDeviceId(String deviceId) {
+        if (deviceId != null && !deviceId.isBlank()) {
+            return deviceId;
+        }
+        if (spotifyBridgeProperties.defaultDeviceId() != null && !spotifyBridgeProperties.defaultDeviceId().isBlank()) {
+            return spotifyBridgeProperties.defaultDeviceId();
+        }
+        return null;
+    }
+}

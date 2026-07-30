@@ -1,0 +1,84 @@
+export const QUEUE_NEXT_REQUEST_EVENT = 'agentmusic:queue-next-request'
+export const QUEUE_PLAY_REQUEST_EVENT = 'agentmusic:queue-play-request'
+
+export function buildArtistSearchLocation(artistName, state = {}) {
+  return {
+    pathname: '/music',
+    search: `?artist=${encodeURIComponent(artistName)}`,
+    state: {
+      artistName,
+      ...state,
+    },
+  }
+}
+
+export function buildCredits(track, artistName) {
+  return [
+    { label: 'Main Artist', value: artistName || 'Not available yet' },
+    { label: 'Lyricist', value: 'Not available from Spotify Web API yet' },
+    { label: 'Composer', value: 'Not available from Spotify Web API yet' },
+    { label: 'Album', value: track?.albumName || 'Not available yet' },
+  ]
+}
+
+export function mapQueueItems(playlistDetail, currentTrackIndex) {
+  if (!playlistDetail?.tracks?.length) {
+    return []
+  }
+
+  return playlistDetail.tracks
+    .filter((item) => item?.track)
+    .map((item, index) => ({
+      trackId: item.track.trackId,
+      trackIndex: index,
+      songName: item.track.title,
+      songArtistId: item.track.artistId,
+      songArtist: null,
+      songimg: item.track.albumImageUrl || '/image/Playlist/liked-songs.PNG',
+      isCurrent: index === Math.max(currentTrackIndex ?? 0, 0),
+    }))
+}
+
+export function resolveNextQueueItem(queueItems, currentTrackIndex) {
+  if (!queueItems?.length) {
+    return null
+  }
+
+  const safeIndex = Math.max(currentTrackIndex ?? 0, 0)
+  const nextIndex = safeIndex + 1
+
+  if (nextIndex >= queueItems.length) {
+    return null
+  }
+
+  return queueItems[nextIndex]
+}
+
+export function resolveCurrentTrackFromPlaylist(playlistDetail, currentTrackIndex, fallbackTrackData) {
+  const playlistTrack = playlistDetail?.tracks?.[currentTrackIndex ?? -1]?.track
+  if (playlistTrack) {
+    return {
+      trackId: playlistTrack.trackId,
+      title: playlistTrack.title,
+      artistId: playlistTrack.artistId,
+      albumName: playlistTrack.albumName,
+      albumId: playlistTrack.albumId,
+      albumImageUrl: playlistTrack.albumImageUrl,
+      durationMs: playlistTrack.durationMs,
+    }
+  }
+
+  if (!fallbackTrackData?.trackId) {
+    return null
+  }
+
+  return {
+    trackId: fallbackTrackData.trackId,
+    title: fallbackTrackData.trackName,
+    artistId: fallbackTrackData.trackArtistId,
+    albumName: fallbackTrackData.albumName,
+    albumId: fallbackTrackData.albumId,
+    albumImageUrl: fallbackTrackData.trackImg,
+    durationMs: fallbackTrackData.durationMs,
+  }
+}

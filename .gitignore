@@ -15,3 +15,20 @@ buildNumber.properties
 .project
 # JDT-specific (Eclipse Java Development Tools)
 .classpath
+.edge-playwright-profile/
+agentmusic-backend/out-temp/
+agentmusic-backend/.m2-temp/
+agentmusic-backend/cp.txt
+agentmusic-backend/javac-sources.txt
+agentmusic-backend/*.log
+/*.log
+
+# test-smoke
+.codex-llm-shadow/
+
+# test-ui
+artifacts/
+agentmusic-frontend/*-current-page.png
+
+# local
+local/

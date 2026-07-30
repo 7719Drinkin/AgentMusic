@@ -1,0 +1,377 @@
+.footerRight{
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    min-width: 0;
+    position: relative;
+}
+
+.footerIcon svg{
+    font-size: 19.2px;
+    width: 19.2px;
+    height: 19.2px;
+}
+
+.soundBar{
+    display: flex;
+    align-items: center;
+    margin-left: 4px;
+    min-width: 0;
+}
+
+.soundBar input{
+    width: 84px;
+}
+
+.devicePanelWrap{
+    position: relative;
+}
+
+.deviceSummaryButton{
+    border: 0;
+    border-radius: 14px;
+    background: transparent;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    min-width: 0;
+    cursor: pointer;
+    transition: background-color .16s ease, box-shadow .16s ease;
+}
+
+.deviceSummaryButton:hover{
+    background: rgba(255,255,255,.08);
+}
+
+.deviceSummaryButtonActive{
+    background: rgba(255,255,255,.1);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+}
+
+.deviceSummaryIcon{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+.deviceSummaryIconButton{
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+}
+
+.deviceSummaryIcon svg{
+    font-size: 19.2px;
+    width: 19.2px;
+    height: 19.2px;
+}
+
+.deviceSummaryInfo{
+    color: rgba(255,255,255,.68);
+}
+
+.deviceSummarySuccess{
+    color: #8df5b6;
+}
+
+.deviceSummaryWarning{
+    color: #ffd37a;
+}
+
+.deviceSummaryError{
+    color: #ff9aa6;
+}
+
+.devicePanel{
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 14px);
+    width: 340px;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: linear-gradient(180deg, rgba(27,27,27,.98) 0%, rgba(18,18,18,.98) 100%);
+    box-shadow: 0 18px 40px rgba(0,0,0,.45);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.devicePanelHeader{
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.devicePanelTitle{
+    margin: 0;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.devicePanelMeta{
+    margin: 0;
+    color: rgba(255,255,255,.62);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.devicePanelMetaRow{
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.devicePanelMetaBadge{
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(29,185,84,.14);
+    color: #c9ffdc;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+}
+
+.refreshButton{
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255,255,255,.08);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
+.refreshButton:hover:enabled{
+    background: rgba(255,255,255,.12);
+}
+
+.refreshButton:disabled{
+    opacity: .45;
+    cursor: default;
+}
+
+.devicePanelBody{
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.webPlayerCard{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(29,185,84,.18), rgba(255,255,255,.05));
+    border: 1px solid rgba(29,185,84,.24);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.webPlayerMain{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.webPlayerTitle{
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.webPlayerStatus{
+    display: inline-flex;
+    width: fit-content;
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.webPlayerHint{
+    display: block;
+    max-width: 210px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.35;
+    opacity: .86;
+}
+
+.webPlayerButton{
+    border: 0;
+    border-radius: 999px;
+    background: #1ed760;
+    color: #06180d;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.2;
+    padding: 8px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 8px 18px rgba(29,185,84,.2);
+}
+
+.webPlayerButton:hover:enabled{
+    background: #31e773;
+}
+
+.webPlayerButton:disabled{
+    opacity: .58;
+    cursor: default;
+}
+
+.deviceNotice{
+    margin: 0;
+    border-radius: 10px;
+    padding: 9px 11px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.deviceNoticeInfo{
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.08);
+}
+
+.deviceNoticeSuccess{
+    background: rgba(29,185,84,.14);
+    border: 1px solid rgba(29,185,84,.24);
+}
+
+.deviceNoticeWarning{
+    background: rgba(255,193,7,.14);
+    border: 1px solid rgba(255,193,7,.24);
+}
+
+.deviceNoticeError{
+    background: rgba(210,52,67,.14);
+    border: 1px solid rgba(210,52,67,.24);
+}
+
+.deviceEmpty{
+    margin: 0;
+    color: rgba(255,255,255,.62);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.deviceItem{
+    border: 0;
+    border-radius: 12px;
+    background: rgba(255,255,255,.04);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
+    color: #fff;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color .16s ease, transform .16s ease;
+}
+
+.deviceItem:hover:enabled{
+    background: rgba(255,255,255,.1);
+    transform: translateY(-1px);
+}
+
+.deviceItem:disabled{
+    cursor: default;
+    opacity: .9;
+}
+
+.deviceItemActive{
+    background: linear-gradient(180deg, rgba(29,185,84,.2), rgba(29,185,84,.1));
+    outline: 1px solid rgba(29,185,84,.35);
+    box-shadow: inset 0 0 0 1px rgba(29,185,84,.1);
+}
+
+.deviceItemMain{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.deviceTitleRow{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.deviceName{
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.deviceChip{
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 2px 7px;
+    background: rgba(29,185,84,.18);
+    color: #b7ffd1;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    flex: 0 0 auto;
+}
+
+.deviceType{
+    font-size: 12px;
+    color: rgba(255,255,255,.62);
+    line-height: 1.4;
+}
+
+.deviceStatus{
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.deviceStatusCurrent{
+    color: #8df5b6;
+}
+
+.deviceStatusAction{
+    color: #8ac6ff;
+}
+
+.deviceStatusWarning{
+    color: #ffd37a;
+}
+
+.deviceStatusMuted{
+    color: rgba(255,255,255,.62);
+}

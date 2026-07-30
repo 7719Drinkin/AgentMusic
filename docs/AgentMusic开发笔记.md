@@ -1,0 +1,655 @@
+﻿# AgentMusic 开发笔记
+
+版本：M3.0
+更新日期：2026-05-13
+
+## 1. 当前基线
+
+当前版本的主目标已经从“把前后端接起来”转为“把真实播放闭环做稳定，并为持久化落地准备结构”。
+
+当前主闭环已经具备：
+
+1. 聊天页发送推荐请求。
+2. 后端生成推荐歌单并写入播放会话。
+3. 左侧栏展示推荐歌单历史。
+4. 点击推荐歌单进入真实歌单页。
+5. 底部播放器与右侧当前播放栏显示真实播放上下文。
+6. 通过 Spotify bridge 账号控制真实 Spotify 设备播放。
+
+当前前端信息架构也已收口为两条主线：
+
+1. `Agent Chat`
+2. `Music Home`
+
+其中：
+
+- `Search` 页不再作为独立功能保留，相关“找歌 / 找艺人”意图由 Agent Chat 替代。
+- `Library` 页不再作为独立功能保留，资料库类入口由 Agent Chat 与推荐歌单历史替代。
+- `Music Home` 保留，用于展示最近推荐流程中沉淀出的歌曲、艺人、歌单、专辑元素。
+
+## 2. 当前后端结构
+
+本轮已完成一次受控包重构，目标是把 Web 层、Spotify 集成层、持久化层拆开，减少横向技术包混放。
+
+### 2.1 结构说明
+
+后端当前主要包结构如下：
+
+- `config`
+  - 全局配置与属性绑定。
+- `domain`
+  - 领域模型，如 `Playlist`、`Track`、`PlaybackSession`。
+- `planner`
+  - Agent 意图识别、规划与执行骨架。
+  - 当前已新增 `planner.llm`，用于约束真实 LLM 规划输入 / 输出契约。
+- `service`
+  - 领域服务接口与应用服务接口。
+- `web.controller`
+  - REST Controller。
+- `web.dto`
+  - Web 层 DTO。
+- `web.mapper`
+  - 领域对象到 DTO 的映射。
+- `web.exception`
+  - API 错误响应与异常处理。
+- `integration.spotify`
+  - Spotify Web API 客户端、token、设备、播放状态等集成代码。
+- `persistence.repository`
+  - Repository 抽象。
+- `persistence.repository.memory`
+  - 内存仓储实现。
+- `persistence.repository.file`
+  - 文件型持久化实现（当前主要用于 Spotify bridge token）。
+- `persistence.redis`
+  - Redis key 与 Redis 配置入口。
+- `persistence.mybatis`
+  - MyBatis 持久化入口、Mapper 占位与记录模型。
+
+### 2.2 重构原则
+
+本次重构没有继续把所有业务再细分成更多目录，而是先解决最混乱的三层：
+
+- Web 入口层。
+- 第三方集成层。
+- 持久化层。
+
+这样做的原因是：
+
+- 改动量可控。
+- 现有业务接口不会被一次性打散。
+- 为 MyBatis / Redis 替换当前内存仓储留出清晰入口。
+
+## 3. 已完成的关键能力
+
+### 3.1 Agent 与推荐闭环
+
+- 聊天页已接后端真实接口。
+- 中文推荐意图识别已修复。
+- 推荐请求可进入 `PLAY_RECOMMENDATION`。
+- 后端会生成真实推荐歌单并写入 `currentPlaylistId/currentTrackIndex`。
+- 左侧栏可展示推荐歌单历史。
+
+### 3.1.1 LLM 接入前置准备
+
+- 已完成严格的 LLM 规划 Harness。
+- 当前已定义：
+  - 输入 Envelope
+  - 严格 JSON 输出契约
+  - 意图到执行步骤的固定模板
+  - 服务端逐字段校验规则
+  - 单元测试覆盖
+- 当前 Harness 输出目标是 `AgentPlan`，后续真实 LLM 接入时必须先经过该 Harness 校验。
+- OpenAI 兼容客户端基址已改成可配置：
+  - `openai.base-url`
+- 这样可以直接对接 Kimi 兼容 OpenAI 的 endpoint，而不再写死 OpenAI 官方域名。
+- 当前真实 LLM 仍未接管主聊天主链，主规划仍以现有 `SimpleTaskPlanner` 作为 fallback。
+- 当前已增加影子模式真实调用器：
+  - `OpenAiCompatiblePlanningClient`
+  - `LiveLlmPlanningSmokeRunner`
+- 该路径不接主链，只用于验证真实 provider 输出能否通过 Harness。
+- 当前已新增 `LlmBackedTaskPlanner` 作为主 planner 入口：
+  - 优先调用真实 OpenAI 兼容 provider
+  - 返回结果先经过 Harness 校验
+  - 校验成功后直接产出 `AgentPlan`
+  - 调用失败、限流或校验失败时回退到 `SimpleTaskPlanner`
+- `TaskPlanner` 当前已返回 `TaskPlanningResult`，用于显式记录：
+  - `planningSource`
+  - `planningFallbackUsed`
+- `DefaultAgentApplicationService` 已把上述元数据写入 Agent 回复 metadata，便于后续前端和联调验证主链到底命中了真实 LLM 还是 fallback。
+
+### 3.1.2 LLM 输出验收规则
+
+当前对真实 LLM 输出的验收不以“回答看起来合理”为标准，而以“是否能被 Harness 严格接受”为标准。
+
+当前验收流程固定为：
+
+1. 调用 OpenAI 兼容 `chat/completions`。
+2. 只读取 `choices[0].message.content`。
+3. 将原始内容交给 `AgentLlmPlanningHarness.parseAndValidate(...)`。
+4. 仅当以下条件全部成立时，才判定该输出可接受：
+   - JSON 解析成功。
+   - `schemaVersion` 匹配。
+   - `intent` 属于白名单。
+   - `steps` 严格匹配对应模板。
+   - `arguments` 通过字段级校验。
+   - 最终成功转换为 `AgentPlan`。
+5. 任一条件失败时，视为该次 LLM 输出不可接受，应回退到 `SimpleTaskPlanner`。
+
+当前人工烟雾测试结论：
+
+- Kimi 兼容接口已经能返回结构化 JSON。
+- 第一轮真实输出曾未通过 Harness，原因是步骤参数不完整。
+- 收紧 prompt 并加入一次修复回合后，推荐主路径当前已经连续通过真实 shadow smoke。
+- 当前已实测稳定通过的路径是：
+  - 用户请求“来点适合雨天通勤的中文歌并直接播放”
+  - 输出 `intent=PLAY_RECOMMENDATION`
+  - step 序列严格匹配 `PLAY_RECOMMENDATION` 模板
+  - `limit` / `query` 参数通过 Harness 校验
+- 这说明当前重点已经从“继续定义契约”转移到“将 validated `AgentPlan` 接入主聊天规划链路”。
+- 当前该主链接入已完成，真实 provider 路径在本地 runner 中已能进入 `LlmBackedTaskPlanner`。
+- 当前一次实际 runner 观察到的 fallback 原因是 provider `429 Too Many Requests`，不是 Harness 结构错误。
+
+### 3.1.3 推荐链职责重分配
+
+当前推荐链已完成一次职责重分配，不再是“LLM 只做意图识别，本地规则负责全部选歌”。
+
+当前分工是：
+
+1. `LLM` 负责：
+   - 推荐规格提炼：`RecommendationSpec`
+   - 候选集重排：`RecommendationRerank`
+2. `代码` 负责：
+   - Spotify 候选召回
+   - 同艺人 / 同专辑硬过滤
+   - 显式标题优先插入
+   - 最终可播放校验与去重
+
+当前推荐检索链已单独整理为：
+
+- `agentmusic-backend/docs/recommendation-search-chain.md`
+
+### 3.1.4 推荐语义归一化
+
+当前推荐链已把“语义归一化”前移到 LLM 主导，而不再主要依赖本地字符串规则。
+
+当前运行方式是：
+
+1. LLM 输出 `RecommendationSpec`
+2. `RecommendationSpec` 显式带：
+   - `requestMode`
+   - `artist`
+   - `track`
+   - `album`
+   - `desiredTrackCount`
+   - `wantAdditionalTracks`
+3. 代码侧只保留窄范围 guardrail：
+   - 填补明显缺失的 `artist / track / album`
+   - 清理 `track == album` 这类自相矛盾结构
+   - 将非常明确的 album-only 误分类修回 `ALBUM_ONLY`
+   - 保持 `ARTIST_ONLY` / `ALBUM_ONLY` 的硬边界
+
+当前还新增了一个重要约束：
+
+- 对于独立请求，旧上下文默认不再注入 recommendation spec 提炼。
+- 只有出现：
+  - `继续`
+  - `再来`
+  - `更多`
+  - `类似`
+  - `again`
+  - `more`
+  - `similar`
+  - `continue`
+  这类明显指代表达时，才允许引用最近对话和最近推荐摘要。
+
+这样做的目的是避免上一轮专辑 / 艺人信息污染当前独立请求。
+
+### 3.1.5 当前推荐检索流
+
+当前已经落地三条实体型推荐流：
+
+1. `artist-only`
+   - 先 `searchArtists(name)` 获取主 `artistId`
+   - 再基于 `artistId` 展开 artist albums 与 album tracks
+   - 不再依赖 plain-text `track search("张雨生")` 作为主召回
+
+2. `artist + track (+ album)`
+   - 优先结构化 Spotify query：
+     - `track:<title> artist:<artist> album:<album>`
+   - 再补同艺人 catalog 候选
+   - 最终显式标题优先，同专辑优先，同艺人其他歌曲后补
+
+3. `album-only`
+   - 当前已进入 `album-only hard scope`
+   - 若用户表达的是“专辑里的歌/歌曲”，则候选只允许来自目标专辑
+   - 若未明确要求“其他歌曲”，则不允许扩展到专辑外
+
+当前已验证：
+
+- `推荐20首张雨生的歌`
+  - 可稳定返回 `20` 首
+  - 不再混入其他歌手
+- `推荐张雨生专辑《两伊战争红色热情》里的《我最深爱的人伤我最深》以及张雨生的其他歌曲`
+  - 目标曲已稳定排到第 1 位
+  - 不再被同名异歌手污染
+- `推荐谭咏麟《世外桃源》专辑里的歌曲`
+  - 只返回该专辑自身曲目
+- `推荐张雨生专辑《两伊战争白色才情》里的歌`
+  - 与 `推荐张雨生《两伊战争白色才情》专辑里的歌曲`
+    已归一为同一个 `album-only` 结果
+
+### 3.1.6 当前推荐主题流
+
+当前 `RecommendationRequestMode` 已支持：
+
+- `THEME_AWARE`
+
+该模式用于：
+
+- `给我来点90年代的粤语歌`
+- `来点适合雨天通勤的中文歌`
+
+当前状态：
+
+- 语义归一化契约已支持 `THEME_AWARE`
+- 检索流已落地首版实现
+- 当前成熟度仍低于：
+  - `artist-only`
+  - `artist + track (+ album)`
+  - `album-only`
+
+后续应将主题型请求从实体型链路中彻底拆出，形成独立召回和 rerank 流。
+
+### 3.2 歌单页
+
+- 左侧推荐歌单点击后进入真实歌单页。
+- 歌单页已绑定 `GET /api/playlists/{playlistId}/detail`。
+- 当前歌单页行结构为：
+  - 序号
+  - 标题（封面 / 歌名 / 艺人）
+  - 专辑
+  - 添加时间
+  - 时长
+- `addedAt` 已从后端 DTO 向前端透传。
+
+### 3.2.1 Music Home
+
+- `Music Home` 已从占位页改为真实推荐内容聚合页。
+- `Music Home` 当前已改成简洁圆角卡片布局，并支持分区展开 / 收起。
+- `Music Home` 主页面滚动容器已修正为独立滚动区，页面底部内容现在可以滚动到视口内并正常交互。
+- 当前首页已展示：
+  - 最近推荐歌单
+  - 最近推荐中出现的歌曲
+  - 最近推荐中出现的艺人
+  - 最近推荐中出现的专辑
+- 艺人聚焦入口已从旧 `/search` 路径切到 `/music?artist=...`。
+
+### 3.3 播放器与当前播放栏
+
+- 底部播放器已接真实播放会话。
+- 右侧当前播放栏已显示真实歌单名、当前曲目、艺人、下一首。
+- 底部设备面板已可打开、刷新并显示当前可用设备。
+- 底部设备摘要已显示当前设备名称，设备离线时可显示无活动设备提示。
+- 前端播放异常提示已完成首轮统一：
+  - 设备不可用。
+  - bridge 授权过期 / 无效。
+  - Spotify 网络 / DNS 异常。
+  - 通用播放控制失败。
+- 后端 API 错误响应已开始返回结构化错误码：
+  - `spotify-authorization`
+  - `spotify-authorization-missing`
+  - `spotify-device-unavailable`
+  - `spotify-device-offline`
+  - `spotify-device-restricted`
+  - `invalid-request`
+  - `not-found`
+  - `request-failure`
+- 前端 `http.js` 现在优先消费后端错误码，再回退到状态码与消息文本兜底。
+- 当前前端 fallback 已进一步收敛：
+  - 播放路径 `401` 优先归类为授权错误。
+  - 播放路径 `403` 优先归类为受限设备。
+  - 播放路径 `404` 优先归类为设备不可用。
+  - 授权与播放路径 `503` 优先归类为 bridge disabled。
+  - 当前只对传输层 / DNS 类异常保留文本兜底分类。
+- 设备显式切换现在对“所选设备已离线”返回独立错误码，不再模糊落成通用播放冲突。
+- 同一套错误归一逻辑已扩展到：
+  - 聊天历史加载。
+  - Agent 消息发送。
+  - 左侧推荐歌单加载。
+- 聊天页与左侧推荐歌单页的损坏文案已清理，避免在联调和 E2E 中混入乱码。
+- 左侧推荐歌单区域已去除与主导航重复的 `Agent Chat` / `Music Home` 固定入口。
+- 左侧推荐歌单区已拆成固定头部 + 可滚动列表区，歌单数量超出可视高度后可滚动查看。
+- 底部设备摘要在 session 仍持有 `deviceId` 但设备列表为空时，不再错误显示 `No active device`，而是明确显示 session 设备不可用 / 离线。
+- 队列抽屉已支持：
+  - 展示完整歌单上下文。
+  - 点击非当前曲目切歌。
+  - “队列中的下一首歌”随当前曲目同步。
+- 歌单页视觉已继续收口：
+  - 推荐歌单 meta chip。
+  - 主播放动作说明。
+  - 当前曲目 pill。
+  - 更清晰的行 hover / active 状态。
+  - 歌单页历史残留乱码文案已清理，页面文案恢复为正常中文。
+- 当前播放栏视觉已继续收口：
+  - 新增播放上下文条，直接显示当前是第几首以及后续队列数量。
+  - `Up next` 卡片增加当前歌单上下文说明，减少只看封面时的信息不足。
+  - 当前播放栏头部按钮在无 hover 场景下也可见，避免触屏或窄窗口下操作入口消失。
+- 设备面板视觉已继续收口：
+  - 面板头部改为 `available + current session tracked` 的双层信息结构。
+  - 当前设备状态文案从泛化 `Ready` 改为更明确的 `Current device`。
+- 左上角标识已从原 Spotify 图形标识改为 `AgentMusic` 文字标识，并和侧栏外壳统一为圆角卡片化外观。
+
+### 3.4 真实 Spotify 播放控制
+
+已验证通过：
+
+- 设备发现。
+- `transfer playback`。
+- `pause / play / sync`。
+- `next / previous`。
+- `seek`。
+- `mode` 中的 `SEQUENTIAL / SHUFFLE / LIST_LOOP`。
+
+其中：
+
+- `SHUFFLE` 已明确收敛为“本地歌单上下文模式”，不再依赖 Spotify 原生队列上下文。
+- `next / previous` 的目标曲目由本地歌单上下文决策，再通过真实 Spotify `playTrack` 落到设备上。
+- 当 bridge 账号未连接或 access token 缺失时，播放控制与设备列表接口现在会直接返回结构化授权错误，不再回退为本地会话假成功。
+- 仍属于 legacy 的 Spotify 授权令牌不完整响应、bridge token 文件落盘失败，现也已改为结构化 API 失败响应，不再落入通用 `IllegalStateException`。
+
+### 3.5 Spotify 集成稳定性修复
+
+已修复两个关键问题：
+
+1. 播放控制请求误发到 `localhost:80`。
+2. Reactor Netty 默认 DNS resolver 无法稳定解析 `accounts.spotify.com` 与 Spotify API 域名。
+
+当前 Spotify 相关 WebClient 已改为使用系统 / JDK resolver。
+
+### 3.6 当前推荐准确度状态
+
+当前实体型推荐准确度已完成一轮实质收口：
+
+1. `artist-only`
+   - 已从“第一页 track search + 过滤”切到 `artistId -> artist catalog`
+2. `artist + track (+ album)`
+   - 已支持结构化 query 与同艺人强过滤
+3. `album-only`
+   - 已支持硬边界与等价语义归一化
+
+当前剩余未完成的高优先级准确度问题主要转为：
+
+- 主题型 / 场景型请求：
+  - 如 `90年代粤语歌`
+  - 尚未切出单独的 `theme-aware retrieval flow`
+- 推荐规格语义归一化：
+  - 当前仍有一部分 guardrail 在本地代码中
+  - 后续可升级为单独的 LLM semantic normalization harness
+
+## 4. 持久化方向
+
+### 4.1 当前状态
+
+当前系统处于“默认内存、可切换真实持久化”的过渡态：
+
+- 默认运行模式仍为内存仓储，便于本地快速启动。
+- 当配置 `agentmusic.persistence.mode=mybatis` 时：
+  - `PlaylistRepository`
+  - `PlaylistTrackRepository`
+  - `TrackRepository`
+  - `ArtistRepository`
+  - `SessionRepository`
+  - `ChatMessageRepository`
+  会切换到 MyBatis / Redis 路径。
+- Spotify bridge token 仍为文件持久化。
+
+### 4.2 本轮新增的持久化入口
+
+本轮已补：
+
+- MyBatis Starter 依赖。
+- MySQL 驱动依赖。
+- Redis Starter 依赖。
+- `MybatisPersistenceConfig`。
+- `persistence.mybatis.mapper` Mapper 占位。
+- `persistence.mybatis.model` 记录模型占位。
+- `RedisPersistenceConfig`。
+- `application.properties` 中的 MySQL / Redis / MyBatis 配置入口。
+
+### 4.3 已完成的第一阶段实现
+
+当前已落地的 MyBatis / Redis 仓储实现：
+
+- `PlaylistRepository`
+- `PlaylistTrackRepository`
+- `TrackRepository`
+- `ArtistRepository`
+- `SessionRepository`（Redis + MyBatis 混合实现）
+- `ChatMessageRepository`
+- `UserRepository`
+
+切换方式：
+
+- 默认仍为内存实现。
+- 当配置 `agentmusic.persistence.mode=mybatis` 时：
+  - `MybatisPlaylistRepository`
+  - `MybatisPlaylistTrackRepository`
+  - `MybatisTrackRepository`
+  - `MybatisArtistRepository`
+  - `RedisMybatisSessionRepository`
+  - `MybatisChatMessageRepository`
+  - `MybatisUserRepository`
+  会替换当前内存仓储实现。
+
+### 4.4 后续实现原则
+
+后续持久化替换按下面顺序推进：
+
+1. 保持 Repository 抽象不变。
+2. 逐个替换内存实现，而不是一次性推翻。
+3. MyBatis 负责 MySQL 持久化实现。
+4. Redis 负责热状态、缓存和会话加速。
+
+### 4.5 当前 SessionRepository 形态
+
+当前 `SessionRepository` 已切到混合实现：
+
+1. 写入时：
+   - 先落 MySQL `sessions`
+   - 再写 Redis 热缓存
+2. 读取时：
+   - 先查 Redis
+   - Redis 未命中再回源 MySQL
+   - 回源后再回填 Redis
+
+当前为支撑该路径，已对 `sessions` 表新增：
+
+- `current_playlist_id`
+- `current_track_index`
+
+如果本地 MySQL 是旧表结构，需要先执行 migration：
+
+- `agentmusic-backend/src/main/resources/db/mysql/migrations/20260425_add_session_context_columns.sql`
+
+### 4.6 当前 ChatMessageRepository 形态
+
+当前聊天历史已切到 MyBatis：
+
+1. 新消息直接写入 MySQL `chat_messages`
+2. 最近消息按 `created_at DESC` 读取
+3. 超出保留上限时，按用户维度裁剪旧消息
+
+这意味着聊天页历史现在也进入了持久化路径，不再只依赖内存仓储。
+
+### 4.7 当前端到端验证结论
+
+当前已经具备可重复运行的真实 E2E 路径：
+
+1. 聊天页发送推荐请求。
+2. 后端生成推荐歌单并开始真实播放。
+3. 左侧栏刷新并显示最新推荐歌单。
+4. 点击最新歌单进入真实歌单页。
+5. 页内点歌触发真实播放接口。
+6. MySQL 中可观测到：
+   - `playlists`
+   - `playlist_tracks`
+   - `tracks`
+   - `artists`
+   - `chat_messages`
+   - `sessions`
+   持久化数据增长。
+7. 底部设备面板可打开并显示当前设备。
+7. 底部设备面板可打开，并显示当前可用设备。
+
+当前 E2E 入口脚本为：
+
+- `agentmusic-frontend/scripts/e2e-persistence.js`
+
+该脚本的稳定运行前提是：
+
+- 前端运行于 `localhost:5173`
+- 后端运行于 `localhost:8080`
+- bridge 账号下存在活跃 Spotify 设备
+- 优先通过 Edge CDP `http://127.0.0.1:9222` 接入浏览器
+
+### 4.8 当前启动自检与 schema bootstrap
+
+当前在 `agentmusic.persistence.mode=mybatis` 下，后端启动时会执行：
+
+1. 使用 `db/mysql/schema.sql` 确保基础表存在。
+2. 创建 `schema_migrations` 表。
+3. 扫描并应用 `db/mysql/migrations/*.sql` 中尚未执行的 migration。
+4. 校验关键表与关键列是否存在。
+
+当前已覆盖的关键校验包括：
+
+- `users`
+- `playlists`
+- `playlist_tracks`
+- `tracks`
+- `artists`
+- `chat_messages`
+- `sessions`
+- `schema_migrations`
+
+以及：
+
+- `sessions.current_playlist_id`
+- `sessions.current_track_index`
+- `users.preferences`
+
+同时，MySQL 连接串已加入：
+
+- `createDatabaseIfNotExist=true`
+
+用于减少本地首次启动时因为数据库尚未创建而直接失败的情况。
+
+### 4.10 启动诊断增强
+
+当前 MyBatis bootstrap 的启动失败信息已补充为分阶段诊断：
+
+- `base schema application`
+- `migration table initialization`
+- `migration application`
+- `schema validation`
+
+当任一阶段失败时，异常信息会包含：
+
+- 失败阶段名
+- 当前数据库目标描述
+- 直接的排查建议
+- 原始失败原因
+
+当前目标不是把所有数据库错误都包装成新类型，而是确保在本地开发和联调阶段，看到日志后能直接判断问题更接近：
+
+- MySQL 连接 / 权限
+- `schema.sql`
+- migration 文件
+- `schema_migrations`
+- 缺表 / 缺列
+
+### 4.9 当前开发约束
+
+当前本地开发流程下，后端代码更新后由 Spring Boot 自动重启。
+
+原因是：
+
+- 当前联调与 E2E 依赖最新后端代码生效后再继续。
+- “重启恢复验证”不应进入每轮开发的常规验收流程。
+
+因此当前阶段的联调方式固定为：
+
+1. 完成一轮代码修改。
+2. 等待 Spring Boot 自动重启完成，并确认 `localhost:8080` 恢复响应。
+3. 直接继续页面联调与 E2E。
+
+“重启恢复验证”不再作为当前阶段的常规验收项。
+
+## 5. 重大限制
+
+### 5.1 Bridge 模式的多用户冲突
+
+当前版本仍采用单个 Spotify bridge 账号承载真实播放控制。
+
+这意味着：
+
+- 多个用户不能同时各听各的歌。
+- 所有真实播放上下文共享同一个 Spotify 账号和设备集合。
+- 这是当前版本的重大架构缺陷，但不阻塞课程设计阶段的单实例演示。
+
+### 5.2 当前 Agent 的 LLM 接入状态
+
+- 当前推荐主链已接入真实 LLM：
+  - `planner.llm` 负责聊天意图规划。
+  - `LlmBackedRecommendationSelectionService` 负责推荐语义归一化与候选重排。
+  - 后端保留 deterministic guardrail，负责 Spotify 候选召回、硬边界过滤、显式曲目优先和最终截断。
+- 当前仍不是完整流式在线 Agent：
+  - 聊天回复还不是流式输出。
+  - 多轮工具调用与自主执行链路仍未完整展开。
+  - 推荐质量仍依赖 Spotify 候选池质量和本地 metadata 丰富度。
+
+## 6. 当前待完成任务
+
+### Priority 1
+
+1. 完善设备切换后的回显、刷新与边界状态。
+2. 已完成：将 `planner.llm` Harness 接到主聊天规划链路，使用真实 LLM 优先产出 `AgentPlan`，失败时回退到 `SimpleTaskPlanner`。
+3. 继续减少前端按消息文本分类的兜底分支，逐步补齐后端结构化错误码覆盖面。
+4. 继续补 schema / migration 失败场景下更细的分类，例如缺表、缺列、migration SQL 失败的独立提示。
+
+本轮新增补充：
+
+- `WebClientResponseException` 的播放 `403/404` 不再统一落到授权失败。
+- 当前已明确区分：
+  - `spotify-authorization-missing`
+  - `spotify-device-restricted`
+  - `spotify-device-unavailable`
+  - `spotify-device-offline`
+  - `spotify-bridge-disabled`
+  - `spotify-authorization-state`
+- 设备面板摘要与设备项状态文案继续收口，当前设备仍显示 `Ready`，非当前可切换设备显示 `Available`。
+
+### Priority 2
+
+1. 多设备场景下的设备切换联调与验证。
+2. 设备面板的视觉细节与状态提示。
+3. 更完整的当前播放与歌单页视觉细节。
+
+### Priority 3
+
+1. 歌词。
+2. 流式聊天输出。
+3. 流式聊天输出和更完整的在线 Agent 工具执行链。
+4. 多用户独立 Spotify 账号绑定。
+
+## 7. 本轮结论
+
+本轮的实质性成果不是新增功能，而是把项目从“能跑”推进到“结构更清楚，后续可持续替换持久化层”。
+
+当前已经具备继续推进 MyBatis / MySQL / Redis 落地的前提：
+
+- Web 层边界已清楚。
+- Spotify 集成层已清楚。
+- 持久化层入口已单独划出。
+- 现有仓储抽象仍可作为替换边界。
+- `Playlist / PlaylistTrack / Track / Artist / Session` 已有可切换的持久化实现。

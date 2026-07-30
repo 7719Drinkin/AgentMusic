@@ -1,0 +1,361 @@
+.panelShell{
+    height: calc(100vh - var(--footer-safe-height, 104px) - 8px);
+    margin: 8px 8px 0 0;
+    position: relative;
+    overflow: hidden;
+}
+.panel{
+    height: 100%;
+    min-height: 0;
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(28, 28, 28, 0.98), rgba(18, 18, 18, 0.98));
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #fff;
+    padding: 18px;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 18px;
+    overflow: hidden;
+}
+.content{
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    padding-right: 4px;
+    padding-bottom: 18px;
+    box-sizing: border-box;
+    scroll-padding-bottom: 18px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+.content::after{
+    content: '';
+    display: block;
+    min-height: 1px;
+    flex-shrink: 0;
+}
+.contextStrip{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+    border: 1px solid rgba(255,255,255,0.08);
+}
+.contextPill{
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: rgba(29,185,84,0.14);
+    color: #d8ffe6;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+.contextDetail{
+    color: rgba(255,255,255,0.74);
+    font-size: 12px;
+    line-height: 1.45;
+}
+.content::-webkit-scrollbar{
+    width: 8px;
+}
+.content::-webkit-scrollbar-thumb{
+    border-radius: 999px;
+    background: rgba(255,255,255,0.18);
+}
+.content::-webkit-scrollbar-track{
+    background: transparent;
+}
+.header{
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) 32px;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    z-index: 2;
+}
+.headerTitleWrap{
+    min-width: 0;
+}
+.headerLabel{
+    margin: 0 0 4px;
+    color: rgba(255,255,255,0.64);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.headerTitle{
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.headerActionGroup{
+    position: relative;
+}
+.headerAction{
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.88);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.18s ease, background-color 0.18s ease;
+}
+.panelShell:hover .headerAction{
+    opacity: 1;
+}
+
+.panelShell:focus-within .headerAction{
+    opacity: 1;
+}
+.headerAction:hover{
+    background: rgba(255,255,255,0.12);
+}
+.headerAction svg{
+    width: 16px;
+    height: 16px;
+}
+.coverSection{
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 16px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.coverArt{
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+}
+.trackMeta{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.trackBadge{
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 4px 8px;
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.68);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.trackName{
+    margin: 0;
+    font-size: 28px;
+    line-height: 1.12;
+}
+.artistLink{
+    width: fit-content;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: rgba(255,255,255,0.72);
+    font-size: 15px;
+    cursor: pointer;
+}
+.artistLink:hover,
+.artistLink:focus-visible{
+    text-decoration: underline;
+    outline: none;
+}
+.artistCard,
+.card{
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.04);
+}
+.artistCard{
+    color: inherit;
+    padding: 16px;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.artistCard:hover{
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.1);
+    transform: translateY(-1px);
+}
+.artistCardHeader,
+.cardHeader{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.artistCardHeader h4,
+.cardHeader h4{
+    margin: 0;
+    font-size: 15px;
+}
+.artistCardHeader span,
+.cardHeader span{
+    color: rgba(255,255,255,0.62);
+    font-size: 12px;
+}
+.artistCardBody{
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 14px;
+    align-items: start;
+}
+.artistAvatar{
+    width: 64px;
+    height: 64px;
+    border-radius: 999px;
+    object-fit: cover;
+}
+.artistSummary{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.artistSummary strong{
+    font-size: 14px;
+}
+.artistSummary p{
+    margin: 0;
+    color: rgba(255,255,255,0.72);
+    line-height: 1.55;
+    font-size: 13px;
+}
+.card{
+    padding: 16px;
+}
+.cardSubline{
+    margin: 10px 0 0;
+    color: rgba(255,255,255,0.64);
+    font-size: 12px;
+    line-height: 1.45;
+}
+.cardHeaderButton{
+    width: 100%;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+}
+.cardHeaderButton span{
+    color: rgba(255,255,255,0.64);
+    font-size: 12px;
+}
+.creditList{
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 14px;
+}
+.creditRow{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+.creditRow span{
+    color: rgba(255,255,255,0.62);
+    font-size: 12px;
+}
+.creditRow strong{
+    font-size: 13px;
+    text-align: right;
+}
+.inlineTextButton{
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: rgba(255,255,255,0.72);
+    font-size: 12px;
+    cursor: pointer;
+}
+.inlineTextButton:hover,
+.inlineTextButton:focus-visible{
+    color: #fff;
+    text-decoration: underline;
+    outline: none;
+}
+.nextTrackButton{
+    width: 100%;
+    margin-top: 14px;
+    border: 0;
+    padding: 10px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    color: inherit;
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 12px;
+    align-items: center;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.18s ease, transform 0.18s ease;
+}
+.nextTrackButton:hover{
+    background: rgba(255,255,255,0.08);
+    transform: translateY(-1px);
+}
+.nextTrackButton img{
+    width: 56px;
+    height: 56px;
+    border-radius: 10px;
+    object-fit: cover;
+}
+.nextTrackMeta{
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.nextTrackMeta strong,
+.nextTrackMeta span{
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.nextTrackMeta span{
+    color: rgba(255,255,255,0.66);
+    font-size: 12px;
+}
+.emptyState{
+    margin-top: 14px;
+    color: rgba(255,255,255,0.6);
+    font-size: 13px;
+}
+
+@media (hover: none) {
+    .headerAction{
+        opacity: 1;
+    }
+}

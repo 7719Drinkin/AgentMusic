@@ -1,0 +1,83 @@
+.SideNavbar{
+    background: transparent;
+    position: relative;
+    height: calc(100vh - var(--footer-safe-height, 104px));
+    min-height: 0;
+    overflow: hidden;
+    padding: 12px 10px 12px 12px;
+}
+
+.Fixed{
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding-top: 18px;
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at top left, rgba(29,185,84,.12), transparent 32%),
+        linear-gradient(180deg, rgba(26,28,28,.96), rgba(16,17,17,.96));
+    border: 1px solid rgba(255,255,255,.06);
+    box-shadow: 0 20px 40px rgba(0,0,0,.26);
+    overflow: hidden;
+}
+
+.SidebarHeader{
+    flex: 0 0 auto;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+.SidebarScroll{
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding-bottom: 16px;
+}
+
+.SidebarScroll::-webkit-scrollbar{
+    width: 12px;
+}
+
+.SidebarScroll::-webkit-scrollbar-track{
+    background: transparent;
+}
+
+.SidebarScroll::-webkit-scrollbar-thumb{
+    background: rgba(255,255,255,.16);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+}
+
+.SidebarScroll:hover::-webkit-scrollbar-thumb{
+    background: rgba(255,255,255,.28);
+    background-clip: padding-box;
+}
+
+.changeWidth{
+    width: 10px;
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    cursor: col-resize;
+    z-index: 9999;
+}
+
+.ActiveChange{
+    border-right: 1px solid rgba(255,255,255,.35);
+}
+
+.ActiveChange::before {
+    content: "";
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 999;
+}

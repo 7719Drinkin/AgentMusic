@@ -1,0 +1,96 @@
+.musicControl{
+    width: 224px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.musicControl div button svg{
+    fill: black !important;
+}
+.button{
+    border: 0;
+    background: transparent;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border-radius: 999px;
+}
+.button:disabled{
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+.button:disabled svg{
+    fill: hsla(0,0%,100%,.35);
+    color: hsla(0,0%,100%,.35);
+}
+.button svg{
+    font-size: 19.2px;
+    width: 19.2px;
+    height: 19.2px;
+    fill: hsla(0,0%,100%,.7);
+    color: hsla(0,0%,100%,.7);
+}
+.button:hover:not(:disabled){
+    background: rgba(255,255,255,0.08);
+}
+.musicControl svg:hover{
+    fill: rgb(255, 255, 255);
+    color: rgb(255, 255, 255);
+}
+.activeButton svg{
+    fill: #1db954;
+    color: #1db954;
+}
+.playButton{
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #fff;
+}
+.playButton:disabled{
+    background: rgba(255,255,255,0.5);
+}
+.playButton svg{
+    font-size: 19.2px;
+    width: 19.2px;
+    height: 19.2px;
+    fill: #000;
+    color: #000;
+}
+.tooltip{
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: rgba(18,18,18,0.96);
+    color: #fff;
+    font-size: 11px;
+    line-height: 1;
+    white-space: nowrap;
+    padding: 8px 10px;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.tooltip::after{
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 5px 5px 0 5px;
+    border-style: solid;
+    border-color: rgba(18,18,18,0.96) transparent transparent transparent;
+}
+.button:hover .tooltip,
+.button:focus-visible .tooltip{
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
